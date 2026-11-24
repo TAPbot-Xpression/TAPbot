@@ -1,5 +1,14 @@
 {
-  "name": "",
-  "stats_url": "",
-  "roster_url": ""
+  "baseball": {
+    "name": "Minnesota",
+    "style": "new",
+    "stats_url": "https://gophersports.com/sports/baseball/stats/2026",
+    "roster_url": "https://gophersports.com/sports/baseball/roster/print"
+  },
+  "softball": {
+    "name": "Minnesota",
+    "style": "new",
+    "stats_url": "https://gophersports.com/sports/softball/stats/2026",
+    "roster_url": "https://gophersports.com/sports/softball/roster/print"
+  }
 }
