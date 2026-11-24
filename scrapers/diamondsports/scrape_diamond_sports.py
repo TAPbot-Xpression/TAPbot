@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scrapers/diamondsports/scrape_baseball.py
+scrapers/diamondsports/scrape_diamond_sports.py
 Unified multi-school scraper for Summit League baseball AND softball stats & rosters.
 
 Site styles ("type" in TEAMS):
@@ -11,13 +11,19 @@ Site styles ("type" in TEAMS):
 Outputs (docs/diamondsports/):
   *_baseball.json, *_softball.json, non_conf_baseball.json, non_conf_softball.json
 
-Non-conference opponents are read from non_conf_config.json (same folder as this
-script). See load_non_conf_teams() for the expected format.
+Non-conference opponents are read from non_conf_config.json in this script's directory.
+If a sport has no non-conference link configured, a placeholder JSON is written so
+front-end fetches never 404.
+
+Safeguard:
+  If a scrape returns no player stats (site timeout/layout change), the existing
+  JSON for that school is preserved so downstream graphics and dashboard pages
+  never go blank.
 
 Usage:
-  python scrape_baseball.py                      # baseball + softball
-  python scrape_baseball.py --sport softball     # softball only
-  python scrape_baseball.py --school omaha       # Omaha baseball + softball
+  python scrapers/diamondsports/scrape_diamond_sports.py                      # baseball + softball
+  python scrapers/diamondsports/scrape_diamond_sports.py --sport softball     # softball only
+  python scrapers/diamondsports/scrape_diamond_sports.py --school omaha       # Omaha baseball + softball
 """
 
 from __future__ import annotations
@@ -44,7 +50,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("diamondsports")
 sys.setrecursionlimit(20000)
 
-# Resolve repository paths relative to this script
+# ── Dynamic Path Resolution ──────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
 DEFAULT_DOCS_DIR = str(REPO_ROOT / "docs" / "diamondsports")
@@ -264,10 +270,10 @@ FETCH_HEADERS = {
 # ── Non-Conference Config Loader ──────────────────────────────────────────────
 # non_conf_config.json lives next to this script (scrapers/diamondsports/).
 # Format — one optional block per sport:
-#   {
-#     "baseball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." },
-#     "softball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." }
-#   }
+# {
+#   "baseball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." },
+#   "softball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." }
+# }
 # Output files: docs/diamondsports/non_conf_baseball.json / non_conf_softball.json
 _STYLE_TO_TYPE = {
     "new": "sidearm", "sidearm": "sidearm",
@@ -315,6 +321,7 @@ def load_non_conf_teams(sports: List[str]) -> List[Dict[str, Any]]:
         teams.append(team)
         logger.info("Loaded non-conference %s opponent: %s", sport, team["name"])
     return teams
+
 
 # ── Cleaners & Evaluators ─────────────────────────────────────────────────────
 _BLANK = {"", "-1", "none", "null", "nan", "n/a", "na", "-", "--", "---", "-.---", "—"}
@@ -391,6 +398,7 @@ def compute_whip(bb: Any, h: Any, ip: Any) -> str:
         return "-"
     return f"{(parse_float(bb) + parse_float(h)) / innings:.2f}"
 
+
 # ── Name, Number, Position & Academic Year Helpers ─────────────────────────────
 _SUFFIXES = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"}
 _POS_TOKENS = {
@@ -405,12 +413,12 @@ _POS_WORDS = {
 }
 
 _CLASS_BASE = {
-    "FR": "FR", "FRESH": "FR", "FRESHMAN": "FR", "FIRSTYEAR": "FR", "1ST": "FR", "1STYEAR": "FR", "1": "FR", "FY": "FR",
-    "SO": "SO", "SOPH": "SO", "SOPHOMORE": "SO", "SECONDYEAR": "SO", "2ND": "SO", "2NDYEAR": "SO", "2": "SO",
-    "JR": "JR", "JUNIOR": "JR", "THIRDYEAR": "JR", "3RD": "JR", "3RDYEAR": "JR", "3": "JR",
-    "SR": "SR", "SENIOR": "SR", "FOURTHYEAR": "SR", "4TH": "SR", "4THYEAR": "SR", "4": "SR",
+    "FR": "FR", "FRESH": "FR", "FRESHMAN": "FR", "FIRSTYEAR": "FR", "1ST": "FR", "1STYEAR": "FR", "1": "FR", "FY": "FR", "FIRST": "FR",
+    "SO": "SO", "SOPH": "SO", "SOPHOMORE": "SO", "SECONDYEAR": "SO", "2ND": "SO", "2NDYEAR": "SO", "2": "SO", "SECOND": "SO",
+    "JR": "JR", "JUNIOR": "JR", "THIRDYEAR": "JR", "3RD": "JR", "3RDYEAR": "JR", "3": "JR", "THIRD": "JR",
+    "SR": "SR", "SENIOR": "SR", "FOURTHYEAR": "SR", "4TH": "SR", "4THYEAR": "SR", "4": "SR", "FOURTH": "SR",
     "GR": "GR", "GRAD": "GR", "GRADUATE": "GR", "GRADSTUDENT": "GR", "GRADUATESTUDENT": "GR",
-    "5TH": "GR", "5THYEAR": "GR", "FIFTHYEAR": "GR", "5": "GR", "6TH": "GR", "GS": "GR",
+    "5TH": "GR", "5THYEAR": "GR", "FIFTHYEAR": "GR", "5": "GR", "6TH": "GR", "GS": "GR", "FIFTH": "GR",
 }
 
 def format_player_name(raw: Any) -> str:
@@ -509,6 +517,7 @@ def normalize_year(s: Any) -> str:
                 return base if base == "GR" else f"R-{base}"
     return ""
 
+
 # ── Nuxt 3 Resolver ────────────────────────────────────────────────────────────
 _NUXT_WRAPPERS = {"Reactive", "ShallowReactive", "Ref", "ShallowRef", "EmptyRef", "EmptyShallowRef"}
 
@@ -567,6 +576,7 @@ def iter_dicts(root: Any) -> Iterator[Dict[str, Any]]:
             else:
                 stack.extend(o)
 
+
 # ── Roster Parser ──────────────────────────────────────────────────────────────
 def parse_roster_page(html: str) -> Tuple[Dict[str, Dict[str, str]], List[Dict[str, str]]]:
     soup = BeautifulSoup(html, "html.parser")
@@ -603,7 +613,7 @@ def parse_roster_page(html: str) -> Tuple[Dict[str, Dict[str, str]], List[Dict[s
                 roster_by_num[cleaned_num] = item
             roster_by_num[formatted_name.lower()] = item
 
-    # 1. Check Table rows
+    # 1. Standard table rows
     for tr in soup.find_all("tr"):
         cells = [td.get_text(" ", strip=True) for td in tr.find_all(["td", "th"])]
         if len(cells) >= 3:
@@ -698,6 +708,7 @@ def match_roster_meta(jersey_num: str, name: str, roster_by_num: Dict[str, Any],
                     return r_num or clean_num, r.get("name", name), r.get("position", ""), r.get("year", "")
 
     return clean_num, format_player_name(name), "", ""
+
 
 # ── Nuxt 3 Stats Extractor (NEW STYLE) ─────────────────────────────────────────
 def try_extract_nuxt(soup: BeautifulSoup, roster_by_num: Dict[str, Any], roster_list: List[Dict[str, Any]]) -> Optional[Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[int, Any]]]:
@@ -843,6 +854,7 @@ def try_extract_nuxt(soup: BeautifulSoup, roster_by_num: Dict[str, Any], roster_
 
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
 
+
 # ── Sidearm HTML Table Parser (OLD STYLE + Oral Roberts) ──────────────────────
 def try_extract_sidearm_html(soup: BeautifulSoup, roster_by_num: Dict[str, Any], roster_list: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[int, Any]]:
     hitting_list, pitching_list = [], []
@@ -965,6 +977,7 @@ def try_extract_sidearm_html(soup: BeautifulSoup, roster_by_num: Dict[str, Any],
         players_map[j] = p
 
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
+
 
 # ── StatBroadcast Parser (NDSU STYLE: Batting & Pitching) ─────────────────────
 def parse_statbroadcast(html: str, roster_by_num: Dict[str, Any], roster_list: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[int, Any]]:
@@ -1091,6 +1104,7 @@ def parse_statbroadcast(html: str, roster_by_num: Dict[str, Any], roster_list: L
 
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
 
+
 # ── Unified Extractor Router ──────────────────────────────────────────────────
 def _has_rows(res: Any) -> bool:
     return bool(res and (res[0] or res[1]))
@@ -1161,6 +1175,7 @@ def extract_stats(stats_html: str, roster_html: str, school_meta: Dict[str, Any]
         "pitchers_by_number": pitching_by_num
     }
 
+
 # ── Fetch Helpers ──────────────────────────────────────────────────────────────
 def fetch_html_static(url: str) -> str:
     req = urllib.request.Request(url, headers=FETCH_HEADERS)
@@ -1172,7 +1187,7 @@ async def fetch_page_html(context: BrowserContext, url: str) -> Optional[str]:
     try:
         page = await context.new_page()
         logger.info("Navigating to %s", url)
-        resp = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+        await page.goto(url, wait_until="domcontentloaded", timeout=45000)
         try:
             await page.wait_for_selector("script#__NUXT_DATA__, table, .sidearm-roster-player", state="attached", timeout=12000)
         except Exception:
@@ -1203,6 +1218,74 @@ async def fetch_best_roster(context: BrowserContext, candidates: List[str], year
             break
     return best_html, best_url
 
+
+# ── Output & Preservation Helpers ─────────────────────────────────────────────
+def read_existing_json(out_path: str) -> Dict[str, Any]:
+    try:
+        with open(out_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
+    """
+    Saves JSON safely. If the new scrape found no players but the existing file
+    (from the same source URL) has data, keep the existing file untouched.
+    Returns True if the file was written, False if the previous data was kept.
+    """
+    existing = read_existing_json(out_path)
+    has_new = bool(stats_payload.get("hitting") or stats_payload.get("pitching") or stats_payload.get("players"))
+    has_old = bool(existing.get("hitting") or existing.get("pitching") or existing.get("players"))
+    same_source = existing.get("source") == stats_payload.get("source")
+
+    if not has_new and has_old and same_source:
+        logger.warning("  ⚠ [%s] New scrape found 0 players — keeping existing %s",
+                       stats_payload.get("team"), os.path.basename(out_path))
+        return False
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(stats_payload, f, indent=2)
+    return True
+
+def write_empty_non_conf(docs_dir: str, sport: str, year: str) -> None:
+    """
+    Writes a placeholder non_conf_<sport>.json when no opponent is configured, so
+    front-end fetches never 404. Skips the write if a placeholder already exists
+    (avoids a new timestamp -> new commit -> new deploy on every run).
+    """
+    out_file = f"non_conf_{sport}.json"
+    out_path = os.path.join(docs_dir, out_file)
+
+    existing = read_existing_json(out_path)
+    if existing.get("status") == "empty" and not existing.get("source"):
+        return
+
+    payload = {
+        "team_id": f"non_conf_{sport}",
+        "team": "Non-Conf",
+        "sport": sport,
+        "season": year,
+        "source": "",
+        "source_roster": "",
+        "status": "empty",
+        "message": "No Non-Conf opponent loaded. Add a stats link to non_conf_config.json.",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "players": [],
+        "hitting": [],
+        "pitching": [],
+        "batters": [],
+        "pitchers": [],
+        "hitting_by_number": {},
+        "pitching_by_number": {},
+        "batters_by_number": {},
+        "pitchers_by_number": {},
+    }
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    logger.info("Non-Conf (%s) slot is empty - wrote placeholder %s", sport, out_file)
+
+
 # ── Main Async Runner ──────────────────────────────────────────────────────────
 async def run(args: argparse.Namespace) -> None:
     year = str(args.year or "2026")
@@ -1213,7 +1296,16 @@ async def run(args: argparse.Namespace) -> None:
 
     # Conference teams for the selected sport(s) + non-conference opponents from config
     schools_to_scrape = [t for t in TEAMS if t["sport"] in sports]
-    schools_to_scrape += load_non_conf_teams(sports)
+    non_conf_teams = load_non_conf_teams(sports)
+    schools_to_scrape += non_conf_teams
+
+    # Placeholder for any sport that has no non-conference opponent configured
+    # (skipped when scraping a single school, so --school never touches other files)
+    if not args.school:
+        loaded_sports = {t["sport"] for t in non_conf_teams}
+        for sport in sports:
+            if sport not in loaded_sports:
+                write_empty_non_conf(docs_dir, sport, year)
 
     if args.school:
         key = args.school.lower()
@@ -1222,8 +1314,8 @@ async def run(args: argparse.Namespace) -> None:
             if t["id"] == key or t["id"].replace("_baseball", "").replace("_softball", "") == key
         ]
 
-    logger.info("=== Summit League Diamond Sports Scraper [%d team(s), sport: %s, season: %s] ===",
-                len(schools_to_scrape), args.sport, year)
+    logger.info("=== Summit League Diamond Sports Scraper [%d team(s), sport: %s, season: %s] -> %s ===",
+                len(schools_to_scrape), args.sport, year, docs_dir)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -1248,14 +1340,14 @@ async def run(args: argparse.Namespace) -> None:
                 # 2. Fetch Roster with fallback candidates
                 roster_html, roster_used_url = await fetch_best_roster(context, candidates, year)
 
-                # 3. Extract & Save
+                # 3. Extract & Save Safely
                 stats_payload = extract_stats(stats_html or "", roster_html or "", school, year, roster_used_url)
-
                 out_path = os.path.join(docs_dir, school["out_file"])
-                with open(out_path, "w", encoding="utf-8") as f:
-                    json.dump(stats_payload, f, indent=2)
+                written = save_team_json_safely(out_path, stats_payload)
 
-                logger.info("  ✓ Saved %d batters and %d pitchers -> %s", len(stats_payload["hitting"]), len(stats_payload["pitching"]), school["out_file"])
+                if written:
+                    logger.info("  ✓ Saved %d batters and %d pitchers -> %s",
+                                len(stats_payload["hitting"]), len(stats_payload["pitching"]), school["out_file"])
             except Exception as e:
                 logger.exception("  ✗ Error processing %s: %s", school["name"], e)
 
