@@ -6,59 +6,57 @@
   <title>TAPbot — Broadcast Operations Tool</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
 
   <style>
     /* ───────────────────────────────────────────────────────────────────────
-       DESIGN: Video-switcher style "source bank".
-       Each sport is a source button with a tally light:
-       - Green = Live data (scraped within 24h & in-season)
-       - Amber = Stale data (in-season but older than 24h)
-       - Grey  = Off-season (regardless of scrape timestamp)
-       - Red   = Missing / No data file
+       DESIGN: Video-switcher style "source bank" matched to TAPbot suite palette
        ─────────────────────────────────────────────────────────────────────── */
     :root {
-      --bg:             #0a0b10;
-      --panel:          #12141c;
-      --panel-2:        #181b26;
-      --surface:        #12141c;
-      --surface-2:      #181b26;
-      --surface-3:      #222736;
-      --border:         #262a3a;
-      --border-light:   #3b4254;
-      --line:           #262a3a;
-      --text:           #eceef5;
-      --text-muted:     #8d93a8;
-      --muted:          #8d93a8;
-      --faint:          #565c73;
-      --purple:         #7b3fd1;       /* St. Thomas accent */
-      --purple-glow:    rgba(123, 63, 209, 0.38);
-      --live:           #2fd47a;
-      --stale:          #f5a524;
-      --off:            #6b7189;
-      --bad:            #ef4a4a;
+      --bg:             #080c14;
+      --panel:          #0f1623;
+      --panel-2:        #161f30;
+      --surface:        #0f1623;
+      --surface-2:      #161f30;
+      --surface-3:      #1d2840;
+      --border:         #1e2d47;
+      --border-light:   #2a3d5c;
+      --line:           #1e2d47;
+      --text:           #e8edf5;
+      --text-muted:     #8a9fb8;
+      --muted:          #8a9fb8;
+      --faint:          #4d627d;
+      --purple:         #8b5cf6;       /* St. Thomas accent */
+      --purple-glow:    rgba(139, 92, 246, 0.35);
+      --live:           #10b981;
+      --stale:          #f59e0b;
+      --off:            #64748b;
+      --bad:            #ef4444;
+
+      --radius:         12px;
+      --radius-sm:      8px;
     }
 
     [data-color-mode="light"] {
-      --bg:             #eef0f6;
+      --bg:             #f8fafc;
       --panel:          #ffffff;
-      --panel-2:        #f5f6fb;
+      --panel-2:        #f1f5f9;
       --surface:        #ffffff;
-      --surface-2:      #f5f6fb;
+      --surface-2:      #f1f5f9;
       --surface-3:      #e2e8f0;
-      --border:         #d5d9e6;
+      --border:         #cbd5e1;
       --border-light:   #94a3b8;
-      --line:           #d5d9e6;
-      --text:           #14162b;
-      --text-muted:     #50566e;
-      --muted:          #50566e;
-      --faint:          #8a90a8;
-      --purple:         #512888;
-      --purple-glow:    rgba(81, 40, 136, 0.22);
-      --live:           #14a85a;
-      --stale:          #c77d0a;
-      --off:            #7b8199;
-      --bad:            #d12f2f;
+      --line:           #cbd5e1;
+      --text:           #0f172a;
+      --text-muted:     #475569;
+      --muted:          #475569;
+      --faint:          #94a3b8;
+      --purple:         #7c3aed;
+      --purple-glow:    rgba(124, 58, 237, 0.22);
+      --live:           #15803d;
+      --stale:          #b45309;
+      --off:            #64748b;
+      --bad:            #b91c1c;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -66,9 +64,9 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Barlow', system-ui, sans-serif;
+      font-family: 'Barlow', 'Inter', system-ui, sans-serif;
       min-height: 100vh;
-      padding: 2rem 1.5rem 3rem;
+      padding: 2.5rem 1.5rem 3.5rem;
       background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,0.015) 3px 4px);
       transition: background-color .25s, color .25s;
     }
@@ -83,7 +81,7 @@
       align-items: flex-end;
       gap: 1.25rem;
       flex-wrap: wrap;
-      padding-bottom: 1.25rem;
+      padding-bottom: 1.5rem;
       border-bottom: 1px solid var(--line);
     }
 
@@ -96,8 +94,8 @@
     }
 
     .eyebrow {
-      font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
-      font-size: .75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
       font-weight: 800;
       letter-spacing: .15em;
       text-transform: uppercase;
@@ -157,21 +155,21 @@
     /* ── Summary Strip ────────────────────────────────────────────────────── */
     .summary {
       display: flex; flex-wrap: wrap; gap: .5rem 1.5rem;
-      margin: 1rem 0 1.75rem;
-      font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--muted);
+      margin: 1.25rem 0 1.75rem;
+      font-family: 'JetBrains Mono', monospace; font-size: .82rem; color: var(--muted);
     }
-    .summary b { color: var(--text); font-weight: 600; }
+    .summary b { color: var(--text); font-weight: 700; }
 
     /* ── Source Bank Grid ─────────────────────────────────────────────────── */
     .bank {
-      display: grid; gap: 1rem;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+      display: grid; gap: 1.25rem;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
     }
 
     .source {
       position: relative; display: flex; flex-direction: column; gap: 1.1rem;
       background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-      padding: 1.25rem 1.4rem 1.3rem;
+      padding: 1.35rem 1.5rem 1.4rem;
       color: inherit; text-decoration: none; overflow: hidden;
       transition: transform .15s, border-color .15s, box-shadow .15s;
     }
@@ -190,14 +188,14 @@
 
     .src-top { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
     .src-id {
-      font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace; font-size: .72rem; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace; font-size: .74rem; font-weight: 700;
       letter-spacing: .14em; color: var(--faint);
     }
 
     /* Tally light + status indicator */
     .tally {
       display: inline-flex; align-items: center; gap: .5rem;
-      font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace; font-size: .74rem; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace; font-size: .76rem; font-weight: 700;
       letter-spacing: .04em; color: var(--muted);
     }
     .tally i {
@@ -216,17 +214,17 @@
 
     .src-name {
       font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
-      font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1; text-transform: uppercase;
+      font-size: clamp(2rem, 4.2vw, 2.75rem); line-height: 1; text-transform: uppercase;
     }
-    .src-league { color: var(--muted); font-size: .98rem; margin-top: .3rem; }
+    .src-league { color: var(--muted); font-size: 1rem; margin-top: .3rem; font-weight: 500; }
 
     .src-foot {
       display: flex; justify-content: space-between; align-items: center; gap: 1rem;
       margin-top: auto; padding-top: .9rem; border-top: 1px dashed var(--line);
     }
-    .src-detail { font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace; font-size: .76rem; color: var(--faint); }
+    .src-detail { font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--faint); }
     .src-open {
-      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.15rem;
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.2rem;
       letter-spacing: .08em; text-transform: uppercase; color: var(--purple);
       transition: transform .15s;
     }
@@ -234,11 +232,11 @@
 
     /* ── Footer ───────────────────────────────────────────────────────────── */
     footer {
-      margin-top: 2.5rem; padding-top: 1.1rem; border-top: 1px solid var(--line);
+      margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
       display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem;
-      font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace; font-size: .76rem; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: var(--muted);
     }
-    footer a { color: var(--purple); font-weight: 600; text-decoration: none; }
+    footer a { color: var(--purple); font-weight: 700; text-decoration: none; }
     footer a:hover { text-decoration: underline; }
 
     @media (prefers-reduced-motion: reduce) {
@@ -255,7 +253,7 @@
       <h1>TAPbot <span>/ Hub Site</span></h1>
     </div>
 
-    <!-- Matching Standardized Theme Toggle -->
+    <!-- Standardized Theme Toggle -->
     <div class="header-right-controls">
       <div class="control-pill-group" role="group" aria-label="Theme Selection">
         <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
@@ -315,13 +313,10 @@
       seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     }
   ];
-  // ═══════════════════════════════════════════════════════════════════════
 
-  // Freshness threshold updated to 24 hours
   const FRESH_HOURS = 24;
   const STAMP_KEYS = ['generated_at', 'updated_at', 'last_updated', 'scraped_at', 'timestamp', 'updated', 'as_of'];
 
-  // Build the cards
   const bank = document.getElementById('bank');
   SPORTS.forEach((s, i) => {
     const a = document.createElement('a');
@@ -344,7 +339,6 @@
     s._el = a;
   });
 
-  // Find a timestamp in the JSON (top level, first array item, or nested in object)
   function findStamp(obj) {
     if (Array.isArray(obj)) obj = obj[0];
     if (!obj || typeof obj !== 'object') return null;
@@ -395,13 +389,11 @@
       const stamp = findStamp(await res.json());
       const age = stamp ? (Date.now() - stamp) : null;
 
-      // 1. Off-season takes precedence regardless of scrape recency
       if (!inSeason) {
         setTally(s._el, 'off', age !== null ? `OFF-SEASON · ${ago(age)}` : 'OFF-SEASON');
         return 'off';
       }
 
-      // 2. In-season checks
       if (!stamp) {
         setTally(s._el, 'live', 'ONLINE');
         return 'live';
@@ -431,7 +423,6 @@
     document.getElementById('summary').innerHTML = parts.map(p => `<span>${p}</span>`).join('');
   })();
 
-  // ── Standardized Theme Switcher ──────────────────────────────────────────
   function toggleColorMode() {
     const htmlEl = document.documentElement;
     const currentMode = htmlEl.getAttribute('data-color-mode') || 'dark';
@@ -446,7 +437,6 @@
     try { localStorage.setItem('tap_color_mode', mode); } catch (e) {}
   }
 
-  // ── Theme Init ───────────────────────────────────────────────────────────
   try {
     const savedMode = localStorage.getItem('tap_color_mode') || 'dark';
     applyColorMode(savedMode);
