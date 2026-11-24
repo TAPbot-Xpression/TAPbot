@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NCHC Men's Hockey Season Stats — Broadcast Production Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Color System & Default Theme ────────────────────────────────────────── */
+    :root {
+      --bg:             #080c14;
+      --surface:        #0f1623;
+      --surface-2:      #161f30;
+      --surface-3:      #1d2840;
+      --border:         #1e2d47;
+      --border-light:   #2a3d5c;
+
+      /* Team Theme Dynamic Variables (Default: St. Thomas) */
+      --team-primary:   #512888;
+      --team-accent:    #a855f7;
+      --team-glow:      rgba(168, 85, 247, 0.32);
+      --team-light:     #e9d5ff;
+      --team-btn-text:  #ffffff;
+
+      /* Leaderboard & Medal Tones */
+      --gold:           #fbbf24;
+      --gold-bg:        rgba(251, 191, 36, 0.14);
+      --silver:         #e2e8f0;
+      --silver-bg:      rgba(226, 232, 240, 0.14);
+      --bronze:         #f97316;
+      --bronze-bg:      rgba(249, 115, 22, 0.14);
+
+      --text:           #e8edf5;
+      --text-muted:     #8a9fb8;
+      --text-faint:     #4d627d;
+
+      --green:          #10b981;
+      --red:            #ef4444;
+      --amber:          #f59e0b;
+
+      --radius:         12px;
+      --radius-sm:      8px;
+    }
+
+    /* ── Light Mode Override ─────────────────────────────────────────────────── */
+    [data-color-scheme="light"] {
+      --bg:             #f1f5f9;
+      --surface:        #ffffff;
+      --surface-2:      #f8fafc;
+      --surface-3:      #e2e8f0;
+      --border:         #cbd5e1;
+      --border-light:   #94a3b8;
+
+      --text:           #0f172a;
+      --text-muted:     #475569;
+      --text-faint:     #94a3b8;
+
+      --gold-bg:        rgba(217, 119, 6, 0.15);
+      --silver-bg:      rgba(100, 116, 139, 0.15);
+      --bronze-bg:      rgba(194, 65, 12, 0.15);
+    }
+
+    /* ── NCHC Team Color Palettes ────────────────────────────────────────────── */
+    [data-theme="arizona_state_mhockey"] {
+      --team-primary:   #ffc627;
+      --team-accent:    #e0a800;
+      --team-glow:      rgba(255, 198, 39, 0.45);
+      --team-light:     #fef08a;
+      --team-btn-text:  #26000c;
+    }
+
+    [data-theme="colorado_college_mhockey"] {
+      --team-primary:   #f5a800;
+      --team-accent:    #e09200;
+      --team-glow:      rgba(245, 168, 0, 0.45);
+      --team-light:     #fef3c7;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="denver_mhockey"] {
+      --team-primary:   #8b2332;
+      --team-accent:    #c43d52;
+      --team-glow:      rgba(196, 61, 82, 0.4);
+      --team-light:     #fecdd3;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="miami_oh_mhockey"] {
+      --team-primary:   #b61229;
+      --team-accent:    #e11d48;
+      --team-glow:      rgba(225, 29, 72, 0.4);
+      --team-light:     #ffe4e6;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="minnesota_duluth_mhockey"] {
+      --team-primary:   #7a0019;
+      --team-accent:    #ffc107;
+      --team-glow:      rgba(255, 193, 7, 0.38);
+      --team-light:     #fef3c7;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="north_dakota_mhockey"] {
+      --team-primary:   #005a36;
+      --team-accent:    #009a44;
+      --team-glow:      rgba(0, 154, 68, 0.38);
+      --team-light:     #bbf7d0;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="omaha_mhockey"] {
+      --team-primary:   #111111;
+      --team-accent:    #e11d2a;
+      --team-glow:      rgba(225, 29, 42, 0.42);
+      --team-light:     #fecaca;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="st_cloud_state_mhockey"] {
+      --team-primary:   #a6192e;
+      --team-accent:    #dc2626;
+      --team-glow:      rgba(220, 38, 38, 0.38);
+      --team-light:     #fecaca;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="st_thomas_mhockey"] {
+      --team-primary:   #512888;
+      --team-accent:    #a855f7;
+      --team-glow:      rgba(168, 85, 247, 0.35);
+      --team-light:     #e9d5ff;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="western_michigan_mhockey"] {
+      --team-primary:   #5c3a21;
+      --team-accent:    #b59a57;
+      --team-glow:      rgba(181, 154, 87, 0.4);
+      --team-light:     #fef3c7;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="non_conf"] {
+      --team-primary:   #334155;
+      --team-accent:    #94a3b8;
+      --team-glow:      rgba(148, 163, 184, 0.30);
+      --team-light:     #e2e8f0;
+      --team-btn-text:  #0b1220;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 16px;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 4rem;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    header {
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .wordmark-eyebrow {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+      transition: color 0.2s;
+    }
+
+    h1 {
+      font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .meta {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 0.25rem;
+    }
+
+    .theme-toggle-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 9999px;
+    }
+
+    .theme-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.4rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+
+    .theme-btn.active {
+      background: var(--surface-2);
+      border: 1px solid var(--border-light);
+      color: var(--text);
+    }
+
+    /* ── Team Selector Ribbon ────────────────────────────────────────────────── */
+    .selector-block {
+      margin-bottom: 1.75rem;
+    }
+
+    .section-caption {
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.65rem;
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .team-pills {
+      display: flex;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .team-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.55rem 1.05rem;
+      border-radius: 9999px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+
+    .team-pill:hover {
+      border-color: var(--border-light);
+      color: var(--text);
+      background: var(--surface-2);
+      transform: translateY(-1px);
+    }
+
+    .team-pill.active {
+      background: var(--surface-2);
+      border-color: var(--team-accent);
+      color: var(--text);
+      box-shadow: 0 0 16px var(--team-glow);
+    }
+
+    .team-pill-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+    }
+
+    .team-pill.non-conf {
+      border-style: dashed;
+      border-color: var(--border-light);
+    }
+
+    /* ── Player Spotlight Card ───────────────────────────────────────────────── */
+    .spotlight-card {
+      display: none;
+      background: var(--surface);
+      border: 1.5px solid var(--team-accent);
+      border-radius: var(--radius);
+      box-shadow: 0 0 32px var(--team-glow), 0 8px 28px rgba(0,0,0,0.4);
+      overflow: hidden;
+      margin-bottom: 2rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .spotlight-header {
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-2) 100%);
+      padding: 1.15rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .jersey-badge {
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.75rem;
+      font-weight: 800;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 18px var(--team-glow);
+    }
+
+    .trophy-badge {
+      background: var(--gold);
+      color: #0b1220;
+      font-size: 1.65rem;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+    }
+
+    .spotlight-meta-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .spot-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 800;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-light);
+      color: var(--text);
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .spotlight-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .spotlight-name {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .spotlight-sub {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .stat-cell {
+      background: var(--surface);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+    }
+
+    .stat-key {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* Leader Medals */
+    .stat-cell.rank-1 { background: var(--gold-bg); border-bottom: 2.5px solid var(--gold); }
+    .stat-cell.rank-1 .stat-val { color: var(--gold); }
+    .stat-cell.rank-2 { background: var(--silver-bg); border-bottom: 2.5px solid var(--silver); }
+    .stat-cell.rank-2 .stat-val { color: var(--silver); }
+    .stat-cell.rank-3 { background: var(--bronze-bg); border-bottom: 2.5px solid var(--bronze); }
+    .stat-cell.rank-3 .stat-val { color: var(--bronze); }
+
+    .rank-tag {
+      font-size: 0.65rem;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 800;
+    }
+    .rank-1 .rank-tag { background: var(--gold); color: #000; }
+    .rank-2 .rank-tag { background: var(--silver); color: #000; }
+    .rank-3 .rank-tag { background: var(--bronze); color: #000; }
+
+    /* ── Search Spotlight Bar ────────────────────────────────────────────────── */
+    .search-section {
+      margin-bottom: 1.75rem;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-input-wrap {
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-faint);
+      font-size: 1.1rem;
+      font-family: 'JetBrains Mono', monospace;
+      pointer-events: none;
+    }
+
+    #playerSearch {
+      background: var(--surface-2);
+      border: 1.5px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.25rem;
+      font-weight: 700;
+      width: 140px;
+      padding: 0.45rem 0.85rem 0.45rem 2.2rem;
+      text-align: center;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    #playerSearch:focus {
+      border-color: var(--team-accent);
+      box-shadow: 0 0 0 3px var(--team-glow);
+    }
+
+    .search-hint {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .not-found {
+      display: none;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1.15rem;
+      font-size: 0.92rem;
+      color: #f87171;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Table Card ──────────────────────────────────────────────────────────── */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .table-card-header {
+      background: var(--surface-2);
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .table-card-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .table-card-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .table-card-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .header-links-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .site-link-btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-light);
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .site-link-btn:hover {
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 8px var(--team-glow);
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .filter-tabs {
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .filter-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.38rem 0.95rem;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn.active {
+      background: var(--surface-2);
+      border: 1px solid var(--team-accent);
+      color: var(--text);
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    /* ── Table Styling ───────────────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    thead th {
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.75rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      text-align: right;
+      cursor: pointer;
+      user-select: none;
+      letter-spacing: 0.04em;
+    }
+
+    thead th.col-left { text-align: left; }
+    thead th.col-center { text-align: center; }
+
+    thead th:hover:not(.no-sort) {
+      color: var(--text);
+      background: var(--surface-3);
+    }
+
+    thead th.sorted { color: var(--team-accent); }
+
+    tbody td {
+      padding: 0.75rem 0.85rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      color: var(--text);
+      white-space: nowrap;
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.92rem;
+    }
+
+    tbody td.col-jersey {
+      text-align: center;
+      font-weight: 800;
+      color: var(--text-muted);
+      width: 55px;
+    }
+
+    tbody td.col-pos, tbody td.col-yr {
+      text-align: center;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.85rem;
+      width: 55px;
+    }
+
+    tbody td.col-player {
+      text-align: left;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text);
+      transition: color 0.15s;
+    }
+
+    tbody td.col-player:hover {
+      color: var(--team-accent);
+      text-decoration: underline;
+    }
+
+    tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+    tbody tr.row-highlight td {
+      background: var(--team-glow) !important;
+    }
+    tbody tr.row-highlight td.col-jersey { color: var(--team-accent); }
+
+    /* ── Team Stats Card (Click to Compare) ──────────────────────────────────── */
+    .team-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .team-stat-box {
+      background: var(--surface);
+      padding: 1.1rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .team-stat-box:hover:not(.is-non-conf-box) {
+      background: var(--surface-2);
+      border-color: var(--team-accent);
+    }
+
+    .team-stat-box.active-compare {
+      background: var(--surface-2);
+      box-shadow: inset 0 -3px 0 var(--team-accent);
+    }
+
+    .team-stat-label {
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .team-stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    /* ── Conference Leaderboard Grid (10 NCHC Teams) ─────────────────────────── */
+    .leaderboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .team-rank-card {
+      background: var(--surface);
+      padding: 0.9rem 1.15rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      transition: background 0.15s;
+    }
+
+    .team-rank-card:hover { background: var(--surface-2); }
+
+    .team-rank-card.is-active-team {
+      border-left: 4px solid var(--team-accent);
+      background: var(--surface-2);
+    }
+
+    .team-rank-left {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .rank-num-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 0.95rem;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-3);
+      color: var(--text-muted);
+    }
+
+    .team-rank-card.rank-1 .rank-num-pill { background: var(--gold); color: #000; box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+    .team-rank-card.rank-2 .rank-num-pill { background: var(--silver); color: #000; }
+    .team-rank-card.rank-3 .rank-num-pill { background: var(--bronze); color: #000; }
+
+    .team-rank-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .team-rank-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .team-rank-card.rank-1 .team-rank-val { color: var(--gold); }
+    .team-rank-card.rank-2 .team-rank-val { color: var(--silver); }
+    .team-rank-card.rank-3 .team-rank-val { color: var(--bronze); }
+
+    .empty {
+      padding: 3rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────────────── */
+    footer {
+      margin-top: 3.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    footer a {
+      color: var(--team-accent);
+      text-decoration: none;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body data-theme="st_thomas_mhockey" data-color-scheme="dark">
+
+<div class="container">
+
+  <!-- Header with Theme Switcher at Top -->
+  <header>
+    <div class="wordmark">
+      <span class="wordmark-eyebrow" id="eyebrowText">2026-27 Season</span>
+      <h1 id="pageTitle">NCHC Men's Hockey Season Stats</h1>
+      <div class="meta" id="metaBar">Loading data…</div>
+    </div>
+
+    <!-- Top Theme Switcher -->
+    <div class="theme-toggle-wrap">
+      <button id="btnThemeDark" class="theme-btn active" onclick="setColorScheme('dark')">
+        <span>🌙 Dark</span>
+      </button>
+      <button id="btnThemeLight" class="theme-btn" onclick="setColorScheme('light')">
+        <span>☀️ Light</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Alphabetical Team Selector -->
+  <section class="selector-block">
+    <span class="section-caption">Select Program</span>
+    <div class="team-pills" id="teamPills"></div>
+  </section>
+
+  <!-- Player Search Bar -->
+  <section class="search-section">
+    <span class="section-caption">Search Team Roster</span>
+    <div class="search-row">
+      <div class="search-input-wrap">
+        <span class="search-icon">#</span>
+        <input
+          id="playerSearch"
+          type="text"
+          placeholder="00"
+          autocomplete="off"
+          aria-label="Player jersey number or name"
+        />
+      </div>
+      <span class="search-hint">Enter a jersey # or click any player name in the table below to open Spotlight</span>
+    </div>
+  </section>
+
+  <!-- Not Found Banner -->
+  <div class="not-found" id="notFound">
+    No player found with that jersey number or name on this roster.
+  </div>
+
+  <!-- Player Spotlight Card -->
+  <div class="spotlight-card" id="spotlightCard">
+    <div class="spotlight-header">
+      <div class="jersey-badge" id="spotJersey">—</div>
+      <div class="spotlight-meta-stack">
+        <span class="spot-tag" id="spotYr">—</span>
+        <span class="spot-tag" id="spotPos">—</span>
+      </div>
+      <div class="spotlight-details">
+        <div class="spotlight-name" id="spotName">—</div>
+        <div class="spotlight-sub" id="spotSub">Hockey Stats</div>
+      </div>
+    </div>
+    <div>
+      <div class="stat-grid" id="spotStatGrid"></div>
+    </div>
+  </div>
+
+  <!-- Full Player Table Card -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <div class="table-card-left">
+        <div class="table-card-title-wrap">
+          <span class="table-card-title" id="tableTitle">St. Thomas Tommies Men's Stats</span>
+          <div class="header-links-group">
+            <a id="teamStatsLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">Stats Site ↗</a>
+            <a id="teamRosterLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">Roster Site ↗</a>
+            <a id="teamJsonLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">JSON ↗</a>
+          </div>
+        </div>
+        <div class="status-bar">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Ready</span>
+        </div>
+      </div>
+
+      <!-- Filter tabs: Skaters & Goaltenders -->
+      <div class="filter-tabs">
+        <button class="filter-btn active" data-filter="SKATERS" onclick="setFilter('SKATERS', this)">Skaters</button>
+        <button class="filter-btn" data-filter="GOALIES" onclick="setFilter('GOALIES', this)">Goaltenders</button>
+      </div>
+    </div>
+
+    <!-- Table content -->
+    <div class="table-wrap">
+      <table id="statsTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody">
+          <tr><td colspan="14" class="empty">Loading team stats…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Team Stat Leaderboard Spotlight Card (Rank #1 to #10) -->
+  <div class="spotlight-card" id="teamLeaderboardCard">
+    <div class="spotlight-header">
+      <div class="trophy-badge">🏆</div>
+      <div class="spotlight-details">
+        <div class="spotlight-name" id="leaderboardStatTitle">NCHC Leaderboard</div>
+        <div class="spotlight-sub" id="leaderboardStatSub">NCHC Men's Hockey Comparison</div>
+      </div>
+    </div>
+    <div>
+      <div class="leaderboard-grid" id="leaderboardGrid"></div>
+    </div>
+  </div>
+
+  <!-- Team Stats Card (Clickable to rank conference) -->
+  <div class="table-card" id="teamStatsSection">
+    <div class="table-card-header">
+      <div class="table-card-left">
+        <div class="table-card-title-wrap">
+          <span class="table-card-title" id="teamStatsCardTitle">Overall Team Stats</span>
+          <span class="search-hint" style="font-size:0.82rem; margin-left:0.4rem;">(Click any stat below to rank all NCHC programs)</span>
+        </div>
+      </div>
+    </div>
+    <div class="team-stats-grid" id="teamStatsGrid">
+      <div class="empty" style="grid-column: 1 / -1;">Loading team stats…</div>
+    </div>
+  </div>
+
+  <!-- Footer with Updated Repository Link -->
+  <footer>
+    <a href="https://github.com/TAPbot-Xpression/TAPbot_hockey_season" target="_blank" rel="noopener noreferrer">
+      TAPbot · St. Thomas Athletics · Broadcast Production Tool
+    </a>
+    <div style="font-size:0.82rem; color:var(--text-muted);">
+      NCHC Men's Ice Hockey Statistics
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // ── Team Registry (Organized Alphabetically) ───────────────────────────────
+  const TEAMS = [
+    {
+      id: 'arizona_state_mhockey',
+      name: 'Arizona State Sun Devils',
+      shortName: 'Arizona State',
+      slug: 'arizona_state_mhockey',
+      color: '#ffc627', // Gold Primary
+      statsSiteUrl: 'https://thesundevils.com/sports/ice-hockey/stats',
+      rosterSiteUrl: 'https://thesundevils.com/sports/ice-hockey/roster?view=list'
+    },
+    {
+      id: 'colorado_college_mhockey',
+      name: 'Colorado College Tigers',
+      shortName: 'Colorado College',
+      slug: 'colorado_college_mhockey',
+      color: '#f5a800', // Yellow/Gold Primary
+      statsSiteUrl: 'https://cctigers.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://cctigers.com/sports/mens-ice-hockey/roster?print=true'
+    },
+    {
+      id: 'denver_mhockey',
+      name: 'Denver Pioneers',
+      shortName: 'Denver',
+      slug: 'denver_mhockey',
+      color: '#8b2332',
+      statsSiteUrl: 'https://denverpioneers.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://denverpioneers.com/sports/mens-ice-hockey/roster/print'
+    },
+    {
+      id: 'miami_oh_mhockey',
+      name: 'Miami (OH) RedHawks',
+      shortName: 'Miami (OH)',
+      slug: 'miami_oh_mhockey',
+      color: '#b61229',
+      statsSiteUrl: 'https://miamiredhawks.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://miamiredhawks.com/sports/mens-ice-hockey/roster/print'
+    },
+    {
+      id: 'minnesota_duluth_mhockey',
+      name: 'Minnesota Duluth Bulldogs',
+      shortName: 'Minnesota Duluth',
+      slug: 'minnesota_duluth_mhockey',
+      color: '#7a0019',
+      statsSiteUrl: 'https://umdbulldogs.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://umdbulldogs.com/sports/mens-ice-hockey/roster?print=true'
+    },
+    {
+      id: 'north_dakota_mhockey',
+      name: 'North Dakota Fighting Hawks',
+      shortName: 'North Dakota',
+      slug: 'north_dakota_mhockey',
+      color: '#009a44',
+      statsSiteUrl: 'https://fightinghawks.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://fightinghawks.com/sports/mens-ice-hockey/roster?print=true'
+    },
+    {
+      id: 'omaha_mhockey',
+      name: 'Omaha Mavericks',
+      shortName: 'Omaha',
+      slug: 'omaha_mhockey',
+      color: '#111111', // Black Primary
+      statsSiteUrl: 'https://omahamavs.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://omahamavs.com/sports/mens-ice-hockey/roster/print'
+    },
+    {
+      id: 'st_cloud_state_mhockey',
+      name: 'St. Cloud State Huskies',
+      shortName: 'St. Cloud State',
+      slug: 'st_cloud_state_mhockey',
+      color: '#a6192e',
+      statsSiteUrl: 'https://scsuhuskies.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://scsuhuskies.com/sports/mens-ice-hockey/roster/print'
+    },
+    {
+      id: 'st_thomas_mhockey',
+      name: 'St. Thomas Tommies',
+      shortName: 'St. Thomas',
+      slug: 'st_thomas_mhockey',
+      color: '#512888',
+      statsSiteUrl: 'https://tommiesports.com/sports/mhockey/stats/2026-27',
+      rosterSiteUrl: 'https://tommiesports.com/sports/mhockey/roster/print'
+    },
+    {
+      id: 'western_michigan_mhockey',
+      name: 'Western Michigan Broncos',
+      shortName: 'Western Michigan',
+      slug: 'western_michigan_mhockey',
+      color: '#5c3a21',
+      statsSiteUrl: 'https://wmubroncos.com/sports/mens-ice-hockey/stats',
+      rosterSiteUrl: 'https://wmubroncos.com/sports/mens-ice-hockey/roster?print=true'
+    },
+    {
+      id: 'non_conf',
+      name: 'Non-Conf Opponent',
+      shortName: 'Non-Conf',
+      slug: 'non_conf_mhockey',
+      color: '#94a3b8',
+      isNonConf: true,
+      statsSiteUrl: '',
+      rosterSiteUrl: ''
+    }
+  ];
+
+  // ── Team Stats Definitions (Interactive comparison) ────────────────────────
+  const TEAM_STAT_DEFINITIONS = [
+    { key: 'goals_per_game', label: 'G/G',       desc: 'Goals Per Game',             asc: false },
+    { key: 'shots_per_game', label: 'SH/G',      desc: 'Shots Per Game',             asc: false },
+    { key: 'shot_pct',       label: 'SHOT%',     desc: 'Shot Percentage',            asc: false },
+    { key: 'pp_pct',         label: 'PP%',       desc: 'Power Play Percentage',      asc: false },
+    { key: 'pk_pct',         label: 'PK%',       desc: 'Penalty Kill Percentage',    asc: false },
+    { key: 'pen_per_game',   label: 'PEN/G',     desc: 'Penalties Per Game',         asc: true  },
+    { key: 'pim_per_game',   label: 'PIM/G',     desc: 'Penalty Minutes Per Game',   asc: true  },
+    { key: 'faceoff_pct',    label: 'FO%',       desc: 'Faceoff Percentage',         asc: false }
+  ];
+
+  // ── Table Column Definitions ───────────────────────────────────────────────
+  const SKATER_COLS = [
+    { key: 'gp',     label: 'GP' },
+    { key: 'g',      label: 'G' },
+    { key: 'a',      label: 'A' },
+    { key: 'pts',    label: 'PTS' },
+    { key: 'sh',     label: 'SH' },
+    { key: 'blk',    label: 'BLK' },
+    { key: 'ppg',    label: 'PPG' },
+    { key: 'shg',    label: 'SHG' },
+    { key: 'gwg',    label: 'GWG' },
+    { key: 'pn_pim', label: 'PN-PIM' }
+  ];
+
+  const GOALIE_COLS = [
+    { key: 'gp_gs',  label: 'GP-GS' },
+    { key: 'ga',     label: 'GA' },
+    { key: 'gaa',    label: 'GAA' },
+    { key: 'sv',     label: 'SV' },
+    { key: 'sv_pct', label: 'SV%' },
+    { key: 'sho',    label: 'SHO' },
+    { key: 'w_l_t',  label: 'W-L-T' },
+    { key: 'min',    label: 'MIN' }
+  ];
+
+  let CURRENT_TEAM = 'st_thomas_mhockey';
+  let RAW_DATA = null;
+  let PLAYERS = [];
+  let sortCol = 'pts';
+  let sortDir = -1;
+  let currentFilter = 'SKATERS';
+  let searchNum = '';
+  let RANKS = {};
+  let LOAD_TOKEN = 0;
+  let NCHC_CACHE = {};
+  let ACTIVE_COMPARE_STAT = null;
+
+  // ── Render Alphabetical Nav Pills ──────────────────────────────────────────
+  const pillsContainer = document.getElementById('teamPills');
+  TEAMS.forEach(team => {
+    const btn = document.createElement('button');
+    btn.className = `team-pill ${team.slug === CURRENT_TEAM ? 'active' : ''} ${team.isNonConf ? 'non-conf' : ''}`;
+    btn.dataset.team = team.slug;
+    btn.innerHTML = `<span class="team-pill-dot" style="color:${team.color}"></span> <span>${team.shortName}</span>`;
+    btn.onclick = () => selectTeam(team.slug, btn);
+    pillsContainer.appendChild(btn);
+  });
+
+  // ── Select Team ────────────────────────────────────────────────────────────
+  function selectTeam(teamSlug, btn) {
+    CURRENT_TEAM = teamSlug;
+    document.body.setAttribute('data-theme', teamSlug);
+    document.querySelectorAll('.team-pill').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    resetSearchAndSpotlight();
+    loadTeamData(teamSlug);
+  }
+
+  function resetSearchAndSpotlight() {
+    document.getElementById('playerSearch').value = '';
+    searchNum = '';
+    document.getElementById('spotlightCard').style.display = 'none';
+    document.getElementById('teamLeaderboardCard').style.display = 'none';
+    document.getElementById('notFound').style.display = 'none';
+    ACTIVE_COMPARE_STAT = null;
+  }
+
+  // ── Load Team Stats JSON ───────────────────────────────────────────────────
+  async function loadTeamData(teamSlug) {
+    const token = ++LOAD_TOKEN;
+    const team = TEAMS.find(t => t.slug === teamSlug) || TEAMS[0];
+
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = 'Loading…';
+    showTablePanel(`Loading ${team.shortName} hockey stats…`);
+
+    const statsSiteUrl = team.statsSiteUrl || '';
+    const rosterSiteUrl = team.rosterSiteUrl || '';
+    setLink('teamStatsLink', statsSiteUrl, `View official ${team.shortName} stats`);
+    setLink('teamRosterLink', rosterSiteUrl, `View official ${team.shortName} roster`);
+
+    const jsonLink = document.getElementById('teamJsonLink');
+    if (jsonLink) {
+      jsonLink.href = `${team.slug}.json`;
+      jsonLink.textContent = `${team.slug}.json ↗`;
+    }
+
+    try {
+      const res = await fetch(`${team.slug}.json?t=${Date.now()}`);
+      if (token !== LOAD_TOKEN) return;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      if (token !== LOAD_TOKEN) return;
+      RAW_DATA = data;
+
+      if (!team.isNonConf) {
+        NCHC_CACHE[team.slug] = data.team_stats || {};
+      }
+
+      PLAYERS = (data.players || []).map(p => ({
+        name:      p.name || '—',
+        number:    p.number !== undefined && p.number !== null ? String(p.number) : '',
+        position:  p.position || (p.is_goalie === 'true' ? 'G' : 'F'),
+        year:      p.year || '—',
+        is_goalie: p.is_goalie === 'true' || p.position === 'G',
+        gp:        p.gp || '0',
+        g:         p.g || '0',
+        a:         p.a || '0',
+        pts:       p.pts || '0',
+        sh:        p.sh || '0',
+        blk:       p.blk || '0',
+        ppg:       p.ppg || '0',
+        shg:       p.shg || '0',
+        gwg:       p.gwg || '0',
+        pn_pim:    p.pn_pim || '0-0',
+        // Goalie stats
+        gp_gs:     p.gp_gs || '0-0',
+        ga:        p.ga || '0',
+        gaa:       p.gaa || '0.00',
+        sv:        p.sv || '0',
+        sv_pct:    p.sv_pct || '.000',
+        sho:       p.sho || '0',
+        w_l_t:     p.w_l_t || '0-0-0',
+        min:       p.min || '0:00'
+      }));
+
+      calculateRanks();
+
+      const updatedTime = RAW_DATA.generated_at ? new Date(RAW_DATA.generated_at).toLocaleString() : 'Live';
+      document.getElementById('metaBar').innerHTML = `<strong>${RAW_DATA.team || team.name}</strong> · Updated: ${updatedTime}`;
+      document.getElementById('tableTitle').textContent = `${RAW_DATA.team || team.name} Men's Stats`;
+      document.getElementById('teamStatsCardTitle').textContent = `${RAW_DATA.team || team.name} Team Stats`;
+      document.getElementById('statusDot').className = 'status-dot';
+      document.getElementById('statusText').textContent = `${PLAYERS.length} Players`;
+
+      renderTable();
+      renderTeamStatsGrid();
+    } catch (err) {
+      if (token !== LOAD_TOKEN) return;
+      PLAYERS = [];
+      document.getElementById('statusDot').className = 'status-dot';
+      document.getElementById('statusDot').style.background = 'var(--red)';
+      document.getElementById('statusText').textContent = 'Error';
+      showTablePanel(`<span style="color:#f87171">Failed to load stats for ${team.name} (${team.slug}.json).</span><br><small style="color:var(--text-muted)">Ensure the scraper has generated this file.</small>`);
+      renderTeamStatsGrid();
+    }
+  }
+
+  // ── Prefetch Conference Stats for Leaderboards ──────────────────────────────
+  async function prefetchConferenceStats() {
+    await Promise.all(TEAMS.filter(t => !t.isNonConf).map(async (t) => {
+      try {
+        const res = await fetch(`${t.slug}.json?t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          NCHC_CACHE[t.slug] = data.team_stats || {};
+        }
+      } catch (e) {}
+    }));
+  }
+
+  // ── Calculate Ranks for Top 3 Badges ─────────────────────────────────────────
+  function calculateRanks() {
+    RANKS = {};
+    const skaters = PLAYERS.filter(p => !p.is_goalie);
+    ['pts', 'g', 'a', 'blk', 'sh', 'ppg'].forEach(key => {
+      const vals = skaters.map(p => parseStat(p[key])).filter(v => v > 0);
+      const distinct = [...new Set(vals)].sort((a, b) => b - a);
+      RANKS[key] = { 1: distinct[0], 2: distinct[1], 3: distinct[2] };
+    });
+  }
+
+  function getRank(key, val) {
+    const num = parseStat(val);
+    if (num <= 0) return null;
+    const r = RANKS[key];
+    if (!r) return null;
+    if (num === r[1]) return 1;
+    if (num === r[2]) return 2;
+    if (num === r[3]) return 3;
+    return null;
+  }
+
+  // ── Render Player Table ─────────────────────────────────────────────────────
+  function renderTable() {
+    const head = document.getElementById('tableHead');
+    const body = document.getElementById('tableBody');
+    const isGoalieView = currentFilter === 'GOALIES';
+    const activeCols = isGoalieView ? GOALIE_COLS : SKATER_COLS;
+
+    head.innerHTML = `<tr>
+      <th class="col-center no-sort" style="width:55px;">#</th>
+      <th class="col-center no-sort" style="width:55px;">Pos</th>
+      <th class="col-center no-sort" style="width:55px;">Yr</th>
+      <th class="col-left no-sort">Player</th>
+      ${activeCols.map(c => `
+        <th onclick="sortBy('${c.key}')" class="${sortCol === c.key ? 'sorted' : ''}">
+          ${c.label}${sortCol === c.key ? (sortDir === 1 ? ' ↑' : ' ↓') : ''}
+        </th>
+      `).join('')}
+    </tr>`;
+
+    let filtered = PLAYERS.filter(p => isGoalieView ? p.is_goalie : !p.is_goalie);
+
+    if (!filtered.length) {
+      body.innerHTML = `<tr><td colspan="${activeCols.length + 4}" class="empty">No ${isGoalieView ? 'goaltenders' : 'skaters'} found on this roster.</td></tr>`;
+      return;
+    }
+
+    if (sortCol) {
+      filtered.sort((a, b) => {
+        let av = a[sortCol];
+        let bv = b[sortCol];
+
+        if (sortCol === 'pn_pim') {
+          av = parseStat((av || '0-0').split('-')[1]);
+          bv = parseStat((bv || '0-0').split('-')[1]);
+        } else if (sortCol === 'gp_gs') {
+          av = parseStat((av || '0-0').split('-')[0]);
+          bv = parseStat((bv || '0-0').split('-')[0]);
+        } else if (sortCol === 'min') {
+          const parseMin = (s) => {
+            const parts = String(s || '0').split(':');
+            return (parseFloat(parts[0]) || 0) * 60 + (parseFloat(parts[1]) || 0);
+          };
+          av = parseMin(av);
+          bv = parseMin(bv);
+        } else {
+          av = parseStat(av);
+          bv = parseStat(bv);
+        }
+        return (av - bv) * sortDir;
+      });
+    }
+
+    body.innerHTML = filtered.map(r => {
+      const isHL = searchNum && (String(r.number) === String(searchNum) || r.name.toLowerCase().includes(searchNum.toLowerCase()));
+      const origIdx = PLAYERS.indexOf(r);
+
+      return `<tr class="${isHL ? 'row-highlight' : ''}" data-num="${esc(r.number)}">
+        <td class="col-jersey">${esc(r.number) || '—'}</td>
+        <td class="col-pos">${esc(r.position) || '—'}</td>
+        <td class="col-yr">${esc(r.year) || '—'}</td>
+        <td class="col-player" title="Click to view player spotlight" onclick="displayPlayerCard(${origIdx})">${esc(r.name)}</td>
+        ${activeCols.map(c => `<td>${esc(r[c.key]) || (c.key === 'pn_pim' ? '0-0' : '0')}</td>`).join('')}
+      </tr>`;
+    }).join('');
+  }
+
+  function sortBy(col) {
+    if (sortCol === col) {
+      sortDir *= -1;
+    } else {
+      sortCol = col;
+      sortDir = col === 'gaa' ? 1 : -1; // Lower GAA is better by default
+    }
+    renderTable();
+    if (searchNum) highlightRow(searchNum);
+  }
+
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    // Reset sort default based on view
+    if (filter === 'GOALIES') {
+      sortCol = 'sv';
+      sortDir = -1;
+    } else {
+      sortCol = 'pts';
+      sortDir = -1;
+    }
+
+    renderTable();
+  }
+
+  // ── Render Player Spotlight Card ───────────────────────────────────────────
+  function renderPlayerSpotlight(player) {
+    const notFound = document.getElementById('notFound');
+    const card     = document.getElementById('spotlightCard');
+
+    if (!player) {
+      card.style.display = 'none';
+      notFound.style.display = 'block';
+      highlightRow('');
+      return;
+    }
+
+    notFound.style.display = 'none';
+    card.style.display     = 'block';
+
+    const currentTeamObj = TEAMS.find(t => t.slug === CURRENT_TEAM) || TEAMS[0];
+
+    document.getElementById('spotJersey').textContent = player.number || '—';
+    document.getElementById('spotYr').textContent     = player.year || '—';
+    document.getElementById('spotPos').textContent    = player.position || (player.is_goalie ? 'G' : 'F');
+    document.getElementById('spotName').textContent   = player.name || '—';
+    document.getElementById('spotSub').textContent    = `${currentTeamObj.name} · Men's Hockey`;
+
+    const grid = document.getElementById('spotStatGrid');
+
+    if (player.is_goalie) {
+      grid.innerHTML = GOALIE_COLS.map(c => `
+        <div class="stat-cell">
+          <span class="stat-key">${c.label}</span>
+          <span class="stat-val">${esc(player[c.key] || '—')}</span>
+        </div>
+      `).join('');
+    } else {
+      grid.innerHTML = SKATER_COLS.map(c => {
+        const val = player[c.key] || '0';
+        const rank = getRank(c.key, val);
+        const rankClass = rank ? `rank-${rank}` : '';
+        const rankBadge = rank ? `<span class="rank-tag">${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}</span>` : '';
+
+        return `<div class="stat-cell ${rankClass}">
+          <span class="stat-key">${c.label} ${rankBadge}</span>
+          <span class="stat-val">${esc(val)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    highlightRow(player.number);
+  }
+
+  function displayPlayerCard(playerIdx) {
+    const player = PLAYERS[playerIdx];
+    if (!player) return;
+
+    searchNum = player.number || player.name;
+    document.getElementById('playerSearch').value = player.number || player.name;
+    renderPlayerSpotlight(player);
+
+    const card = document.getElementById('spotlightCard');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Search Input Event ──────────────────────────────────────────────────────
+  document.getElementById('playerSearch').addEventListener('input', function () {
+    searchNum = this.value.trim();
+    const notFound = document.getElementById('notFound');
+    const card     = document.getElementById('spotlightCard');
+
+    if (!searchNum) {
+      card.style.display = 'none';
+      notFound.style.display = 'none';
+      highlightRow('');
+      return;
+    }
+
+    const player = PLAYERS.find(p => 
+      String(p.number) === searchNum || p.name.toLowerCase().includes(searchNum.toLowerCase())
+    );
+    renderPlayerSpotlight(player);
+  });
+
+  function highlightRow(numOrName) {
+    document.querySelectorAll('#tableBody tr').forEach(tr => {
+      tr.classList.toggle('row-highlight', !!numOrName && (tr.dataset.num === String(numOrName)));
+    });
+  }
+
+  // ── Render Team Stats Grid (Click to Compare) ───────────────────────────────
+  function renderTeamStatsGrid() {
+    const grid = document.getElementById('teamStatsGrid');
+    if (!RAW_DATA || !RAW_DATA.team_stats) {
+      grid.innerHTML = `<div class="empty" style="grid-column: 1 / -1;">No team stats recorded.</div>`;
+      return;
+    }
+
+    const ts = RAW_DATA.team_stats || {};
+    const isNonConf = CURRENT_TEAM === 'non_conf';
+
+    grid.innerHTML = TEAM_STAT_DEFINITIONS.map(def => {
+      const val = ts[def.key] || '-';
+      const isActive = (!isNonConf && ACTIVE_COMPARE_STAT === def.key) ? 'active-compare' : '';
+      const clickAttr = isNonConf ? '' : `onclick="displayTeamLeaderboard('${def.key}')"`;
+      const titleAttr = isNonConf ? def.desc : `Click to rank all NCHC programs for ${def.desc}`;
+
+      return `<div class="team-stat-box ${isActive} ${isNonConf ? 'is-non-conf-box' : ''}" ${clickAttr} title="${titleAttr}">
+        <span class="team-stat-label">${def.label}</span>
+        <span class="team-stat-val">${esc(val)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Display Interactive Conference Leaderboard ──────────────────────────────
+  async function displayTeamLeaderboard(statKey) {
+    if (CURRENT_TEAM === 'non_conf') return;
+
+    ACTIVE_COMPARE_STAT = statKey;
+    renderTeamStatsGrid();
+
+    const def = TEAM_STAT_DEFINITIONS.find(d => d.key === statKey);
+    if (!def) return;
+
+    await prefetchConferenceStats();
+
+    const confTeams = TEAMS.filter(t => !t.isNonConf);
+    const rankedTeams = confTeams.map(t => {
+      const stats = NCHC_CACHE[t.slug] || {};
+      const rawV = stats[statKey] || '-';
+      const numV = parseStat(rawV);
+      return {
+        slug: t.slug,
+        name: t.shortName,
+        fullName: t.name,
+        num: numV,
+        display: rawV
+      };
+    });
+
+    rankedTeams.sort((a, b) => {
+      if (def.asc) return a.num - b.num;
+      return b.num - a.num;
+    });
+
+    const card = document.getElementById('teamLeaderboardCard');
+    document.getElementById('leaderboardStatTitle').textContent = `${def.desc} (${def.label})`;
+    document.getElementById('leaderboardStatSub').textContent = `NCHC Conference Leaderboard · Men's Hockey`;
+
+    const grid = document.getElementById('leaderboardGrid');
+    grid.innerHTML = rankedTeams.map((t, idx) => {
+      const rank = idx + 1;
+      const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+      const isActiveTeam = t.slug === CURRENT_TEAM ? 'is-active-team' : '';
+
+      return `<div class="team-rank-card ${rankClass} ${isActiveTeam}">
+        <div class="team-rank-left">
+          <div class="rank-num-pill">${rank}</div>
+          <div class="team-rank-name">${esc(t.name)}</div>
+        </div>
+        <div class="team-rank-val">${esc(t.display)}</div>
+      </div>`;
+    }).join('');
+
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Color Scheme Switcher (Dark / Light) ────────────────────────────────────
+  function setColorScheme(scheme) {
+    document.body.setAttribute('data-color-scheme', scheme);
+    document.getElementById('btnThemeDark').classList.toggle('active', scheme === 'dark');
+    document.getElementById('btnThemeLight').classList.toggle('active', scheme === 'light');
+    localStorage.setItem('nchc_theme_mode', scheme);
+  }
+
+  // ── Utility Helpers ────────────────────────────────────────────────────────
+  function parseStat(val) {
+    if (val === undefined || val === null || val === '-' || val === '--' || val === '') return -999999;
+    const cleanStr = String(val).replace('%', '').replace('+', '').trim();
+    const num = parseFloat(cleanStr);
+    return isNaN(num) ? -999999 : num;
+  }
+
+  function setLink(id, url, title) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (url) {
+      el.href = url;
+      el.title = title || '';
+      el.style.display = 'inline-flex';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
+  function showTablePanel(html) {
+    document.getElementById('tableHead').innerHTML = '';
+    document.getElementById('tableBody').innerHTML = `<tr><td colspan="14" class="empty">${html}</td></tr>`;
+  }
+
+  function esc(str) {
+    return String(str === undefined || str === null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Initial Load
+  const savedScheme = localStorage.getItem('nchc_theme_mode') || 'dark';
+  setColorScheme(savedScheme);
+  loadTeamData(CURRENT_TEAM);
+  prefetchConferenceStats();
+</script>
+
+</body>
+</html>
