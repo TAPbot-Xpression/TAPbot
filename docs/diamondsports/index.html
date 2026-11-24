@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-color-mode="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Summit League Baseball Season Stats</title>
+  <title>Summit League Diamond Sports Season Stats</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
 
   <style>
-    /* ── Team Color Themes (Dynamically applied via data-theme) ─────────────── */
+    /* ── Base Theme Variables (Dark Mode by Default) ─────────────────────────── */
     :root {
       --bg:             #080c14;
       --surface:        #0f1623;
@@ -18,14 +18,10 @@
       --border:         #1e2d47;
       --border-light:   #2a3d5c;
 
-      /* Dynamic Theme Variables (Defaults to St. Thomas) */
-      --team-primary:   #5b2d86;
-      --team-accent:    #8b5cf6;
-      --team-glow:      rgba(139, 92, 246, 0.35);
-      --team-light:     #ddd6fe;
-      --team-btn-text:  #ffffff;
+      --text:           #e8edf5;
+      --text-muted:     #8a9fb8;
+      --text-faint:     #4d627d;
 
-      /* Medal Tones */
       --gold:           #fbbf24;
       --gold-bg:        rgba(251, 191, 36, 0.14);
       --silver:         #e2e8f0;
@@ -33,65 +29,14 @@
       --bronze:         #f97316;
       --bronze-bg:      rgba(249, 115, 22, 0.14);
 
-      --text:           #e8edf5;
-      --text-muted:     #8a9fb8;
-      --text-faint:     #4d627d;
-
       --green:          #10b981;
       --red:            #ef4444;
       --amber:          #f59e0b;
 
       --radius:         12px;
       --radius-sm:      8px;
-    }
 
-    [data-theme="north_dakota_state_men"],
-    [data-theme="ndsu"] {
-      --team-primary:   #005643;
-      --team-accent:    #007a5e;
-      --team-glow:      rgba(0, 122, 94, 0.40);
-      --team-light:     #a7f3d0;
-      --team-btn-text:  #ffffff;
-    }
-
-    [data-theme="northern_colorado_men"],
-    [data-theme="uncbears"] {
-      --team-primary:   #002b49;
-      --team-accent:    #004b87;
-      --team-glow:      rgba(0, 75, 135, 0.45);
-      --team-light:     #bae6fd;
-      --team-btn-text:  #ffffff;
-    }
-
-    [data-theme="omaha_men"],
-    [data-theme="omaha"] {
-      --team-primary:   #1a1a1a;
-      --team-accent:    #d12631;
-      --team-glow:      rgba(209, 38, 49, 0.38);
-      --team-light:     #fecaca;
-      --team-btn-text:  #ffffff;
-    }
-
-    [data-theme="oral_roberts_men"],
-    [data-theme="oru"] {
-      --team-primary:   #002d62;
-      --team-accent:    #c5b358;
-      --team-glow:      rgba(197, 179, 88, 0.35);
-      --team-light:     #fef3c7;
-      --team-btn-text:  #000000;
-    }
-
-    [data-theme="south_dakota_state_men"],
-    [data-theme="sdstate"] {
-      --team-primary:   #0033a0;
-      --team-accent:    #0056b3;
-      --team-glow:      rgba(0, 86, 179, 0.45);
-      --team-light:     #bfdbfe;
-      --team-btn-text:  #ffffff;
-    }
-
-    [data-theme="st_thomas_men"],
-    [data-theme="stthomas"] {
+      /* Team Dynamic Defaults (St. Thomas) */
       --team-primary:   #5b2d86;
       --team-accent:    #8b5cf6;
       --team-glow:      rgba(139, 92, 246, 0.35);
@@ -99,8 +44,103 @@
       --team-btn-text:  #ffffff;
     }
 
-    [data-theme="non_conf_men"],
-    [data-theme="non_conf"] {
+    /* ── Light Mode Color Overrides ─────────────────────────────────────────── */
+    [data-color-mode="light"] {
+      --bg:             #f8fafc;
+      --surface:        #ffffff;
+      --surface-2:      #f1f5f9;
+      --surface-3:      #e2e8f0;
+      --border:         #cbd5e1;
+      --border-light:   #94a3b8;
+
+      --text:           #0f172a;
+      --text-muted:     #475569;
+      --text-faint:     #94a3b8;
+
+      --gold-bg:        rgba(251, 191, 36, 0.22);
+      --silver-bg:      rgba(148, 163, 184, 0.22);
+      --bronze-bg:      rgba(249, 115, 22, 0.22);
+    }
+
+    /* ── Team Color Schemes ─────────────────────────────────────────────────── */
+    [data-theme="north_dakota_state_baseball"],
+    [data-theme="north_dakota_state_softball"] {
+      --team-primary:   #005643;
+      --team-accent:    #007a5e;
+      --team-glow:      rgba(0, 122, 94, 0.40);
+      --team-light:     #a7f3d0;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="northern_colorado_baseball"] {
+      --team-primary:   #002b49;
+      --team-accent:    #004b87;
+      --team-glow:      rgba(0, 75, 135, 0.45);
+      --team-light:     #bae6fd;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="omaha_baseball"],
+    [data-theme="omaha_softball"] {
+      --team-primary:   #1a1a1a;
+      --team-accent:    #d12631;
+      --team-glow:      rgba(209, 38, 49, 0.38);
+      --team-light:     #fecaca;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="oral_roberts_baseball"] {
+      --team-primary:   #002d62;
+      --team-accent:    #c5b358;
+      --team-glow:      rgba(197, 179, 88, 0.35);
+      --team-light:     #fef3c7;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="south_dakota_state_baseball"],
+    [data-theme="south_dakota_state_softball"] {
+      --team-primary:   #0033a0;
+      --team-accent:    #0056b3;
+      --team-glow:      rgba(0, 86, 179, 0.45);
+      --team-light:     #bfdbfe;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="st_thomas_baseball"],
+    [data-theme="st_thomas_softball"] {
+      --team-primary:   #5b2d86;
+      --team-accent:    #8b5cf6;
+      --team-glow:      rgba(139, 92, 246, 0.35);
+      --team-light:     #ddd6fe;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="kansas_city_softball"] {
+      --team-primary:   #004b87;
+      --team-accent:    #ffc72c;
+      --team-glow:      rgba(255, 199, 44, 0.40);
+      --team-light:     #fef08a;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="north_dakota_softball"] {
+      --team-primary:   #009a44;
+      --team-accent:    #009a44;
+      --team-glow:      rgba(0, 154, 68, 0.40);
+      --team-light:     #bbf7d0;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="south_dakota_softball"] {
+      --team-primary:   #c8102e;
+      --team-accent:    #c8102e;
+      --team-glow:      rgba(200, 16, 46, 0.40);
+      --team-light:     #fecdd3;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="non_conf_baseball"],
+    [data-theme="non_conf_softball"] {
       --team-primary:   #334155;
       --team-accent:    #94a3b8;
       --team-glow:      rgba(148, 163, 184, 0.30);
@@ -117,7 +157,7 @@
       font-size: 16px;
       min-height: 100vh;
       padding: 2.5rem 1.5rem 4.5rem;
-      transition: background-color 0.3s;
+      transition: background-color 0.25s, color 0.25s;
     }
 
     .container { max-width: 1360px; margin: 0 auto; }
@@ -157,7 +197,6 @@
       font-weight: 900;
       letter-spacing: -0.03em;
       line-height: 1.15;
-      color: #f1f5f9;
     }
 
     .meta {
@@ -167,6 +206,52 @@
       text-align: left;
       margin-top: 0.3rem;
       line-height: 1.4;
+    }
+
+    /* Top Right Global Controls (Sport + Theme Switchers) */
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .control-pill-group {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: 10px;
+      gap: 4px;
+    }
+
+    .control-pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.45rem 0.85rem;
+      border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .control-pill-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    .control-pill-btn.active {
+      background: var(--team-primary);
+      border-color: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      box-shadow: 0 0 10px var(--team-glow);
     }
 
     /* ── Team Selector Ribbon ────────────────────────────────────────────────── */
@@ -214,7 +299,7 @@
     .team-pill.active {
       background: var(--surface-2);
       border-color: var(--team-accent);
-      color: #fff;
+      color: var(--text);
       box-shadow: 0 0 15px var(--team-glow);
     }
 
@@ -311,7 +396,7 @@
       background: var(--surface);
       border: 1.5px solid var(--team-accent);
       border-radius: var(--radius);
-      box-shadow: 0 0 35px var(--team-glow), 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 0 35px var(--team-glow), 0 8px 32px rgba(0,0,0,0.3);
       overflow: hidden;
       margin-bottom: 2.25rem;
       animation: fadeIn 0.2s ease;
@@ -380,6 +465,7 @@
       font-size: 1.65rem;
       font-weight: 800;
       letter-spacing: -0.02em;
+      color: #ffffff;
     }
 
     .spotlight-sub {
@@ -574,7 +660,7 @@
     .toggle-btn.active {
       background: var(--surface-2);
       border-color: var(--team-accent);
-      color: #ffffff;
+      color: var(--text);
       box-shadow: 0 0 12px var(--team-glow);
     }
 
@@ -588,7 +674,7 @@
     }
 
     thead th {
-      background: rgba(0,0,0,0.3);
+      background: rgba(0,0,0,0.15);
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.88rem;
@@ -626,7 +712,7 @@
       font-family: 'Inter', sans-serif;
       font-weight: 600;
       cursor: pointer;
-      color: #ffffff;
+      color: var(--text);
       transition: color 0.15s ease;
       font-size: 1rem;
     }
@@ -704,7 +790,7 @@
       font-size: 0.92rem;
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
-      background: rgba(0,0,0,0.25);
+      background: rgba(0,0,0,0.15);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       padding: 0.85rem 1.15rem;
@@ -745,7 +831,7 @@
     }
   </style>
 </head>
-<body data-theme="st_thomas_men">
+<body data-theme="st_thomas_baseball">
 
 <div class="container">
 
@@ -756,34 +842,32 @@
       <h1 id="pageTitle">Summit League Baseball Season Stats</h1>
       <div class="meta" id="metaBar">Loading data…</div>
     </div>
+
+    <!-- Top Right Controls: Sport Toggle + Dark/Light Mode -->
+    <div class="top-controls">
+      <!-- Sport Switcher -->
+      <div class="control-pill-group" role="tablist" aria-label="Sport Selection">
+        <button id="btnSportBaseball" class="control-pill-btn active" onclick="switchSport('baseball')">
+          <span>⚾ Baseball</span>
+        </button>
+        <button id="btnSportSoftball" class="control-pill-btn" onclick="switchSport('softball')">
+          <span>🥎 Softball</span>
+        </button>
+      </div>
+
+      <!-- Theme Switcher -->
+      <div class="control-pill-group" role="group" aria-label="Theme Selection">
+        <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
+          <span id="themeToggleLabel">🌙 Dark</span>
+        </button>
+      </div>
+    </div>
   </header>
 
   <!-- Team Selector -->
   <section class="selector-block">
     <span class="section-caption">Select Team</span>
-    <div class="team-pills" id="teamPills">
-      <button class="team-pill" data-team="north_dakota_state_men" onclick="selectTeam('north_dakota_state_men', this)">
-        <span class="team-pill-dot" style="color:#007a5e"></span> North Dakota State
-      </button>
-      <button class="team-pill" data-team="northern_colorado_men" onclick="selectTeam('northern_colorado_men', this)">
-        <span class="team-pill-dot" style="color:#004b87"></span> Northern Colorado
-      </button>
-      <button class="team-pill" data-team="omaha_men" onclick="selectTeam('omaha_men', this)">
-        <span class="team-pill-dot" style="color:#d12631"></span> Omaha
-      </button>
-      <button class="team-pill" data-team="oral_roberts_men" onclick="selectTeam('oral_roberts_men', this)">
-        <span class="team-pill-dot" style="color:#c5b358"></span> Oral Roberts
-      </button>
-      <button class="team-pill" data-team="south_dakota_state_men" onclick="selectTeam('south_dakota_state_men', this)">
-        <span class="team-pill-dot" style="color:#0056b3"></span> South Dakota State
-      </button>
-      <button class="team-pill active" data-team="st_thomas_men" onclick="selectTeam('st_thomas_men', this)">
-        <span class="team-pill-dot" style="color:#8b5cf6"></span> St. Thomas
-      </button>
-      <button class="team-pill non-conf" id="nonConfPill" data-team="non_conf_men" onclick="selectTeam('non_conf_men', this)">
-        <span class="team-pill-dot ring" style="color:#94a3b8"></span> <span id="nonConfPillLabel">Non-Conf</span>
-      </button>
-    </div>
+    <div class="team-pills" id="teamPills"></div>
   </section>
 
   <!-- Player Search -->
@@ -821,19 +905,19 @@
       </div>
       <div class="spotlight-details">
         <div class="spotlight-name" id="spotName">—</div>
-        <div class="spotlight-sub" id="spotSub">Baseball Stats</div>
+        <div class="spotlight-sub" id="spotSub">Stats</div>
       </div>
     </div>
 
     <!-- Batting Section in Spotlight -->
     <div id="spotHittingSection">
-      <div class="stat-section-title">⚾ Batting Stats</div>
+      <div class="stat-section-title" id="spotBattingTitle">⚾ Batting Stats</div>
       <div class="stat-grid" id="spotHittingGrid"></div>
     </div>
 
     <!-- Pitching Section in Spotlight -->
     <div id="spotPitchingSection">
-      <div class="stat-section-title">⚡ Pitching Stats</div>
+      <div class="stat-section-title" id="spotPitchingTitle">⚡ Pitching Stats</div>
       <div class="stat-grid" id="spotPitchingGrid"></div>
     </div>
   </div>
@@ -844,16 +928,16 @@
       <!-- Left: Title + compact links, with player count underneath -->
       <div class="table-card-left">
         <div class="table-card-title-wrap">
-          <span class="table-card-title" id="tableTitle">St. Thomas Tommies Baseball Batting Stats</span>
+          <span class="table-card-title" id="tableTitle">Team Stats</span>
           <div class="header-links-group">
-            <a id="teamStatsLink" href="https://tommiesports.com/sports/baseball/stats/2026" target="_blank" rel="noopener noreferrer" class="site-link-btn">
+            <a id="teamStatsLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">
               Stats Site ↗
             </a>
-            <a id="teamRosterLink" href="https://tommiesports.com/sports/baseball/roster/print" target="_blank" rel="noopener noreferrer" class="site-link-btn">
+            <a id="teamRosterLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">
               Roster Site ↗
             </a>
-            <a id="teamJsonLink" href="st_thomas_men.json" target="_blank" rel="noopener noreferrer" class="site-link-btn">
-              st_thomas_men.json ↗
+            <a id="teamJsonLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">
+              JSON ↗
             </a>
           </div>
         </div>
@@ -866,10 +950,10 @@
       <!-- Right: Batting vs Pitching Toggle -->
       <div class="toggle-group-wrap" role="tablist" aria-label="Stat Category Switcher">
         <button id="btnBattingTab" class="toggle-btn active" onclick="switchTab('batting')">
-          <span>⚾ Batting Stats</span>
+          <span id="tabBattingLabel">⚾ Batting Stats</span>
         </button>
         <button id="btnPitchingTab" class="toggle-btn" onclick="switchTab('pitching')">
-          <span>⚡ Pitching Stats</span>
+          <span id="tabPitchingLabel">⚡ Pitching Stats</span>
         </button>
       </div>
     </div>
@@ -885,7 +969,7 @@
 
   <!-- Footer -->
   <footer>
-    <a href="https://github.com/TAPbot-Xpression/TAPbaseballseason" target="_blank" rel="noopener noreferrer">
+    <a href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
       TAPbot - Developed by St. Thomas Athletics - Hosted on GitHub
     </a>
   </footer>
@@ -893,71 +977,158 @@
 </div>
 
 <script>
-  // ── Team Registry & Config ─────────────────────────────────────────────────
-  const TEAMS = {
-    north_dakota_state_men: {
-      id: 'north_dakota_state_men',
-      name: 'North Dakota State Bison',
-      shortName: 'North Dakota State',
-      file: 'north_dakota_state_men.json',
-      altFile: 'ndsu.json',
-      statsSiteUrl: 'https://stats.gobison.com/custompages/bsb/2026/teamcume.htm',
-      rosterSiteUrl: 'https://gobison.com/sports/baseball/roster/print'
+  // ── Teams Registry & Configurations ─────────────────────────────────────────
+  const TEAMS_CONFIG = {
+    baseball: {
+      sportLabel: "Baseball",
+      sportEmoji: "⚾",
+      defaultTeam: "st_thomas_baseball",
+      teams: {
+        north_dakota_state_baseball: {
+          id: 'north_dakota_state_baseball',
+          name: 'North Dakota State Bison',
+          shortName: 'North Dakota State',
+          dotColor: '#007a5e',
+          file: 'north_dakota_state_baseball.json',
+          statsSiteUrl: 'https://stats.gobison.com/custompages/bsb/2026/teamcume.htm',
+          rosterSiteUrl: 'https://gobison.com/sports/baseball/roster/print'
+        },
+        northern_colorado_baseball: {
+          id: 'northern_colorado_baseball',
+          name: 'Northern Colorado Bears',
+          shortName: 'Northern Colorado',
+          dotColor: '#004b87',
+          file: 'northern_colorado_baseball.json',
+          statsSiteUrl: 'https://uncbears.com/sports/baseball/stats/2026',
+          rosterSiteUrl: 'https://uncbears.com/sports/baseball/roster/print'
+        },
+        omaha_baseball: {
+          id: 'omaha_baseball',
+          name: 'Omaha Mavericks',
+          shortName: 'Omaha',
+          dotColor: '#d12631',
+          file: 'omaha_baseball.json',
+          statsSiteUrl: 'https://omahamavs.com/sports/baseball/stats/2026',
+          rosterSiteUrl: 'https://omahamavs.com/sports/baseball/roster/print'
+        },
+        oral_roberts_baseball: {
+          id: 'oral_roberts_baseball',
+          name: 'Oral Roberts Golden Eagles',
+          shortName: 'Oral Roberts',
+          dotColor: '#c5b358',
+          file: 'oral_roberts_baseball.json',
+          statsSiteUrl: 'https://oruathletics.com/sports/baseball/stats/2026',
+          rosterSiteUrl: 'https://oruathletics.com/sports/baseball/roster?print=true'
+        },
+        south_dakota_state_baseball: {
+          id: 'south_dakota_state_baseball',
+          name: 'South Dakota State Jackrabbits',
+          shortName: 'South Dakota State',
+          dotColor: '#0056b3',
+          file: 'south_dakota_state_baseball.json',
+          statsSiteUrl: 'https://gojacks.com/sports/baseball/stats/2026',
+          rosterSiteUrl: 'https://gojacks.com/sports/baseball/roster/print'
+        },
+        st_thomas_baseball: {
+          id: 'st_thomas_baseball',
+          name: 'St. Thomas Tommies',
+          shortName: 'St. Thomas',
+          dotColor: '#8b5cf6',
+          file: 'st_thomas_baseball.json',
+          statsSiteUrl: 'https://tommiesports.com/sports/baseball/stats/2026',
+          rosterSiteUrl: 'https://tommiesports.com/sports/baseball/roster/print'
+        },
+        non_conf_baseball: {
+          id: 'non_conf_baseball',
+          name: 'Non-Conf Opponent',
+          shortName: 'Non-Conf',
+          dotColor: '#94a3b8',
+          file: 'non_conf_baseball.json',
+          isNonConf: true,
+          statsSiteUrl: '',
+          rosterSiteUrl: ''
+        }
+      }
     },
-    northern_colorado_men: {
-      id: 'northern_colorado_men',
-      name: 'Northern Colorado Bears',
-      shortName: 'Northern Colorado',
-      file: 'northern_colorado_men.json',
-      altFile: 'uncbears.json',
-      statsSiteUrl: 'https://uncbears.com/sports/baseball/stats/2026',
-      rosterSiteUrl: 'https://uncbears.com/sports/baseball/roster/print'
-    },
-    omaha_men: {
-      id: 'omaha_men',
-      name: 'Omaha Mavericks',
-      shortName: 'Omaha',
-      file: 'omaha_men.json',
-      altFile: 'omaha.json',
-      statsSiteUrl: 'https://omahamavs.com/sports/baseball/stats/2026',
-      rosterSiteUrl: 'https://omahamavs.com/sports/baseball/roster/print'
-    },
-    oral_roberts_men: {
-      id: 'oral_roberts_men',
-      name: 'Oral Roberts Golden Eagles',
-      shortName: 'Oral Roberts',
-      file: 'oral_roberts_men.json',
-      altFile: 'oru.json',
-      statsSiteUrl: 'https://oruathletics.com/sports/baseball/stats/2026',
-      rosterSiteUrl: 'https://oruathletics.com/sports/baseball/roster?print=true'
-    },
-    south_dakota_state_men: {
-      id: 'south_dakota_state_men',
-      name: 'South Dakota State Jackrabbits',
-      shortName: 'South Dakota State',
-      file: 'south_dakota_state_men.json',
-      altFile: 'sdstate.json',
-      statsSiteUrl: 'https://gojacks.com/sports/baseball/stats/2026',
-      rosterSiteUrl: 'https://gojacks.com/sports/baseball/roster/print'
-    },
-    st_thomas_men: {
-      id: 'st_thomas_men',
-      name: 'St. Thomas Tommies',
-      shortName: 'St. Thomas',
-      file: 'st_thomas_men.json',
-      altFile: 'baseball_stats.json',
-      statsSiteUrl: 'https://tommiesports.com/sports/baseball/stats/2026',
-      rosterSiteUrl: 'https://tommiesports.com/sports/baseball/roster/print'
-    },
-    non_conf_men: {
-      id: 'non_conf_men',
-      name: 'Non-Conf Opponent',
-      shortName: 'Non-Conf',
-      file: 'non_conf_men.json',
-      altFile: 'non_conf.json',
-      isNonConf: true,
-      statsSiteUrl: '',
-      rosterSiteUrl: ''
+    softball: {
+      sportLabel: "Softball",
+      sportEmoji: "🥎",
+      defaultTeam: "st_thomas_softball",
+      teams: {
+        kansas_city_softball: {
+          id: 'kansas_city_softball',
+          name: 'Kansas City Roos',
+          shortName: 'Kansas City',
+          dotColor: '#004b87',
+          file: 'kansas_city_softball.json',
+          statsSiteUrl: 'https://kcroos.com/sports/softball/stats/2026',
+          rosterSiteUrl: 'https://kcroos.com/sports/softball/roster/print'
+        },
+        north_dakota_softball: {
+          id: 'north_dakota_softball',
+          name: 'North Dakota Fighting Hawks',
+          shortName: 'North Dakota',
+          dotColor: '#009a44',
+          file: 'north_dakota_softball.json',
+          statsSiteUrl: 'https://fightinghawks.com/sports/softball/stats/2026',
+          rosterSiteUrl: 'https://fightinghawks.com/sports/softball/roster?print=true'
+        },
+        north_dakota_state_softball: {
+          id: 'north_dakota_state_softball',
+          name: 'North Dakota State Bison',
+          shortName: 'North Dakota State',
+          dotColor: '#007a5e',
+          file: 'north_dakota_state_softball.json',
+          statsSiteUrl: 'https://stats.gobison.com/custompages/sb/2026/teamcume.htm',
+          rosterSiteUrl: 'https://gobison.com/sports/softball/roster/print'
+        },
+        omaha_softball: {
+          id: 'omaha_softball',
+          name: 'Omaha Mavericks',
+          shortName: 'Omaha',
+          dotColor: '#d12631',
+          file: 'omaha_softball.json',
+          statsSiteUrl: 'https://omahamavs.com/sports/softball/stats/2026',
+          rosterSiteUrl: 'https://omahamavs.com/sports/softball/roster/print'
+        },
+        south_dakota_softball: {
+          id: 'south_dakota_softball',
+          name: 'South Dakota Coyotes',
+          shortName: 'South Dakota',
+          dotColor: '#c8102e',
+          file: 'south_dakota_softball.json',
+          statsSiteUrl: 'https://goyotes.com/sports/softball/stats/2026',
+          rosterSiteUrl: 'https://goyotes.com/sports/softball/roster?print=true'
+        },
+        south_dakota_state_softball: {
+          id: 'south_dakota_state_softball',
+          name: 'South Dakota State Jackrabbits',
+          shortName: 'South Dakota State',
+          dotColor: '#0056b3',
+          file: 'south_dakota_state_softball.json',
+          statsSiteUrl: 'https://gojacks.com/sports/softball/stats/2026',
+          rosterSiteUrl: 'https://gojacks.com/sports/softball/roster/print'
+        },
+        st_thomas_softball: {
+          id: 'st_thomas_softball',
+          name: 'St. Thomas Tommies',
+          shortName: 'St. Thomas',
+          dotColor: '#8b5cf6',
+          file: 'st_thomas_softball.json',
+          statsSiteUrl: 'https://tommiesports.com/sports/softball/stats/2026',
+          rosterSiteUrl: 'https://tommiesports.com/sports/softball/roster/print'
+        },
+        non_conf_softball: {
+          id: 'non_conf_softball',
+          name: 'Non-Conf Opponent',
+          shortName: 'Non-Conf',
+          dotColor: '#94a3b8',
+          file: 'non_conf_softball.json',
+          isNonConf: true,
+          statsSiteUrl: '',
+          rosterSiteUrl: ''
+        }
+      }
     }
   };
 
@@ -981,7 +1152,8 @@
     { key: 'SO',   label: 'SO' }
   ];
 
-  let CURRENT_TEAM = 'st_thomas_men';
+  let CURRENT_SPORT = 'baseball';
+  let CURRENT_TEAM = 'st_thomas_baseball';
   let RAW_DATA = null;
   let BATTING_PLAYERS = [];
   let PITCHING_PLAYERS = [];
@@ -992,6 +1164,51 @@
   let RANKS = { batting: {}, pitching: {} };
   let LOAD_TOKEN = 0;
 
+  // ── Color Mode (Dark / Light) ───────────────────────────────────────────────
+  function toggleColorMode() {
+    const htmlEl = document.documentElement;
+    const currentMode = htmlEl.getAttribute('data-color-mode') || 'dark';
+    const nextMode = currentMode === 'dark' ? 'light' : 'dark';
+    htmlEl.setAttribute('data-color-mode', nextMode);
+    document.getElementById('themeToggleLabel').textContent = nextMode === 'dark' ? '🌙 Dark' : '☀️ Light';
+  }
+
+  // ── Sport Switcher ──────────────────────────────────────────────────────────
+  function switchSport(sport) {
+    if (CURRENT_SPORT === sport) return;
+    CURRENT_SPORT = sport;
+
+    document.getElementById('btnSportBaseball').classList.toggle('active', sport === 'baseball');
+    document.getElementById('btnSportSoftball').classList.toggle('active', sport === 'softball');
+
+    const cfg = TEAMS_CONFIG[sport];
+    document.getElementById('eyebrowText').textContent = `Summit League ${cfg.sportLabel} · 2026 Season`;
+    document.getElementById('pageTitle').textContent = `Summit League ${cfg.sportLabel} Season Stats`;
+    document.getElementById('spotBattingTitle').textContent = `${cfg.sportEmoji} Batting Stats`;
+    document.getElementById('tabBattingLabel').textContent = `${cfg.sportEmoji} Batting Stats`;
+
+    renderTeamPills();
+    selectTeam(cfg.defaultTeam);
+  }
+
+  // ── Render Team Pills ───────────────────────────────────────────────────────
+  function renderTeamPills() {
+    const pillsContainer = document.getElementById('teamPills');
+    const teams = TEAMS_CONFIG[CURRENT_SPORT].teams;
+
+    pillsContainer.innerHTML = Object.values(teams).map(t => {
+      const isNC = !!t.isNonConf;
+      const dotClass = isNC ? "team-pill-dot ring" : "team-pill-dot";
+      const pillClass = `team-pill ${isNC ? 'non-conf' : ''} ${t.id === CURRENT_TEAM ? 'active' : ''}`;
+      return `
+        <button class="${pillClass}" data-team="${t.id}" onclick="selectTeam('${t.id}', this)">
+          <span class="${dotClass}" style="color:${t.dotColor}"></span>
+          <span id="${isNC ? 'nonConfPillLabel' : ''}">${t.shortName}</span>
+        </button>
+      `;
+    }).join('');
+  }
+
   // ── Switch Batting / Pitching Tab ──────────────────────────────────────────
   function switchTab(tab) {
     if (ACTIVE_TAB === tab) return;
@@ -1001,8 +1218,9 @@
     document.getElementById('btnPitchingTab').classList.toggle('active', tab === 'pitching');
 
     sortCol = null;
-    const formattedTitle = getDisplayTeamName(TEAMS[CURRENT_TEAM], RAW_DATA);
-    document.getElementById('tableTitle').textContent = `${formattedTitle} Baseball ${tab === 'batting' ? 'Batting' : 'Pitching'} Stats`;
+    const teamObj = TEAMS_CONFIG[CURRENT_SPORT].teams[CURRENT_TEAM];
+    const formattedTitle = getDisplayTeamName(teamObj, RAW_DATA);
+    document.getElementById('tableTitle').textContent = `${formattedTitle} ${TEAMS_CONFIG[CURRENT_SPORT].sportLabel} ${tab === 'batting' ? 'Batting' : 'Pitching'} Stats`;
 
     renderTable();
     if (searchNum) highlightRow(searchNum);
@@ -1010,12 +1228,14 @@
 
   // ── Switch Team ─────────────────────────────────────────────────────────────
   function selectTeam(teamId, btn) {
-    if (!TEAMS[teamId]) return;
+    const teams = TEAMS_CONFIG[CURRENT_SPORT].teams;
+    if (!teams[teamId]) return;
     CURRENT_TEAM = teamId;
 
     document.body.setAttribute('data-theme', teamId);
-    document.querySelectorAll('.team-pill').forEach(p => p.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.team-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('data-team') === teamId);
+    });
 
     resetSearchAndSpotlight();
     loadTeamData(teamId);
@@ -1028,9 +1248,9 @@
     document.getElementById('notFound').style.display = 'none';
   }
 
-  // ── Stat Parser & Helpers ───────────────────────────────────────────────────
+  // ── Stat Parser & Ranking Helpers ───────────────────────────────────────────
   function parseStat(val, key) {
-    if (val === undefined || val === null || val === '-' || val === '--' || val === '') {
+    if (val === undefined || val === null || val === '-' || val === '--' || val === '' || val === '—') {
       return -999999;
     }
     if (key === 'W-L') {
@@ -1090,7 +1310,7 @@
 
   function getDisplayTeamName(teamObj, rawJson) {
     if (teamObj.isNonConf) {
-      const opp = (rawJson && rawJson.team && rawJson.team !== 'Non-Conf') ? rawJson.team : 'Non-Conf Opponent';
+      const opp = (rawJson && rawJson.team && rawJson.team !== 'Non-Conf' && rawJson.team !== 'Non-Conference Opponent') ? rawJson.team : 'Non-Conf Opponent';
       return `${opp} (Non-Conf)`;
     }
     return teamObj.name;
@@ -1104,12 +1324,12 @@
   // ── Load Stats JSON ─────────────────────────────────────────────────────────
   async function loadTeamData(teamId) {
     const token = ++LOAD_TOKEN;
-    const team = TEAMS[teamId];
+    const team = TEAMS_CONFIG[CURRENT_SPORT].teams[teamId];
     const isNonConf = !!team.isNonConf;
 
     document.getElementById('statusDot').className = 'status-dot';
     document.getElementById('statusText').textContent = 'Loading…';
-    showTablePanel(`Loading ${esc(team.shortName)} baseball stats…`);
+    showTablePanel(`Loading ${esc(team.shortName)} ${TEAMS_CONFIG[CURRENT_SPORT].sportLabel.toLowerCase()} stats…`);
 
     if (isNonConf) {
       setLink('teamStatsLink', '');
@@ -1117,7 +1337,7 @@
     } else {
       setLink('teamStatsLink', team.statsSiteUrl, `View official ${team.shortName} stats on their athletics website`);
       setLink('teamRosterLink', team.rosterSiteUrl, `View official ${team.shortName} roster on their athletics website`);
-      document.getElementById('tableTitle').textContent = `${team.name} Baseball ${ACTIVE_TAB === 'batting' ? 'Batting' : 'Pitching'} Stats`;
+      document.getElementById('tableTitle').textContent = `${team.name} ${TEAMS_CONFIG[CURRENT_SPORT].sportLabel} ${ACTIVE_TAB === 'batting' ? 'Batting' : 'Pitching'} Stats`;
     }
 
     const jsonLinkEl = document.getElementById('teamJsonLink');
@@ -1129,9 +1349,6 @@
 
     try {
       let res = await fetch(`${team.file}?t=${Date.now()}`);
-      if (!res.ok && team.altFile) {
-        res = await fetch(`${team.altFile}?t=${Date.now()}`);
-      }
       if (token !== LOAD_TOKEN) return;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -1139,7 +1356,7 @@
       if (token !== LOAD_TOKEN) return;
       RAW_DATA = data;
 
-      // Extract Batting and Pitching arrays with legacy key compatibility
+      // Extract Batting and Pitching arrays
       if (RAW_DATA.batters || RAW_DATA.pitchers) {
         BATTING_PLAYERS = (RAW_DATA.batters || []).map(p => ({
           ...p,
@@ -1152,7 +1369,7 @@
           ...p,
           number: p.number !== undefined && p.number !== null ? String(p.number) : '',
           player: p.player || p.name || '—',
-          position: p.position || 'RHP',
+          position: p.position || (CURRENT_SPORT === 'softball' ? 'P' : 'RHP'),
           year: p.year || '—'
         }));
       } else if (RAW_DATA.hitting || RAW_DATA.pitching) {
@@ -1167,7 +1384,7 @@
           ...p,
           number: p.number !== undefined && p.number !== null ? String(p.number) : '',
           player: p.player || p.name || '—',
-          position: p.position || 'RHP',
+          position: p.position || (CURRENT_SPORT === 'softball' ? 'P' : 'RHP'),
           year: p.year || '—'
         }));
       } else if (Array.isArray(RAW_DATA)) {
@@ -1185,7 +1402,7 @@
           .map(p => ({
             number: String(p.jersey_number || ''),
             player: p.player_name || '—',
-            position: p.position || 'RHP',
+            position: p.position || (CURRENT_SPORT === 'softball' ? 'P' : 'RHP'),
             year: p.year || '—',
             ...p.pitching_stats
           }));
@@ -1200,15 +1417,17 @@
       const status = RAW_DATA.status || 'ok';
       const formattedTitle = getDisplayTeamName(team, RAW_DATA);
 
-      document.getElementById('tableTitle').textContent = `${formattedTitle} Baseball ${ACTIVE_TAB === 'batting' ? 'Batting' : 'Pitching'} Stats`;
+      document.getElementById('tableTitle').textContent = `${formattedTitle} ${TEAMS_CONFIG[CURRENT_SPORT].sportLabel} ${ACTIVE_TAB === 'batting' ? 'Batting' : 'Pitching'} Stats`;
 
       if (isNonConf) {
         const statsUrl  = RAW_DATA.source || RAW_DATA.source_stats_url || '';
         const rosterUrl = RAW_DATA.source_roster || RAW_DATA.source_roster_url || '';
-        const rawName   = (RAW_DATA.team && RAW_DATA.team !== 'Non-Conf') ? RAW_DATA.team : 'Non-Conf';
+        const rawName   = (RAW_DATA.team && RAW_DATA.team !== 'Non-Conf' && RAW_DATA.team !== 'Non-Conference Opponent') ? RAW_DATA.team : 'Non-Conf';
 
-        document.getElementById('nonConfPillLabel').textContent =
-          status === 'empty' ? 'Non-Conf' : `${rawName} (Non-Conf)`;
+        const ncLabelEl = document.getElementById('nonConfPillLabel');
+        if (ncLabelEl) {
+          ncLabelEl.textContent = status === 'empty' ? 'Non-Conf' : `${rawName} (Non-Conf)`;
+        }
 
         setLink('teamStatsLink', statsUrl, `View ${rawName} stats on their athletics website`);
         setLink('teamRosterLink', rosterUrl, `View ${rawName} roster on their athletics website`);
@@ -1219,12 +1438,11 @@
           document.getElementById('metaBar').innerHTML =
             `<strong>Non-Conf Opponent</strong> · Waiting for an opponent link`;
           showTablePanel(`
-            <span class="empty-title">No Non-Conf Baseball Opponent Loaded</span>
-            ${esc(RAW_DATA.message || 'Configure non_conf_config.json or pass via GitHub Actions workflow.')}
+            <span class="empty-title">No Non-Conf ${TEAMS_CONFIG[CURRENT_SPORT].sportLabel} Opponent Loaded</span>
+            ${esc(RAW_DATA.message || 'Configure non_conf_config.json to load an opponent.')}
             <br>
             <span class="empty-steps">
-              GitHub → Actions → "Update Baseball Stats" → Run workflow<br>
-              Paste the opponent's stats link in the input fields
+              Add the opponent's stats link to scrapers/diamondsports/non_conf_config.json
             </span>`);
           return;
         }
@@ -1236,13 +1454,13 @@
             `<strong>${esc(formattedTitle)}</strong> · Updated: ${updatedTime}`;
           showTablePanel(`
             <span class="empty-title">Couldn't read stats for ${esc(formattedTitle)}</span>
-            ${esc(RAW_DATA.message || "Make sure the link is the opponent's baseball stats page.")}
+            ${esc(RAW_DATA.message || "Make sure the link is the opponent's stats page.")}
             ${statsUrl ? `<br><small>Link used: <a href="${esc(statsUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--team-accent)">${esc(statsUrl)}</a></small>` : ''}`);
           return;
         }
 
         document.getElementById('metaBar').innerHTML =
-          `<strong>${esc(formattedTitle)}</strong> · Baseball Stats · Updated: ${updatedTime}`;
+          `<strong>${esc(formattedTitle)}</strong> · ${TEAMS_CONFIG[CURRENT_SPORT].sportLabel} Stats · Updated: ${updatedTime}`;
       } else {
         document.getElementById('metaBar').innerHTML =
           `<strong>${esc(team.name)}</strong> · Updated: ${updatedTime}`;
@@ -1262,8 +1480,8 @@
       document.getElementById('statusText').textContent = 'Error';
 
       const hint = isNonConf
-        ? `The Non-Conf file hasn't been created yet. Run the GitHub workflow once and it will appear.`
-        : `Ensure the baseball scraper has run and generated this file.`;
+        ? `The Non-Conf file hasn't been created yet. Run the workflow once and it will appear.`
+        : `Ensure the diamond sports scraper has run and generated this file.`;
 
       showTablePanel(`
         <span style="color:#f87171">Failed to load stats for ${esc(team.name)} (${esc(team.file)}).</span><br>
@@ -1357,13 +1575,14 @@
     card.style.display     = 'block';
 
     const pObj = hittingPlayer || pitchingPlayer;
-    const teamTitle = getDisplayTeamName(TEAMS[CURRENT_TEAM], RAW_DATA);
+    const teamObj = TEAMS_CONFIG[CURRENT_SPORT].teams[CURRENT_TEAM];
+    const teamTitle = getDisplayTeamName(teamObj, RAW_DATA);
 
     document.getElementById('spotJersey').textContent = pObj.number || '—';
     document.getElementById('spotYr').textContent     = pObj.year || '—';
     document.getElementById('spotPos').textContent    = pObj.position || '—';
     document.getElementById('spotName').textContent   = pObj.player || '—';
-    document.getElementById('spotSub').textContent    = `${teamTitle} · Baseball Stats`;
+    document.getElementById('spotSub').textContent    = `${teamTitle} · ${TEAMS_CONFIG[CURRENT_SPORT].sportLabel} Stats`;
 
     // Batting Card Section
     const hSection = document.getElementById('spotHittingSection');
@@ -1436,8 +1655,9 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // Initial load
-  loadTeamData('st_thomas_men');
+  // ── Initial Load ───────────────────────────────────────────────────────────
+  renderTeamPills();
+  selectTeam('st_thomas_baseball');
 </script>
 
 </body>
