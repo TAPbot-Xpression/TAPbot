@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-St. Thomas (MN) multi-sport schedule scraper (with opponent schedules).
+St. Thomas (MN) schedule scraper, south campus: Men's Basketball, Women's Basketball,
+Men's Hockey, Softball, Men's Soccer, Women's Soccer
+(with opponent schedules and Ross XPression superscript rank tags).
 
-Sports: Men's Basketball, Women's Basketball, Men's Hockey, Softball,
-        Men's Soccer, Women's Soccer.
+Same architecture as schedule_scrape.py, but for South Campus sports and saves to its
+own output file (schedule_southcampus.json).
 
 For each sport it:
   1. Pulls the schedule from the NCAA API (schedule-alt route) and keeps the
@@ -14,23 +16,19 @@ For each sport it:
 If schedule-alt doesn't have enough games, it falls back to scanning the daily
 scoreboards forward from tomorrow and stops once it has enough.
 
-Opponent override: put a team name next to a sport in config.txt (same folder as
-this script) to look up that team instead of the automatic opponent. Leave the
-line blank to use the automatic opponent.
+Opponent override: put a team name next to a sport in config_southcampus.txt (or fallback config.txt)
+in the same folder to look up that team instead of the automatic opponent.
 
-Each game has only four fields: game_id, date, home_away, opponent.
-Results are grouped by sport in schedule.json (next to this script).
-
-Opponent names: if a team is listed in OPPONENT_NAMES (see CONFIG), the name
-from that list is used. If ranked (1-25), the name is prefixed with Ross
-XPression superscript tags: '{SUP}14{}Tennessee'.
+Each game has four fields: game_id, date, home_away, opponent.
+If an opponent is ranked (1-25), the name is prefixed with Ross XPression
+superscript tags: '{SUP}14{}Opponent Name'.
 
 Usage:
-    python schedule_scrape.py                 # next 8 games per sport
-    python schedule_scrape.py --games 5       # next 5 games per sport
-    python schedule_scrape.py --season 2026   # academic year STARTING in 2026 (2026-27)
-    python schedule_scrape.py --dump          # also save raw schedule-alt responses
-    python schedule_scrape.py --scan          # skip schedule-alt, use the daily scoreboard scan
+    python schedule_scrape_southcampus.py                 # next 8 games per sport
+    python schedule_scrape_southcampus.py --games 5       # next 5 games per sport
+    python schedule_scrape_southcampus.py --season 2026   # academic year STARTING in 2026 (2026-27)
+    python schedule_scrape_southcampus.py --dump          # save raw schedule-alt responses
+    python schedule_scrape_southcampus.py --scan          # skip schedule-alt, use scoreboard scan
 """
 
 import argparse
@@ -108,8 +106,9 @@ OPPONENT_NAMES = {
 }
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-OUTPUT_FILE = SCRIPT_DIR / "schedule.json"
-CONFIG_FILE = SCRIPT_DIR / "config.txt"     # optional opponent overrides
+OUTPUT_FILE = SCRIPT_DIR / "schedule_southcampus.json"
+CONFIG_FILE = SCRIPT_DIR / "config_southcampus.txt"       # primary override file
+CONFIG_FALLBACK = SCRIPT_DIR / "config.txt"               # fallback if config_southcampus.txt isn't present
 # ----------------------------
 
 try:
@@ -165,38 +164,34 @@ def format_xpression_name(raw_name, rank_val=None):
     return clean_name
 
 
-# ---------- config.txt ----------
+# ---------- config_southcampus.txt / config.txt ----------
 def load_config():
-    """Read config.txt. Returns {sport_key: team name} for lines that have a name filled in.
-
-    Format (one line per sport, '#' lines are ignored):
-        mens_hockey = Denver
-        softball =
-    """
+    """Read config_southcampus.txt (or fallback config.txt). Returns {sport_key: team name}."""
+    cfg_file = CONFIG_FILE if CONFIG_FILE.exists() else CONFIG_FALLBACK
     cfg = {}
-    if not CONFIG_FILE.exists():
-        print("No config.txt found. Using the automatic opponent for every sport.")
+    if not cfg_file.exists():
+        print("No config file found. Using the automatic opponent for every sport.")
         return cfg
 
     valid = {s["key"] for s in SPORTS}
-    for line in CONFIG_FILE.read_text(encoding="utf-8-sig").splitlines():   # utf-8-sig handles Notepad's BOM
+    for line in cfg_file.read_text(encoding="utf-8-sig").splitlines():   # utf-8-sig handles Notepad's BOM
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
         key, val = key.strip().lower(), val.strip()
         if key not in valid:
-            print(f"config.txt: ignoring unknown sport '{key}'. Valid: {', '.join(sorted(valid))}")
+            print(f"{cfg_file.name}: ignoring unknown sport '{key}'. Valid: {', '.join(sorted(valid))}")
         elif val:
             cfg[key] = val
-    print(f"Loaded config.txt: {len(cfg)} opponent override(s).")
+    print(f"Loaded {cfg_file.name}: {len(cfg)} opponent override(s).")
     return cfg
 
 
 # ---------- HTTP ----------
 def get_json(path, retries=3):
     """GET a path; returns parsed JSON, or None on 404. Raises after retries."""
-    req = urllib.request.Request(BASE_URL + path, headers={"User-Agent": "ncaa-schedule-scraper"})
+    req = urllib.request.Request(BASE_URL + path, headers={"User-Agent": "ncaa-schedule-scraper-southcampus"})
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
@@ -371,7 +366,7 @@ def matcher_for_name(text):
 def pick_opponent(records, today, override, warn=False):
     """Choose which opponent to look up. Returns a team dict, or None.
 
-    - override given: the team matching that name (from config.txt)
+    - override given: the team matching that name (from config_southcampus.txt)
     - otherwise: St. Thomas's opponent in its next game after today
     """
     st_recs = [r for r in records
@@ -481,7 +476,7 @@ def collect_sport(sport, season, today, limit, scan_only, dump, override):
     st_games = games_for(recs, is_st_thomas, today, limit)
 
     # Opponent schedule
-    source = "config.txt" if override else "auto"
+    source = "config" if override else "auto"
     opp = pick_opponent(recs, today, override, warn=True)
     if opp is None:
         note = (f"'{override}' was not found in the API data." if override
@@ -539,7 +534,7 @@ def write_output(results):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="St. Thomas (MN) multi-sport schedule scraper")
+    ap = argparse.ArgumentParser(description="St. Thomas (MN) multi-sport schedule scraper, south campus")
     ap.add_argument("--season", type=int, default=default_season(),
                     help="academic year start, e.g. 2026 for 2026-27 (default: auto)")
     ap.add_argument("--games", type=int, default=MAX_GAMES,
