@@ -1,14 +1,27 @@
 name: Scrape Standings
 
 # Place this file at: .github/workflows/standings.yml
-# Scrapes standings and commits JSON to docs/standings/
+# Scrapes standings, commits docs/standings/data.json, then redeploys the site
+# (which publishes docs/standings/index.html along with everything else in docs/).
+#
+# Runs at 4:00 AM, 11:00 AM and 4:00 PM Central (St. Paul), all year.
+#
+# GitHub cron only understands UTC and has no daylight saving support, so each
+# run time is scheduled twice (once for CST, once for CDT). The "Check Central
+# time" step then lets only the correct one through and skips the other.
+#
+#   Target       CST (winter, UTC-6)   CDT (summer, UTC-5)
+#   4:00 AM      10:05 UTC             09:05 UTC
+#   11:00 AM     17:05 UTC             16:05 UTC
+#   4:00 PM      22:05 UTC             21:05 UTC
+#
+# Minute :05 is used instead of :00 because GitHub delays jobs most at the top of the hour.
 
 on:
   schedule:
-    # GitHub cron runs in UTC. 15:00 UTC = 9:00 AM CST / 10:00 AM CDT in St. Paul.
-    # Hockey 14:15, diamond sports 14:30, basketball 14:45, standings 15:00,
-    # so the pushes never collide.
-    - cron: "0 15 * * *"
+    - cron: "5 9,10 * * *"     # 4 AM Central
+    - cron: "5 16,17 * * *"    # 11 AM Central
+    - cron: "5 21,22 * * *"    # 4 PM Central
   workflow_dispatch:
   push:
     branches: [main]
@@ -31,10 +44,35 @@ jobs:
       changed: ${{ steps.commit.outputs.changed }}
 
     steps:
+      # Scheduled runs only continue when it is 4, 11 or 16 o'clock in Central time.
+      # Manual runs and pushes always continue.
+      - name: Check Central time
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "Not a scheduled run - continuing."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=America/Chicago date +%H)
+          echo "Current Central hour: $HOUR"
+          case "$HOUR" in
+            04|11|16)
+              echo "Target hour - continuing."
+              echo "run=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Not a target hour (4 AM / 11 AM / 4 PM Central) - skipping."
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
       - name: Checkout repository
+        if: steps.gate.outputs.run == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
+        if: steps.gate.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -42,10 +80,12 @@ jobs:
           cache-dependency-path: scrapers/standings/requirements.txt
 
       - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
         run: pip install -r scrapers/standings/requirements.txt
 
       # Only installs a browser if the standings requirements.txt lists Playwright
       - name: Install Playwright browser (if needed)
+        if: steps.gate.outputs.run == 'true'
         run: |
           if grep -qi "playwright" scrapers/standings/requirements.txt; then
             playwright install --with-deps chromium
@@ -54,10 +94,12 @@ jobs:
           fi
 
       - name: Run standings scraper
+        if: steps.gate.outputs.run == 'true'
         run: python scrapers/standings/scrape_standings.py
 
       - name: Commit JSON
         id: commit
+        if: steps.gate.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -81,6 +123,9 @@ jobs:
           echo "Could not push after 3 attempts."
           exit 1
 
+  # Calls the shared deploy workflow, which publishes all of docs/ (including
+  # docs/standings/index.html). Skipped when the gate stopped the run or when
+  # nothing changed.
   deploy:
     needs: scrape
     if: needs.scrape.outputs.changed == 'true'
