@@ -165,36 +165,6 @@
     }
 
     .container { max-width: 1400px; margin: 0 auto; }
-
-<!-- TAPbot: back to Hub Site -->
-<style>
-  .tap-back {
-    display: inline-flex; align-items: center; gap: .45rem;
-    margin: 0 0 1.25rem;
-    padding: .45rem .85rem;
-    background: var(--surface, #12141c);
-    border: 1px solid var(--border-light, var(--border, #262a3a));
-    border-radius: 999px;
-    color: var(--text-muted, #8d93a8);
-    font: 700 .82rem/1 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
-    letter-spacing: .04em;
-    text-decoration: none;
-    transition: color .15s, border-color .15s, box-shadow .15s;
-  }
-  .tap-back:hover,
-  .tap-back:focus-visible {
-    color: var(--text, #eceef5);
-    border-color: var(--team-accent, #7b3fd1);
-    box-shadow: 0 0 10px var(--team-glow, rgba(123, 63, 209, .35));
-  }
-  .tap-back:focus-visible { outline: 2px solid var(--team-accent, #7b3fd1); outline-offset: 3px; }
-  .tap-back-arrow { transition: transform .15s; }
-  .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
-</style>
-
-<a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
-  <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
-</a>
     
     /* ── Header ─────────────────────────────────────────────────────────────── */
     header {
@@ -880,6 +850,36 @@
 <body data-theme="st_thomas_mhockey" data-color-scheme="dark">
 
 <div class="container">
+
+    <!-- TAPbot: back to Hub Site -->
+<style>
+  .tap-back {
+    display: inline-flex; align-items: center; gap: .45rem;
+    margin: 0 0 1.25rem;
+    padding: .45rem .85rem;
+    background: var(--surface, #12141c);
+    border: 1px solid var(--border-light, var(--border, #262a3a));
+    border-radius: 999px;
+    color: var(--text-muted, #8d93a8);
+    font: 700 .82rem/1 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    letter-spacing: .04em;
+    text-decoration: none;
+    transition: color .15s, border-color .15s, box-shadow .15s;
+  }
+  .tap-back:hover,
+  .tap-back:focus-visible {
+    color: var(--text, #eceef5);
+    border-color: var(--team-accent, #7b3fd1);
+    box-shadow: 0 0 10px var(--team-glow, rgba(123, 63, 209, .35));
+  }
+  .tap-back:focus-visible { outline: 2px solid var(--team-accent, #7b3fd1); outline-offset: 3px; }
+  .tap-back-arrow { transition: transform .15s; }
+  .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
+</style>
+
+<a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
+  <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
+</a>
 
   <!-- Header with Theme Switcher at Top -->
   <header>
