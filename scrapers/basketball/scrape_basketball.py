@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scrape_basketball.py
+scrapers/basketball/scrape_basketball.py
 Unified Summit League Basketball player season stats and roster scraper (Men's & Women's)
 plus flexible "Non-Conf" slots for any Sidearm opponent.
 
@@ -24,14 +24,12 @@ JSON layout (identical for every team file, so Datalinq graphics can use one pat
       ]
     }
 
-Team stat keys (same order in both team_stats and conference_team_stats):
-    ppg, opp_ppg, scoring_margin, fg_pct, fg_per_game, three_pt_pct, three_pt_per_game,
-    ft_pct, ft_per_game, reb_per_game, reb_margin, ast_per_game, to_per_game,
-    ast_to_ratio, pts_off_to, stl_per_game, blk_per_game
-
 Updates applied:
+  - Resolves repository root dynamically from script path.
+  - Exclusively outputs to and reads fallback JSON from `docs/basketball/`.
+  - Resolves non_conf_config.json relative to script directory.
   - Suffix formatting fix (handles 'Williams, Jr., Fontaine' -> 'Fontaine Williams, Jr.').
-  - All Men's team output JSON files now end with '_men.json' (e.g. st_thomas_men.json, non_conf_men.json).
+  - All Men's team output JSON files now end with '_men.json'.
   - Winger (W), Guard (G), Forward (F) normalization.
   - Ordinal academic year normalization (1st, 2nd, 3rd, 4th, 5th -> FR, SO, JR, SR, GR).
 """
@@ -45,6 +43,7 @@ import logging
 import os
 import re
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -57,9 +56,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ── Dynamic Path Resolution ──────────────────────────────────────────────────
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
+OUT_DIR = REPO_ROOT / "docs" / "basketball"
+NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
+
 CONCURRENCY_LIMIT = 5
 MIN_ROSTER_ENTRIES = 8
-NON_CONF_CONFIG_PATH = "non_conf_config.json"
 NON_CONF_SLUGS = {"men": "non_conf_men", "women": "non_conf_women"}
 
 CONF_OPTION_RE = re.compile(r"^\s*conference(\s+only)?\s*$", re.I)
@@ -587,8 +591,8 @@ _CLASS_MAP = {
     "4TH": "SR", "4THYEAR": "SR", "4": "SR",
 
     # Graduate / 5th Year
-    "GR": "GR", "GRAD": "GR", "GRADUATE": "GR", "GRADUATESTUDENT": "GR",
-    "GRADSTUDENT": "GR", "GS": "GR", "FIFTH": "GR", "FIFTHYEAR": "GR",
+    "GR": "GR", "GRAD": "GR", "GRADUATE": "GR", "GRADSTUDENT": "GR",
+    "GRADUATESTUDENT": "GR", "GS": "GR", "FIFTH": "GR", "FIFTHYEAR": "GR",
     "5TH": "GR", "5THYEAR": "GR", "5": "GR",
 }
 
@@ -1002,7 +1006,7 @@ def parse_nuxt_data_stats(html: str) -> List[Dict[str, Any]]:
     patterns = [
         r'<script[^>]+id=["\']__NUXT_DATA__["\'][^>]*>(.*?)</script>',
         r"__NUXT_DATA__\s*=\s*(\[.*?\]);",
-        r"window\.__NUXT__\s*=\s*(.*?);\s*</script>",
+        r"window\.__NUXT__\s*=\s*(.*?);\s*",
     ]
 
     for pat in patterns:
@@ -1049,9 +1053,8 @@ def parse_nuxt_data_stats(html: str) -> List[Dict[str, Any]]:
 
                 c_num = clean_number(resolve(
                     item.get("playerUniform") or item.get("jersey") or item.get("number") or item.get("uniform")))
-
                 c_pos = normalize_position(resolve(item.get("position") or item.get("pos") or item.get("positionShort")))
-                c_yr  = normalize_year(resolve(
+                c_yr = normalize_year(resolve(
                     item.get("academicYear") or item.get("year") or item.get("class") or
                     item.get("academicClass") or item.get("classYear") or item.get("yearShort")
                 ))
@@ -1424,13 +1427,13 @@ def parse_old_style_html_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
 
 # ── Output Helpers ────────────────────────────────────────────────────────────
 def write_team_json(slug: str, team_data: Dict[str, Any]) -> None:
-    for dest in [f"{slug}.json", os.path.join("docs", f"{slug}.json")]:
-        with open(dest, "w", encoding="utf-8") as f:
-            json.dump(team_data, f, indent=2)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(OUT_DIR / f"{slug}.json", "w", encoding="utf-8") as f:
+        json.dump(team_data, f, indent=2)
 
 def read_existing_json(slug: str) -> Dict[str, Any]:
     try:
-        with open(os.path.join("docs", f"{slug}.json"), encoding="utf-8") as f:
+        with open(OUT_DIR / f"{slug}.json", encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, dict) else {}
     except Exception:
@@ -1689,7 +1692,7 @@ def build_non_conf_tasks(
     return tasks
 
 async def run_scraper():
-    os.makedirs("docs", exist_ok=True)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
     start_time = time.time()
