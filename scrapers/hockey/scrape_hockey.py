@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-scrapers/hockey/scrape_nchc_hockey.py
-NCHC Men's Hockey player season stats + team stats scraper.
+scrapers/hockey/scrape_hockey.py
+Multi-division collegiate ice hockey player & team stats scraper:
+  - NCHC Men's Hockey (10 conference programs + non-conference slot)
+  - WCHA Women's Hockey (8 conference programs + non-conference slot)
 
 Site styles ("style" in TEAMS_CONFIG):
   - "new"  Sidearm Nuxt/Vue (Skaters/Goaltenders dropdown + Team Stats tab)
@@ -10,18 +12,30 @@ Site styles ("style" in TEAMS_CONFIG):
 
 Output (repo-relative, resolved from this script's location):
   docs/hockey/<slug>.json
-  docs/hockey/non_conf_mhockey.json   (non-conference opponent slot)
+  docs/hockey/non_conf_mhockey.json
+  docs/hockey/non_conf_whockey.json
 
-Non-conference opponent is read from non_conf_config.json in this script's folder.
-
-Safeguard:
-  If a scrape comes back with no players (site down / layout change), the previous
-  JSON for that team is kept instead of being overwritten with empty data. If only
-  the team stats come back empty, the previous team_stats are carried forward.
+Non-conference opponents are read from non_conf_config.json in this script's folder:
+{
+  "men": {
+    "name": "Minnesota",
+    "style": "new",
+    "stats_url": "https://gophersports.com/sports/mens-ice-hockey/stats/2026-27",
+    "roster_url": "https://gophersports.com/sports/mens-ice-hockey/roster/print"
+  },
+  "women": {
+    "name": "Penn State",
+    "style": "new",
+    "stats_url": "https://gopsusports.com/sports/womens-ice-hockey/stats/2026-27",
+    "roster_url": "https://gopsusports.com/sports/womens-ice-hockey/roster/print"
+  }
+}
 
 Usage:
-  python scrapers/hockey/scrape_nchc_hockey.py
-  python scrapers/hockey/scrape_nchc_hockey.py --only "St. Thomas,Denver"
+  python scrapers/hockey/scrape_hockey.py                      # Scrape all (Men + Women)
+  python scrapers/hockey/scrape_hockey.py --gender women       # WCHA Women only
+  python scrapers/hockey/scrape_hockey.py --gender men         # NCHC Men only
+  python scrapers/hockey/scrape_hockey.py --only "St. Thomas,Minnesota"
 """
 
 from __future__ import annotations
@@ -41,7 +55,7 @@ from bs4 import BeautifulSoup
 from playwright.async_api import BrowserContext, Page, async_playwright
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("hockey_scraper")
 
 # ── Dynamic Path Resolution ──────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -50,54 +64,88 @@ OUT_DIR = REPO_ROOT / "docs" / "hockey"
 NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
 
 CONCURRENCY_LIMIT = 5
-MIN_ROSTER_ENTRIES = 10
+MIN_ROSTER_ENTRIES = 8
 
-TEAMS_CONFIG = [
+# ── Teams Registry ───────────────────────────────────────────────────────────
+TEAMS_CONFIG: List[Dict[str, Any]] = [
+    # ═════════════════════════ NCHC MEN'S HOCKEY ═════════════════════════
     {
         "name": "St. Thomas",
         "slug": "st_thomas_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
         "style": "new",
         "stats_url": "https://tommiesports.com/sports/mhockey/stats/2026-27",
         "roster_url": "https://tommiesports.com/sports/mhockey/roster/print",
     },
     {
-        "name": "Colorado College",
-        "slug": "colorado_college_mhockey",
-        "style": "old",
-        "stats_url": "https://cctigers.com/sports/mens-ice-hockey/stats/2026-2027",
-        "roster_url": "https://cctigers.com/sports/mens-ice-hockey/roster?print=true",
-    },
-    {
-        "name": "North Dakota",
-        "slug": "north_dakota_mhockey",
-        "style": "old",
-        "stats_url": "https://fightinghawks.com/sports/mens-ice-hockey/stats",
-        "roster_url": "https://fightinghawks.com/sports/mens-ice-hockey/roster?print=true",
-    },
-    {
         "name": "Arizona State",
         "slug": "arizona_state_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
         "style": "asu",
         "stats_url": "https://thesundevils.com/sports/ice-hockey/stats",
         "roster_url": "https://thesundevils.com/sports/ice-hockey/roster?view=table",
     },
     {
+        "name": "Colorado College",
+        "slug": "colorado_college_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
+        "style": "old",
+        "stats_url": "https://cctigers.com/sports/mens-ice-hockey/stats/2026-2027",
+        "roster_url": "https://cctigers.com/sports/mens-ice-hockey/roster?print=true",
+    },
+    {
         "name": "Denver",
         "slug": "denver_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
         "style": "new",
         "stats_url": "https://denverpioneers.com/sports/mens-ice-hockey/stats/2026-27",
         "roster_url": "https://denverpioneers.com/sports/mens-ice-hockey/roster/print",
     },
     {
-        "name": "Minnesota-Duluth",
+        "name": "Miami (OH)",
+        "slug": "miami_oh_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
+        "style": "new",
+        "stats_url": "https://miamiredhawks.com/sports/mens-ice-hockey/stats/2026-27",
+        "roster_url": "https://miamiredhawks.com/sports/mens-ice-hockey/roster/print",
+    },
+    {
+        "name": "Minnesota Duluth",
         "slug": "minnesota_duluth_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
         "style": "old",
         "stats_url": "https://umdbulldogs.com/sports/mens-ice-hockey/stats",
         "roster_url": "https://umdbulldogs.com/sports/mens-ice-hockey/roster?print=true",
     },
     {
+        "name": "North Dakota",
+        "slug": "north_dakota_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
+        "style": "old",
+        "stats_url": "https://fightinghawks.com/sports/mens-ice-hockey/stats",
+        "roster_url": "https://fightinghawks.com/sports/mens-ice-hockey/roster?print=true",
+    },
+    {
+        "name": "Omaha",
+        "slug": "omaha_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
+        "style": "new",
+        "stats_url": "https://omahamavs.com/sports/mens-ice-hockey/stats/2026-27",
+        "roster_url": "https://omahamavs.com/sports/mens-ice-hockey/roster/print",
+    },
+    {
         "name": "St. Cloud State",
         "slug": "st_cloud_state_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
         "style": "new",
         "stats_url": "https://scsuhuskies.com/sports/mens-ice-hockey/stats/2026-27",
         "roster_url": "https://scsuhuskies.com/sports/mens-ice-hockey/roster/print",
@@ -105,23 +153,87 @@ TEAMS_CONFIG = [
     {
         "name": "Western Michigan",
         "slug": "western_michigan_mhockey",
+        "gender": "men",
+        "conference": "NCHC",
         "style": "old",
         "stats_url": "https://wmubroncos.com/sports/mens-ice-hockey/stats",
         "roster_url": "https://wmubroncos.com/sports/mens-ice-hockey/roster?print=true",
     },
+
+    # ═════════════════════════ WCHA WOMEN'S HOCKEY ═════════════════════════
+    # New Style
     {
-        "name": "Miami (OH)",
-        "slug": "miami_oh_mhockey",
+        "name": "St. Thomas",
+        "slug": "st_thomas_whockey",
+        "gender": "women",
+        "conference": "WCHA",
         "style": "new",
-        "stats_url": "https://miamiredhawks.com/sports/mens-ice-hockey/stats/2026-27",
-        "roster_url": "https://miamiredhawks.com/sports/mens-ice-hockey/roster/print",
+        "stats_url": "https://tommiesports.com/sports/whockey/stats/2026-27",
+        "roster_url": "https://tommiesports.com/sports/whockey/roster/print",
     },
     {
-        "name": "Omaha",
-        "slug": "omaha_mhockey",
+        "name": "Minnesota",
+        "slug": "minnesota_whockey",
+        "gender": "women",
+        "conference": "WCHA",
         "style": "new",
-        "stats_url": "https://omahamavs.com/sports/mens-ice-hockey/stats/2026-27",
-        "roster_url": "https://omahamavs.com/sports/mens-ice-hockey/roster/print",
+        "stats_url": "https://gophersports.com/sports/womens-ice-hockey/stats/2026-27",
+        "roster_url": "https://gophersports.com/sports/womens-ice-hockey/roster/print",
+    },
+    {
+        "name": "Wisconsin",
+        "slug": "wisconsin_whockey",
+        "gender": "women",
+        "conference": "WCHA",
+        "style": "new",
+        "stats_url": "https://uwbadgers.com/sports/womens-ice-hockey/stats/2026-27",
+        "roster_url": "https://uwbadgers.com/sports/womens-ice-hockey/roster/print",
+    },
+    {
+        "name": "Ohio State",
+        "slug": "ohio_state_whockey",
+        "gender": "women",
+        "conference": "WCHA",
+        "style": "new",
+        "stats_url": "https://ohiostatebuckeyes.com/sports/womens-ice-hockey/stats/2026-27",
+        "roster_url": "https://ohiostatebuckeyes.com/sports/womens-ice-hockey/roster/print",
+    },
+    {
+        "name": "St. Cloud State",
+        "slug": "st_cloud_state_whockey",
+        "gender": "women",
+        "conference": "WCHA",
+        "style": "new",
+        "stats_url": "https://scsuhuskies.com/sports/womens-ice-hockey/stats/2026-27",
+        "roster_url": "https://scsuhuskies.com/sports/womens-ice-hockey/roster/print",
+    },
+    # Old Style
+    {
+        "name": "Bemidji State",
+        "slug": "bemidji_state_whockey",
+        "gender": "women",
+        "conference": "WCHA",
+        "style": "old",
+        "stats_url": "https://bsubeavers.com/sports/womens-ice-hockey/stats/2026-27",
+        "roster_url": "https://bsubeavers.com/sports/womens-ice-hockey/roster?print=true",
+    },
+    {
+        "name": "Minnesota Duluth",
+        "slug": "minnesota_duluth_whockey",
+        "gender": "women",
+        "conference": "WCHA",
+        "style": "old",
+        "stats_url": "https://umdbulldogs.com/sports/womens-ice-hockey/stats",
+        "roster_url": "https://umdbulldogs.com/sports/whockey/roster?print=true",
+    },
+    {
+        "name": "Minnesota State",
+        "slug": "minnesota_state_whockey",
+        "gender": "women",
+        "conference": "WCHA",
+        "style": "old",
+        "stats_url": "https://msumavericks.com/sports/womens-ice-hockey/stats/2026-27?path=whockey",
+        "roster_url": "https://msumavericks.com/sports/womens-ice-hockey/roster?print=true",
     },
 ]
 
@@ -135,12 +247,12 @@ DISCARD_TERMS = {
     "season", "overall", "conference", "goals", "assists", "points", "shots",
     "penalties", "penalty minutes", "power play goals", "saves", "unassigned",
     "scoring", "averages", "minutes", "view bio", "arizona st.", "arizona state",
-    "sun devils",
+    "sun devils", "minnesota", "gophers", "badgers", "buckeyes", "huskies", "beavers",
 }
 
 _POS_MAP = {
     "G": "G", "GK": "G", "GOALIE": "G", "GOALTENDER": "G", "GOALKEEPER": "G", "GOALTENDERS": "G",
-    "D": "D", "DEF": "D", "DEFENSE": "D", "DEFENSEMAN": "D", "DEFENSEMEN": "D",
+    "D": "D", "DEF": "D", "DEFENSE": "D", "DEFENSEMAN": "D", "DEFENSEMEN": "D", "DEFENSEWOMAN": "D",
     "DEFENCE": "D", "DEFENCEMAN": "D", "DMAN": "D", "LD": "D", "RD": "D",
     "F": "F", "FWD": "F", "FORWARD": "F", "C": "F", "CENTER": "F", "CENTRE": "F",
     "LW": "F", "RW": "F", "W": "F", "WING": "F", "WINGER": "F", "LEFTWING": "F", "RIGHTWING": "F",
@@ -154,11 +266,9 @@ _CLASS_MAP = {
     "GR": "GR", "GRAD": "GR", "GRADUATE": "GR", "GS": "GR", "FIFTH": "GR", "5TH": "GR",
 }
 
-
-# ── Cleaning Helpers ─────────────────────────────────────────────────────────
+# ── Cleaning & Formatting Helpers ────────────────────────────────────────────
 def now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
 
 def normalize_position(pos_str: str) -> str:
     if not pos_str:
@@ -168,7 +278,6 @@ def normalize_position(pos_str: str) -> str:
         if token in _POS_MAP:
             return _POS_MAP[token]
     return ""
-
 
 def normalize_year(yr_str: str) -> str:
     if not yr_str:
@@ -184,7 +293,6 @@ def normalize_year(yr_str: str) -> str:
                 return f"R-{base}" if base != "GR" else "GR"
     return ""
 
-
 def clean_name(raw_name: str) -> str:
     if not raw_name:
         return ""
@@ -195,11 +303,11 @@ def clean_name(raw_name: str) -> str:
     text = text.strip().rstrip(",").strip()
     if "," in text:
         parts = [p.strip() for p in text.split(",") if p.strip()]
-        last = parts[0]
-        first = " ".join(parts[1:])
-        text = f"{first} {last}"
+        if len(parts) >= 2:
+            last = parts[0]
+            first = " ".join(parts[1:])
+            text = f"{first} {last}"
     return " ".join(text.split()).strip()
-
 
 def clean_number(raw_num: Any) -> str:
     if raw_num is None:
@@ -207,7 +315,6 @@ def clean_number(raw_num: Any) -> str:
     text = str(raw_num).strip().replace("#", "")
     m = re.match(r"^(\d{1,2})$", text)
     return str(int(m.group(1))) if m else ""
-
 
 def clean_stat_int(val: Any) -> str:
     if val is None:
@@ -221,7 +328,6 @@ def clean_stat_int(val: Any) -> str:
         m = re.match(r"^(\d+)", s)
         return m.group(1) if m else "0"
 
-
 def clean_stat_pct(val: Any) -> str:
     if val is None or val == "":
         return ".000"
@@ -234,7 +340,6 @@ def clean_stat_pct(val: Any) -> str:
     except Exception:
         return s
 
-
 def clean_pn_pim(val: Any) -> str:
     if val is None:
         return "0-0"
@@ -242,10 +347,9 @@ def clean_pn_pim(val: Any) -> str:
     m = re.match(r"^(\d+)\s*[-/]\s*(\d+)$", s)
     if m:
         return f"{int(m.group(1))}-{int(m.group(2))}"
-    if re.match(r"^\d+$", s):
+    if re.fullmatch(r"^\d+$", s):
         return f"0-{int(s)}"
     return "0-0"
-
 
 def clean_w_l_t(val: Any) -> str:
     if val is None:
@@ -259,7 +363,6 @@ def clean_w_l_t(val: Any) -> str:
         return f"{w}-{l}-{t}"
     return s if s and s != "-" else "0-0-0"
 
-
 def _f(x: Any) -> Optional[float]:
     if x in (None, ""):
         return None
@@ -269,7 +372,6 @@ def _f(x: Any) -> Optional[float]:
     except Exception:
         return None
 
-
 def _pct_str(raw: Any) -> Optional[str]:
     v = _f(raw)
     if v is None:
@@ -277,7 +379,6 @@ def _pct_str(raw: Any) -> Optional[str]:
     if v <= 1.0:
         v *= 100.0
     return f"{v:.1f}%"
-
 
 def is_valid_player_candidate(name: str) -> bool:
     if not name or len(name) < 3:
@@ -291,8 +392,51 @@ def is_valid_player_candidate(name: str) -> bool:
         return False
     return True
 
+# ── Non-Conference Config Loader ─────────────────────────────────────────────
+def load_non_conf_config() -> List[Dict[str, Any]]:
+    path = NON_CONF_CONFIG_PATH
+    if not path.exists():
+        logger.info(f"{path} not found - skipping non-conference opponent loading")
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        teams = []
+        if isinstance(cfg, dict):
+            # Check for gendered blocks: "men" / "mhockey" and "women" / "whockey"
+            gender_keys = [
+                ("men", "mhockey", ["men", "mhockey"]),
+                ("women", "whockey", ["women", "whockey"])
+            ]
+            for g_label, default_slug, keys in gender_keys:
+                info = None
+                for k in keys:
+                    if k in cfg and isinstance(cfg[k], dict) and cfg[k].get("stats_url"):
+                        info = cfg[k]
+                        break
 
-# ── Output Helpers (with empty-scrape safeguard) ─────────────────────────────
+                if info:
+                    name = info.get("name") or f"Non-Conf {g_label.title()} Opponent"
+                    style = str(info.get("style") or "new").strip().lower()
+                    if style not in ("new", "old", "asu"):
+                        style = "new"
+                    teams.append({
+                        "name": name,
+                        "slug": f"non_conf_{default_slug}",
+                        "gender": g_label,
+                        "conference": "Non-Conference",
+                        "style": style,
+                        "stats_url": info["stats_url"],
+                        "roster_url": info.get("roster_url") or "",
+                    })
+                    logger.info(f"Loaded Non-Conf {g_label.title()} hockey opponent: {name}")
+
+        return teams
+    except Exception as e:
+        logger.warning(f"Could not load {path}: {e}")
+        return []
+
+# ── Output Helpers ────────────────────────────────────────────────────────────
 def read_existing_json(slug: str) -> Dict[str, Any]:
     try:
         with open(OUT_DIR / f"{slug}.json", encoding="utf-8") as f:
@@ -301,18 +445,11 @@ def read_existing_json(slug: str) -> Dict[str, Any]:
     except Exception:
         return {}
 
-
 def _has_team_stats(ts: Any) -> bool:
     return isinstance(ts, dict) and any(v not in ("-", "", None) for v in ts.values())
 
-
 def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Writes docs/hockey/<slug>.json.
-    - No players scraped + previous file has players  -> keep previous file untouched.
-    - Team stats all '-' + previous file has stats    -> carry previous team_stats forward.
-    Both rules only apply when the stats source URL hasn't changed (matters for Non-Conf).
-    """
+    """Writes docs/hockey/<slug>.json with empty scrape safeguards."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     existing = read_existing_json(slug)
     same_source = existing.get("source_stats_url") == team_data.get("source_stats_url")
@@ -330,44 +467,12 @@ def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
         json.dump(team_data, f, indent=2)
     return team_data
 
-
-# ── Non-Conference Config Loader ─────────────────────────────────────────────
-def load_non_conf_config() -> List[Dict[str, Any]]:
-    path = NON_CONF_CONFIG_PATH
-    if not path.exists():
-        logger.info(f"{path} not found - skipping non-conference team")
-        return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        teams = []
-        if isinstance(cfg, dict):
-            for key, info in cfg.items():
-                if isinstance(info, dict) and info.get("stats_url"):
-                    name = info.get("name") or "Non-Conf Opponent"
-                    style = str(info.get("style") or "new").strip().lower()
-                    if style not in ("new", "old", "asu"):
-                        style = "new"
-                    teams.append({
-                        "name": name,
-                        "slug": "non_conf_mhockey",
-                        "style": style,
-                        "stats_url": info["stats_url"],
-                        "roster_url": info.get("roster_url") or "",
-                    })
-        return teams
-    except Exception as e:
-        logger.warning(f"Could not load {path}: {e}")
-        return []
-
-
 # ── Roster Resolution Helpers ────────────────────────────────────────────────
 def _add_roster(lookup: Dict[str, Dict[str, str]], name: str, num: str, pos: str, yr: str) -> None:
     info = {"name": name, "number": num, "position": pos, "year": yr}
     lookup[name.lower()] = info
     if num != "":
         lookup[f"#{num}"] = info
-
 
 def find_roster_entry(name: str, number: str, roster_lookup: Dict[str, Dict[str, str]]) -> Optional[Dict[str, str]]:
     if not roster_lookup:
@@ -379,7 +484,6 @@ def find_roster_entry(name: str, number: str, roster_lookup: Dict[str, Dict[str,
         return roster_lookup[f"#{number}"]
     close = difflib.get_close_matches(raw_low, [k for k in roster_lookup if not k.startswith("#")], n=1, cutoff=0.72)
     return roster_lookup[close[0]] if close else None
-
 
 async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> Dict[str, Dict[str, str]]:
     roster_lookup: Dict[str, Dict[str, str]] = {}
@@ -398,7 +502,7 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
         html = await page.content()
         soup = BeautifulSoup(html, "html.parser")
 
-        # 1. Standard table rows (Print Roster & WMT ?view=table)
+        # 1. Standard table rows
         for row in soup.find_all("tr"):
             cells = [c.get_text(strip=True) for c in row.find_all(["td", "th"])]
             if len(cells) < 3:
@@ -422,7 +526,7 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
             if name_cand:
                 _add_roster(roster_lookup, name_cand, num, pos, yr)
 
-        # 2. Card / list view items (Sidearm & WMT roster card layouts)
+        # 2. Card / list view items
         for card in soup.select('[class*="roster-player"], [class*="s-person-card"], [class*="player-card"], [class*="roster__item"]'):
             name_el = card.select_one('[class*="player-name"], [class*="name"] a, a[href*="/roster/"], [class*="name"]')
             if not name_el:
@@ -449,7 +553,6 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
             await page.close()
 
     return roster_lookup
-
 
 # ── Header Normalization & Mappers ───────────────────────────────────────────
 def map_skater_header(header_text: str) -> Optional[str]:
@@ -485,7 +588,6 @@ def map_skater_header(header_text: str) -> Optional[str]:
         return "pim"
     return None
 
-
 def map_goalie_header(header_text: str) -> Optional[str]:
     hk = re.sub(r"[^A-Z0-9%/+\-]", "", header_text.strip().upper())
     if hk in ("#", "NO", "NO.", "JERSEY", "NUM", "NUMBER", "UNIFORM"):
@@ -520,8 +622,7 @@ def map_goalie_header(header_text: str) -> Optional[str]:
         return "min"
     return None
 
-
-# ── New-Style Table Parser Helpers ───────────────────────────────────────────
+# ── New-Style Table Parsers ──────────────────────────────────────────────────
 def parse_skaters_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     skaters: List[Dict[str, Any]] = []
 
@@ -587,7 +688,6 @@ def parse_skaters_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
             skaters.append(p)
 
     return skaters
-
 
 def parse_goalies_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     goalies: List[Dict[str, Any]] = []
@@ -658,7 +758,6 @@ def parse_goalies_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
             })
 
     return goalies
-
 
 # ── Section-Scoped Team Stats Parser (Sidearm New Style) ─────────────────────
 def parse_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
@@ -741,92 +840,15 @@ def parse_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
 
     return {k: found.get(k, "-") for k in TEAM_STAT_KEYS}
 
-
-# ── Arizona State (WMT Digital) Specific Team Stats Parser ───────────────────
-def parse_team_stats_asu_wmt(soup: BeautifulSoup) -> Dict[str, str]:
-    found: Dict[str, str] = {}
-    current_section = ""
-
-    rows = soup.find_all("tr")
-    for r in rows:
-        label_el = r.select_one(".stats-table__comparison-label, .body-cell--sticky, th, td:first-child")
-        if not label_el:
-            continue
-
-        label_text = " ".join(label_el.get_text(" ", strip=True).split())
-        label_clean = label_text.lower()
-
-        if "shot" in label_clean and len(r.find_all("td")) <= 1:
-            current_section = "SHOTS"
-            continue
-        elif "power play" in label_clean and len(r.find_all("td")) <= 1:
-            current_section = "POWER_PLAYS"
-            continue
-        elif "penalt" in label_clean and len(r.find_all("td")) <= 1:
-            current_section = "PENALTIES"
-            continue
-        elif "faceoff" in label_clean and len(r.find_all("td")) <= 1:
-            current_section = "FACEOFFS"
-            continue
-
-        cells = [c.get_text(" ", strip=True) for c in r.find_all("td")]
-        if len(cells) < 2:
-            continue
-
-        val_home = cells[1].strip() if len(cells) > 1 else ""
-        val_opp = cells[2].strip() if len(cells) > 2 else ""
-
-        if "goals per game" in label_clean and "goals_per_game" not in found and val_home:
-            found["goals_per_game"] = val_home
-
-        elif "shots per game" in label_clean and "shots_per_game" not in found and val_home:
-            found["shots_per_game"] = val_home
-
-        elif ("shot percentage" in label_clean or "shot %" in label_clean) and "shot_pct" not in found and val_home:
-            v = _pct_str(val_home)
-            if v:
-                found["shot_pct"] = v
-
-        elif ("power play percentage" in label_clean or "conversion percentage" in label_clean) and "pp_pct" not in found:
-            if val_home:
-                v = _pct_str(val_home)
-                if v:
-                    found["pp_pct"] = v
-            if val_opp and "pk_pct" not in found:
-                opp_f = _f(val_opp)
-                if opp_f is not None:
-                    if opp_f > 1.0:
-                        opp_f /= 100.0
-                    pk_val = (1.0 - opp_f) * 100.0
-                    found["pk_pct"] = f"{pk_val:.1f}%"
-
-        elif ("penalties per game" in label_clean or (label_clean == "per game" and current_section == "PENALTIES")) \
-                and "pen_per_game" not in found and val_home:
-            found["pen_per_game"] = val_home
-
-        elif ("penalty minutes per game" in label_clean or "minutes per game" in label_clean or "pim/g" in label_clean) \
-                and "pim_per_game" not in found and val_home:
-            found["pim_per_game"] = val_home
-
-        elif ("percentage" in label_clean or "faceoff" in label_clean) and "faceoff_pct" not in found and val_home:
-            v = _pct_str(val_home)
-            if v:
-                found["faceoff_pct"] = v
-
-    return {k: found.get(k, "-") for k in TEAM_STAT_KEYS}
-
-
 # ══ OLD-STYLE (jQuery UI tabs) SIDEARM SUPPORT ═══════════════════════════════
 def _table_caption(table) -> str:
     cap = table.find("caption")
     return cap.get_text(" ", strip=True).lower() if cap else ""
 
-
 def _candidate_tables(soup: BeautifulSoup) -> List[Any]:
     tables = soup.find_all("table")
     non_conf = [t for t in tables if "conference" not in _table_caption(t)]
     return non_conf or tables
-
 
 def _header_row_list(table) -> List[Any]:
     thead = table.find("thead")
@@ -846,7 +868,6 @@ def _header_row_list(table) -> List[Any]:
         if first:
             header_rows = [first]
     return header_rows
-
 
 def build_header_labels(table) -> Tuple[List[str], List[Any]]:
     header_rows = _header_row_list(table)
@@ -884,7 +905,6 @@ def build_header_labels(table) -> Tuple[List[str], List[Any]]:
     body_rows = [r for r in all_rows if r not in header_rows]
     return labels, body_rows
 
-
 def _grouped_mapping(table, mapper) -> Tuple[Dict[str, int], List[Any], int]:
     labels, body_rows = build_header_labels(table)
     mapping: Dict[str, int] = {}
@@ -900,11 +920,9 @@ def _grouped_mapping(table, mapper) -> Tuple[Dict[str, int], List[Any], int]:
         mapping = {k: v + shift for k, v in mapping.items() if v + shift >= 0}
     return mapping, body_rows, body_w
 
-
 def _cell(cells: List[str], mapping: Dict[str, int], key: str, default: str) -> str:
     i = mapping.get(key)
     return cells[i] if i is not None and i < len(cells) and cells[i] != "" else default
-
 
 def parse_skaters_table_grouped(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     skaters: List[Dict[str, Any]] = []
@@ -945,7 +963,6 @@ def parse_skaters_table_grouped(soup: BeautifulSoup) -> List[Dict[str, Any]]:
 
             skaters.append(p)
     return skaters
-
 
 def parse_goalies_table_grouped(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     goalies: List[Dict[str, Any]] = []
@@ -999,7 +1016,6 @@ def parse_goalies_table_grouped(soup: BeautifulSoup) -> List[Dict[str, Any]]:
             })
     return goalies
 
-
 _OLD_SECTIONS = {
     "shots": "SHOTS",
     "power plays": "POWER_PLAYS",
@@ -1010,10 +1026,8 @@ _OLD_SECTIONS = {
     "goal breakdown": "GOALS",
 }
 
-
 def _norm(text: Any) -> str:
     return " ".join(str(text).split()).lower()
-
 
 def _team_table_rows(soup: BeautifulSoup) -> List[List[str]]:
     tables = soup.find_all("table")
@@ -1026,7 +1040,6 @@ def _team_table_rows(soup: BeautifulSoup) -> List[List[str]]:
         if "goals per game" in flat or "shots per game" in flat or "conversion percentage" in flat:
             return rows
     return []
-
 
 def parse_team_stats_old(soup: BeautifulSoup) -> Dict[str, str]:
     found: Dict[str, str] = {}
@@ -1099,7 +1112,6 @@ def parse_team_stats_old(soup: BeautifulSoup) -> Dict[str, str]:
 
     return {k: found.get(k, "-") for k in TEAM_STAT_KEYS}
 
-
 async def _ensure_ui_tab(page: Page, panel_id: str) -> bool:
     tab = page.locator(f'li[role="tab"][aria-controls="{panel_id}"]').first
     try:
@@ -1116,7 +1128,6 @@ async def _ensure_ui_tab(page: Page, panel_id: str) -> bool:
     except Exception as e:
         logger.debug(f"UI tab '{panel_id}' error: {e}")
         return False
-
 
 # ── Finalize Player Dict ─────────────────────────────────────────────────────
 def finalize_player(p: Dict[str, Any]) -> Dict[str, str]:
@@ -1155,9 +1166,7 @@ def finalize_player(p: Dict[str, Any]) -> Dict[str, str]:
 
     return record
 
-
 def merge_with_roster(raw_players: List[Dict[str, Any]], roster_lookup: Dict[str, Dict[str, str]]) -> List[Dict[str, str]]:
-    """Strict roster merge shared by all three pipelines."""
     merged: List[Dict[str, str]] = []
     seen = set()
 
@@ -1181,16 +1190,17 @@ def merge_with_roster(raw_players: List[Dict[str, Any]], roster_lookup: Dict[str
 
     return merged
 
-
 def build_team_data(team_cfg: Dict[str, Any], style_label: str, team_stats: Dict[str, str],
                     merged: List[Dict[str, str]]) -> Dict[str, Any]:
     slug, label = team_cfg["slug"], team_cfg["name"]
+    gender = team_cfg.get("gender", "men")
+    conf = team_cfg.get("conference", "NCHC" if gender == "men" else "WCHA")
     return {
         "team": label,
         "slug": slug,
-        "gender": "men",
+        "gender": gender,
         "sport": "hockey",
-        "conference": "NCHC" if "non_conf" not in slug else "Non-Conference",
+        "conference": conf,
         "generated_at": now_iso(),
         "source_stats_url": team_cfg["stats_url"],
         "source_roster_url": team_cfg.get("roster_url", ""),
@@ -1199,13 +1209,13 @@ def build_team_data(team_cfg: Dict[str, Any], style_label: str, team_stats: Dict
         "players": merged,
     }
 
-
-# ── Scrape Single Team Pipeline: NEW STYLE (Vue/Nuxt dropdowns) ──────────────
+# ── Scrape Pipelines ─────────────────────────────────────────────────────────
 async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[str, Any],
                                        semaphore: asyncio.Semaphore) -> Dict[str, Any]:
     async with semaphore:
         slug, label = team_cfg["slug"], team_cfg["name"]
-        logger.info(f"Processing {label} (Men's Hockey, new style)...")
+        gender_desc = "Women's" if team_cfg.get("gender") == "women" else "Men's"
+        logger.info(f"Processing {label} ({gender_desc} Hockey, new style)...")
 
         roster_lookup = await fetch_roster(context, team_cfg.get("roster_url", ""), label)
 
@@ -1222,7 +1232,7 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
             except Exception:
                 pass
 
-            # 1. Skaters table (default active view)
+            # 1. Skaters table
             html_skaters = await page.content()
             soup_skaters = BeautifulSoup(html_skaters, "html.parser")
             raw_players.extend(parse_skaters_table(soup_skaters))
@@ -1278,13 +1288,12 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
         team_data = build_team_data(team_cfg, style, team_stats, merged)
         return write_team_json(slug, team_data)
 
-
-# ── Scrape Single Team Pipeline: OLD STYLE (jQuery UI tabs) ──────────────────
 async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[str, Any],
                                        semaphore: asyncio.Semaphore) -> Dict[str, Any]:
     async with semaphore:
         slug, label = team_cfg["slug"], team_cfg["name"]
-        logger.info(f"Processing {label} (Men's Hockey, old style)...")
+        gender_desc = "Women's" if team_cfg.get("gender") == "women" else "Men's"
+        logger.info(f"Processing {label} ({gender_desc} Hockey, old style)...")
 
         roster_lookup = await fetch_roster(context, team_cfg.get("roster_url", ""), label)
 
@@ -1333,8 +1342,73 @@ async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[s
         team_data = build_team_data(team_cfg, "Old Style (jQuery UI tabs)", team_stats, merged)
         return write_team_json(slug, team_data)
 
+# ── Arizona State (WMT Digital) Specific Team Stats Parser ───────────────────
+def parse_team_stats_asu_wmt(soup: BeautifulSoup) -> Dict[str, str]:
+    found: Dict[str, str] = {}
+    current_section = ""
 
-# ── Scrape Single Team Pipeline: ARIZONA STATE (WMT Digital) ─────────────────
+    rows = soup.find_all("tr")
+    for r in rows:
+        label_el = r.select_one(".stats-table__comparison-label, .body-cell--sticky, th, td:first-child")
+        if not label_el:
+            continue
+
+        label_text = " ".join(label_el.get_text(" ", strip=True).split())
+        label_clean = label_text.lower()
+
+        if "shot" in label_clean and len(r.find_all("td")) <= 1:
+            current_section = "SHOTS"
+            continue
+        elif "power play" in label_clean and len(r.find_all("td")) <= 1:
+            current_section = "POWER_PLAYS"
+            continue
+        elif "penalt" in label_clean and len(r.find_all("td")) <= 1:
+            current_section = "PENALTIES"
+            continue
+        elif "faceoff" in label_clean and len(r.find_all("td")) <= 1:
+            current_section = "FACEOFFS"
+            continue
+
+        cells = [c.get_text(" ", strip=True) for c in r.find_all("td")]
+        if len(cells) < 2:
+            continue
+
+        val_home = cells[1].strip() if len(cells) > 1 else ""
+        val_opp = cells[2].strip() if len(cells) > 2 else ""
+
+        if "goals per game" in label_clean and "goals_per_game" not in found and val_home:
+            found["goals_per_game"] = val_home
+        elif "shots per game" in label_clean and "shots_per_game" not in found and val_home:
+            found["shots_per_game"] = val_home
+        elif ("shot percentage" in label_clean or "shot %" in label_clean) and "shot_pct" not in found and val_home:
+            v = _pct_str(val_home)
+            if v:
+                found["shot_pct"] = v
+        elif ("power play percentage" in label_clean or "conversion percentage" in label_clean) and "pp_pct" not in found:
+            if val_home:
+                v = _pct_str(val_home)
+                if v:
+                    found["pp_pct"] = v
+            if val_opp and "pk_pct" not in found:
+                opp_f = _f(val_opp)
+                if opp_f is not None:
+                    if opp_f > 1.0:
+                        opp_f /= 100.0
+                    pk_val = (1.0 - opp_f) * 100.0
+                    found["pk_pct"] = f"{pk_val:.1f}%"
+        elif ("penalties per game" in label_clean or (label_clean == "per game" and current_section == "PENALTIES")) \
+                and "pen_per_game" not in found and val_home:
+            found["pen_per_game"] = val_home
+        elif ("penalty minutes per game" in label_clean or "minutes per game" in label_clean or "pim/g" in label_clean) \
+                and "pim_per_game" not in found and val_home:
+            found["pim_per_game"] = val_home
+        elif ("percentage" in label_clean or "faceoff" in label_clean) and "faceoff_pct" not in found and val_home:
+            v = _pct_str(val_home)
+            if v:
+                found["faceoff_pct"] = v
+
+    return {k: found.get(k, "-") for k in TEAM_STAT_KEYS}
+
 async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str, Any],
                                      semaphore: asyncio.Semaphore) -> Dict[str, Any]:
     async with semaphore:
@@ -1351,7 +1425,6 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
             page = await context.new_page()
             await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=30000)
 
-            # Allow WMT dynamic tables to mount in the DOM
             try:
                 await page.wait_for_selector(".stats-table__row, table", timeout=8000)
                 await page.wait_for_load_state("networkidle", timeout=3000)
@@ -1391,7 +1464,6 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
         team_data = build_team_data(team_cfg, "WMT Digital (Static DOM)", team_stats, merged)
         return write_team_json(slug, team_data)
 
-
 # ── Router Dispatcher ────────────────────────────────────────────────────────
 async def scrape_team(context: BrowserContext, team_cfg: Dict[str, Any],
                       semaphore: asyncio.Semaphore) -> Dict[str, Any]:
@@ -1402,17 +1474,23 @@ async def scrape_team(context: BrowserContext, team_cfg: Dict[str, Any],
         return await scrape_single_team_asu_wmt(context, team_cfg, semaphore)
     return await scrape_single_team_new_style(context, team_cfg, semaphore)
 
-
 # ── Main Runner ──────────────────────────────────────────────────────────────
-async def run_scraper(only: Optional[List[str]], debug: bool) -> None:
+async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
     teams = list(TEAMS_CONFIG) + load_non_conf_config()
+
+    # Filter by gender if requested
+    if gender_filter != "all":
+        teams = [t for t in teams if t.get("gender") == gender_filter]
+
+    # Filter by --only team name or slug
     if only:
         wanted = [o.strip().lower() for o in only if o.strip()]
-        teams = [t for t in teams if any(w in t["name"].lower() or w in t["slug"] for w in wanted)]
+        teams = [t for t in teams if any(w in t["name"].lower() or w in t["slug"].lower() for w in wanted)]
 
+    logger.info(f"=== Starting Scraping for {len(teams)} Hockey Team(s) (Gender: {gender_filter}) -> {OUT_DIR} ===")
     start = time.time()
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
@@ -1420,7 +1498,6 @@ async def run_scraper(only: Optional[List[str]], debug: bool) -> None:
             user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         )
-        logger.info(f"=== Starting Scraping for {len(teams)} Teams -> {OUT_DIR} ===")
         results = await asyncio.gather(
             *[scrape_team(context, t, semaphore) for t in teams],
             return_exceptions=True,
@@ -1429,18 +1506,23 @@ async def run_scraper(only: Optional[List[str]], debug: bool) -> None:
 
     for t, res in zip(teams, results):
         if isinstance(res, Exception):
-            logger.error(f"[{t['name']}] scrape failed: {res!r}")
+            logger.error(f"[{t['name']} ({t.get('gender')})] scrape failed: {res!r}")
 
     logger.info(f"Finished in {time.time() - start:.1f}s")
 
-
 def main() -> None:
-    ap = argparse.ArgumentParser(description="NCHC Men's Hockey stats scraper")
-    ap.add_argument("--only", help='Comma-separated team names/slugs, e.g. "St. Thomas,Denver,Arizona State"')
-    ap.add_argument("--debug", action="store_true", help="Debug mode (currently unused)")
+    ap = argparse.ArgumentParser(description="NCHC Men's and WCHA Women's Hockey Stats Scraper")
+    ap.add_argument("--gender", choices=["all", "men", "women"], default="all",
+                    help="Filter by gender (default: all)")
+    ap.add_argument("--only", help='Comma-separated team names/slugs, e.g. "St. Thomas,Minnesota,Wisconsin"')
+    ap.add_argument("--debug", action="store_true", help="Debug mode")
     args = ap.parse_args()
-    asyncio.run(run_scraper(args.only.split(",") if args.only else None, args.debug))
 
+    asyncio.run(run_scraper(
+        gender_filter=args.gender,
+        only=args.only.split(",") if args.only else None,
+        debug=args.debug
+    ))
 
 if __name__ == "__main__":
     main()
