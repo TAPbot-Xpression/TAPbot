@@ -1,0 +1,12 @@
+{
+  "men": {
+    "name": "North Central",
+    "stats_url": "https://ncurams.com/sports/mens-basketball/stats",
+    "roster_url": "https://ncurams.com/sports/mens-basketball/roster?print=true"
+  },
+  "women": {
+    "name": "Central Michigan",
+    "stats_url": "https://cmuchippewas.com/sports/womens-basketball/stats/2026-27",
+    "roster_url": "https://cmuchippewas.com/sports/womens-basketball/roster/print"
+  }
+}
