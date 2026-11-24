@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en" data-scheme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TAPbot — Broadcast Data Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ───────────────────────────────────────────────────────────────────────
+       DESIGN IDEA: a video-switcher "source bank".
+       Each sport is a source button with a tally light (green = live data,
+       amber = stale, grey = off-season, red = no data file). Control-room
+       dark by default, St. Thomas purple as the only accent.
+       ─────────────────────────────────────────────────────────────────────── */
+    :root {
+      --bg:        #0a0b10;
+      --panel:     #12141c;
+      --panel-2:   #181b26;
+      --line:      #262a3a;
+      --text:      #eceef5;
+      --muted:     #8d93a8;
+      --faint:     #565c73;
+      --purple:    #7b3fd1;       /* St. Thomas accent, brightened for dark UI */
+      --purple-glow: rgba(123, 63, 209, 0.38);
+      --live:      #2fd47a;
+      --stale:     #f5a524;
+      --off:       #6b7189;
+      --bad:       #ef4a4a;
+    }
+    [data-scheme="light"] {
+      --bg:        #eef0f6;
+      --panel:     #ffffff;
+      --panel-2:   #f5f6fb;
+      --line:      #d5d9e6;
+      --text:      #14162b;
+      --muted:     #50566e;
+      --faint:     #8a90a8;
+      --purple:    #512888;
+      --purple-glow: rgba(81, 40, 136, 0.22);
+      --live:      #14a85a;
+      --stale:     #c77d0a;
+      --off:       #7b8199;
+      --bad:       #d12f2f;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 3rem;
+      /* faint scan-line texture so the page feels like a monitor wall */
+      background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,0.015) 3px 4px);
+      transition: background-color .25s, color .25s;
+    }
+    [data-scheme="light"] body { background-image: none; }
+
+    .wrap { max-width: 1100px; margin: 0 auto; }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    header {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      gap: 1rem; flex-wrap: wrap;
+      padding-bottom: 1.25rem; border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .75rem; font-weight: 600; letter-spacing: .16em;
+      text-transform: uppercase; color: var(--purple);
+    }
+    h1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: clamp(2.2rem, 6vw, 3.8rem);
+      font-weight: 800; letter-spacing: -.01em; line-height: .95;
+      text-transform: uppercase; margin-top: .3rem;
+    }
+    h1 span { color: var(--faint); }
+
+    .theme-btn {
+      background: var(--panel); border: 1px solid var(--line); color: var(--text);
+      font-family: 'IBM Plex Mono', monospace; font-size: .78rem; font-weight: 600;
+      padding: .5rem .9rem; border-radius: 999px; cursor: pointer;
+      transition: border-color .15s;
+    }
+    .theme-btn:hover { border-color: var(--purple); }
+
+    /* ── Summary strip ────────────────────────────────────────────────────── */
+    .summary {
+      display: flex; flex-wrap: wrap; gap: .5rem 1.5rem;
+      margin: 1rem 0 1.75rem;
+      font-family: 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--muted);
+    }
+    .summary b { color: var(--text); font-weight: 600; }
+
+    /* ── Source bank ──────────────────────────────────────────────────────── */
+    .bank {
+      display: grid; gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+    }
+
+    .source {
+      position: relative; display: flex; flex-direction: column; gap: 1.1rem;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 1.25rem 1.4rem 1.3rem;
+      color: inherit; text-decoration: none; overflow: hidden;
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+    }
+    /* purple edge lights up on hover / focus like a selected source */
+    .source::before {
+      content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
+      background: var(--line); transition: background .15s, box-shadow .15s;
+    }
+    .source:hover, .source:focus-visible {
+      transform: translateY(-2px); border-color: var(--purple);
+      box-shadow: 0 8px 30px var(--purple-glow);
+    }
+    .source:hover::before, .source:focus-visible::before {
+      background: var(--purple); box-shadow: 0 0 14px var(--purple);
+    }
+    .source:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
+
+    .src-top { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+    .src-id {
+      font-family: 'IBM Plex Mono', monospace; font-size: .72rem; font-weight: 600;
+      letter-spacing: .14em; color: var(--faint);
+    }
+
+    /* tally light + status text */
+    .tally {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-family: 'IBM Plex Mono', monospace; font-size: .74rem; font-weight: 600;
+      letter-spacing: .04em; color: var(--muted);
+    }
+    .tally i {
+      width: 11px; height: 11px; border-radius: 50%; background: var(--faint);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.04);
+    }
+    .tally[data-state="live"]  i { background: var(--live);  box-shadow: 0 0 10px var(--live);  animation: pulse 2.4s ease-in-out infinite; }
+    .tally[data-state="stale"] i { background: var(--stale); box-shadow: 0 0 10px var(--stale); }
+    .tally[data-state="off"]   i { background: var(--off); }
+    .tally[data-state="bad"]   i { background: var(--bad);   box-shadow: 0 0 10px var(--bad); }
+    .tally[data-state="live"]  { color: var(--live); }
+    .tally[data-state="stale"] { color: var(--stale); }
+    .tally[data-state="bad"]   { color: var(--bad); }
+
+    @keyframes pulse { 50% { opacity: .45; } }
+
+    .src-name {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+      font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1; text-transform: uppercase;
+    }
+    .src-league { color: var(--muted); font-size: .98rem; margin-top: .3rem; }
+
+    .src-foot {
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+      margin-top: auto; padding-top: .9rem; border-top: 1px dashed var(--line);
+    }
+    .src-detail { font-family: 'IBM Plex Mono', monospace; font-size: .76rem; color: var(--faint); }
+    .src-open {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.15rem;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--purple);
+      transition: transform .15s;
+    }
+    .source:hover .src-open { transform: translateX(4px); }
+
+    footer {
+      margin-top: 2.5rem; padding-top: 1.1rem; border-top: 1px solid var(--line);
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem;
+      font-family: 'IBM Plex Mono', monospace; font-size: .76rem; color: var(--muted);
+    }
+    footer a { color: var(--purple); font-weight: 600; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">Tommie Athletic Productions · Broadcast Tool</div>
+      <h1>TAPbot <span>/ Data Hub</span></h1>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle light and dark mode">☀ Light</button>
+  </header>
+
+  <div class="summary" id="summary" aria-live="polite">Checking sources…</div>
+
+  <main class="bank" id="bank"></main>
+
+  <footer>
+    <a id="repoLink" href="#" target="_blank" rel="noopener noreferrer">TAPbot · GitHub repository ↗</a>
+    <span>Data refreshes automatically · confirm <code>generated_at</code> before going to air</span>
+  </footer>
+
+</div>
+
+<script>
+  // ══ EDIT HERE ═══════════════════════════════════════════════════════════
+  // To add a sport: copy one block, change the fields, done.
+  // To change a sport's dashboard: edit docs/<sport>/index.html — not this file.
+  //
+  // href        folder holding that sport's own dashboard (relative path)
+  // statusFile  any JSON in that folder with a timestamp, used for the tally light
+  //             (the hub checks generated_at / updated_at / last_updated / etc.)
+  // seasonMonths months (1–12) the sport is active; outside them, stale data
+  //             shows as "Off-season" instead of a warning
+  const REPO_URL = 'https://github.com/TAPbot-Xpression/TAPbot-data'; // ← update to your new repo name
+
+  const SPORTS = [
+    {
+      name: 'NCHC Hockey', league: "Men's Ice Hockey · NCHC",
+      detail: '10 programs', href: 'hockey/',
+      statusFile: 'hockey/st_thomas_mhockey.json',
+      seasonMonths: [10, 11, 12, 1, 2, 3, 4]
+    },
+    {
+      name: 'Summit Basketball', league: "Men's & Women's · Summit League",
+      detail: '8 programs × 2', href: 'basketball/',
+      statusFile: 'basketball/st_thomas_men.json',       // ← VERIFY: use a real filename from that folder
+      seasonMonths: [11, 12, 1, 2, 3]
+    },
+    {
+      name: 'Summit Baseball', league: 'Baseball · Summit League',
+      detail: '6 programs', href: 'baseball/',
+      statusFile: 'baseball/baseball_stats.json',
+      seasonMonths: [2, 3, 4, 5]
+    },
+    {
+      name: 'Standings & Polls', league: 'Conference standings · USCHO polls',
+      detail: '12 feeds', href: 'standings/',
+      statusFile: 'standings/data.json',
+      seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    }
+  ];
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const FRESH_HOURS = 36;
+  const STAMP_KEYS = ['generated_at', 'updated_at', 'last_updated', 'scraped_at', 'timestamp', 'updated', 'as_of'];
+
+  // Build the cards
+  const bank = document.getElementById('bank');
+  SPORTS.forEach((s, i) => {
+    const a = document.createElement('a');
+    a.className = 'source';
+    a.href = s.href;
+    a.innerHTML = `
+      <div class="src-top">
+        <span class="src-id">SRC ${String(i + 1).padStart(2, '0')}</span>
+        <span class="tally" data-state="checking"><i></i><span class="tally-text">Checking…</span></span>
+      </div>
+      <div>
+        <div class="src-name">${s.name}</div>
+        <div class="src-league">${s.league}</div>
+      </div>
+      <div class="src-foot">
+        <span class="src-detail">${s.detail}</span>
+        <span class="src-open">Open dashboard →</span>
+      </div>`;
+    bank.appendChild(a);
+    s._el = a;
+  });
+
+  // Find a timestamp in the JSON (top level, first array item, or one level down)
+  function findStamp(obj) {
+    if (Array.isArray(obj)) obj = obj[0];
+    if (!obj || typeof obj !== 'object') return null;
+    const pick = o => {
+      for (const k of STAMP_KEYS) {
+        if (o[k]) { const t = Date.parse(o[k]); if (!isNaN(t)) return t; }
+      }
+      return null;
+    };
+    let t = pick(obj);
+    if (t) return t;
+    for (const v of Object.values(obj)) {
+      if (v && typeof v === 'object' && !Array.isArray(v)) { t = pick(v); if (t) return t; }
+    }
+    return null;
+  }
+
+  function ago(ms) {
+    const m = Math.round(ms / 60000);
+    if (m < 60) return `${Math.max(m, 1)}m ago`;
+    const h = Math.round(m / 60);
+    if (h < 48) return `${h}h ago`;
+    return `${Math.round(h / 24)}d ago`;
+  }
+
+  function setTally(card, state, text) {
+    const t = card.querySelector('.tally');
+    t.dataset.state = state;
+    t.querySelector('.tally-text').textContent = text;
+  }
+
+  async function checkSport(s) {
+    const month = new Date().getMonth() + 1;
+    const inSeason = s.seasonMonths.includes(month);
+    try {
+      const res = await fetch(`${s.statusFile}?t=${Date.now()}`);
+      if (!res.ok) throw new Error(res.status);
+      const stamp = findStamp(await res.json());
+      if (!stamp) { setTally(s._el, 'live', 'ONLINE'); return 'live'; }
+
+      const age = Date.now() - stamp;
+      if (age <= FRESH_HOURS * 3600000) { setTally(s._el, 'live', `LIVE · ${ago(age)}`); return 'live'; }
+      if (!inSeason)                    { setTally(s._el, 'off',  `OFF-SEASON · ${ago(age)}`); return 'off'; }
+      setTally(s._el, 'stale', `STALE · ${ago(age)}`); return 'stale';
+    } catch (e) {
+      setTally(s._el, 'bad', 'NO DATA FILE');
+      return 'bad';
+    }
+  }
+
+  (async () => {
+    const states = await Promise.all(SPORTS.map(checkSport));
+    const n = k => states.filter(x => x === k).length;
+    const parts = [`<b>${SPORTS.length}</b> sources`, `<b>${n('live')}</b> live`];
+    if (n('stale')) parts.push(`<b>${n('stale')}</b> stale`);
+    if (n('off'))   parts.push(`<b>${n('off')}</b> off-season`);
+    if (n('bad'))   parts.push(`<b>${n('bad')}</b> missing`);
+    document.getElementById('summary').innerHTML = parts.map(p => `<span>${p}</span>`).join('');
+  })();
+
+  // Theme toggle (remembered between visits)
+  const root = document.documentElement, btn = document.getElementById('themeBtn');
+  function applyScheme(s) {
+    root.dataset.scheme = s;
+    btn.textContent = s === 'dark' ? '☀ Light' : '🌙 Dark';
+    localStorage.setItem('tap_scheme', s);
+  }
+  btn.addEventListener('click', () => applyScheme(root.dataset.scheme === 'dark' ? 'light' : 'dark'));
+  applyScheme(localStorage.getItem('tap_scheme') || 'dark');
+
+  document.getElementById('repoLink').href = REPO_URL;
+</script>
+</body>
+</html>
