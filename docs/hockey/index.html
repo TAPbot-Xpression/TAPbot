@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TAPbot - NCHC Hockey Stats</title>
+  <title>TAPbot - Collegiate Hockey Stats</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
@@ -63,7 +63,7 @@
       --bronze-bg:      rgba(194, 65, 12, 0.15);
     }
 
-    /* ── NCHC Team Color Palettes ────────────────────────────────────────────── */
+    /* ── NCHC Men's Team Palettes ────────────────────────────────────────────── */
     [data-theme="arizona_state_mhockey"] {
       --team-primary:   #ffc627;
       --team-accent:    #e0a800;
@@ -96,7 +96,8 @@
       --team-btn-text:  #ffffff;
     }
 
-    [data-theme="minnesota_duluth_mhockey"] {
+    [data-theme="minnesota_duluth_mhockey"],
+    [data-theme="minnesota_duluth_whockey"] {
       --team-primary:   #7a0019;
       --team-accent:    #ffc107;
       --team-glow:      rgba(255, 193, 7, 0.38);
@@ -120,7 +121,8 @@
       --team-btn-text:  #ffffff;
     }
 
-    [data-theme="st_cloud_state_mhockey"] {
+    [data-theme="st_cloud_state_mhockey"],
+    [data-theme="st_cloud_state_whockey"] {
       --team-primary:   #a6192e;
       --team-accent:    #dc2626;
       --team-glow:      rgba(220, 38, 38, 0.38);
@@ -128,7 +130,8 @@
       --team-btn-text:  #ffffff;
     }
 
-    [data-theme="st_thomas_mhockey"] {
+    [data-theme="st_thomas_mhockey"],
+    [data-theme="st_thomas_whockey"] {
       --team-primary:   #512888;
       --team-accent:    #a855f7;
       --team-glow:      rgba(168, 85, 247, 0.35);
@@ -144,7 +147,49 @@
       --team-btn-text:  #000000;
     }
 
-    [data-theme="non_conf"] {
+    /* ── WCHA Women's Team Palettes ──────────────────────────────────────────── */
+    [data-theme="bemidji_state_whockey"] {
+      --team-primary:   #004d2c;
+      --team-accent:    #22c55e;
+      --team-glow:      rgba(34, 197, 94, 0.38);
+      --team-light:     #bbf7d0;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="minnesota_whockey"] {
+      --team-primary:   #7a0019;
+      --team-accent:    #ffcc33;
+      --team-glow:      rgba(255, 204, 51, 0.4);
+      --team-light:     #fef08a;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="minnesota_state_whockey"] {
+      --team-primary:   #4b2e83;
+      --team-accent:    #f5a800;
+      --team-glow:      rgba(245, 168, 0, 0.4);
+      --team-light:     #fef3c7;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="ohio_state_whockey"] {
+      --team-primary:   #bb0000;
+      --team-accent:    #dc2626;
+      --team-glow:      rgba(220, 38, 38, 0.4);
+      --team-light:     #fecaca;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="wisconsin_whockey"] {
+      --team-primary:   #c5050c;
+      --team-accent:    #e11d48;
+      --team-glow:      rgba(225, 29, 72, 0.4);
+      --team-light:     #ffe4e6;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="non_conf_mhockey"],
+    [data-theme="non_conf_whockey"] {
       --team-primary:   #334155;
       --team-accent:    #94a3b8;
       --team-glow:      rgba(148, 163, 184, 0.30);
@@ -234,11 +279,12 @@
       margin-top: 0.25rem;
     }
 
-    /* ── Header Right Controls (Standardized Theme Switcher) ─────────────────── */
+    /* ── Header Right Controls (Division + Theme Switcher) ───────────────────── */
     .header-right-controls {
       display: flex;
-      align-items: center;
-      gap: 0.75rem;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.65rem;
       flex-shrink: 0;
     }
 
@@ -261,10 +307,10 @@
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 0.45rem 0.85rem;
+      padding: 0.4rem 0.8rem;
       border-radius: 7px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
@@ -277,6 +323,76 @@
     .control-pill-btn:hover {
       color: var(--text);
       background: var(--surface-2);
+    }
+
+    /* ── Large Primary Division Switcher ─────────────────────────────────────── */
+    .division-control-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.35rem;
+    }
+
+    .division-caption {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .division-switcher {
+      display: inline-flex;
+      background: var(--surface);
+      border: 2px solid var(--border-light);
+      padding: 5px;
+      border-radius: 14px;
+      gap: 6px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .div-btn {
+      background: transparent;
+      border: 1.5px solid transparent;
+      color: var(--text-muted);
+      padding: 0.75rem 1.4rem;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+    }
+
+    .div-btn .div-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .div-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface-2);
+      border-color: var(--border);
+    }
+
+    .div-btn.active {
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-3) 100%);
+      border-color: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      box-shadow: 0 0 18px var(--team-glow), inset 0 1px 1px rgba(255,255,255,0.2);
+      transform: scale(1.02);
+    }
+
+    @media (max-width: 1100px) {
+      .div-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.95rem;
+      }
     }
 
     /* ── Team Selector Ribbon ────────────────────────────────────────────────── */
@@ -790,7 +906,7 @@
       color: var(--text);
     }
 
-    /* ── Conference Leaderboard Grid (10 NCHC Teams) ─────────────────────────── */
+    /* ── Conference Leaderboard Grid ─────────────────────────────────────────── */
     .leaderboard-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -884,6 +1000,15 @@
       text-decoration: none;
       font-weight: 700;
     }
+
+    @media (max-width: 720px) {
+      header { flex-wrap: wrap; }
+      .header-right-controls { width: 100%; align-items: flex-start; }
+      .division-control-wrap { align-items: flex-start; width: 100%; }
+      .division-switcher { width: 100%; justify-content: center; }
+      .div-btn { flex: 1; justify-content: center; }
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+    }
   </style>
 </head>
 <body data-theme="st_thomas_mhockey">
@@ -895,7 +1020,7 @@
     <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
   </a>
 
-  <!-- Header with Theme Switcher at Top -->
+  <!-- Header with Division & Theme Switcher -->
   <header>
     <div class="wordmark">
       <span class="wordmark-eyebrow" id="eyebrowText">Tommie Athletic Productions Broadcast Operations Tool · 2026-27 Season</span>
@@ -903,12 +1028,26 @@
       <div class="meta" id="metaBar">Loading data…</div>
     </div>
 
-    <!-- Right Controls: Standardized Pill Theme Switcher -->
+    <!-- Right Controls: Standardized Pill Theme Switcher + Division Switcher -->
     <div class="header-right-controls">
       <div class="top-toolbar">
         <div class="control-pill-group" role="group" aria-label="Theme Selection">
           <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
             <span id="themeToggleLabel">🌙 Dark</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="division-control-wrap">
+        <span class="division-caption">Select Division</span>
+        <div class="division-switcher" role="tablist" aria-label="Hockey Division Switcher">
+          <button id="btnDivisionMen" class="div-btn active" onclick="switchDivision('men')">
+            <span class="div-icon">🏒</span>
+            <span>Men's Hockey</span>
+          </button>
+          <button id="btnDivisionWomen" class="div-btn" onclick="switchDivision('women')">
+            <span class="div-icon">⛸️</span>
+            <span>Women's Hockey</span>
           </button>
         </div>
       </div>
@@ -967,7 +1106,7 @@
     <div class="table-card-header">
       <div class="table-card-left">
         <div class="table-card-title-wrap">
-          <span class="table-card-title" id="tableTitle">St. Thomas Tommies Men's Stats</span>
+          <span class="table-card-title" id="tableTitle">St. Thomas Tommies Stats</span>
           <div class="header-links-group">
             <a id="teamStatsLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">Stats Site ↗</a>
             <a id="teamRosterLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">Roster Site ↗</a>
@@ -998,13 +1137,13 @@
     </div>
   </div>
 
-  <!-- Team Stat Leaderboard Spotlight Card (Rank #1 to #10) -->
+  <!-- Team Stat Leaderboard Spotlight Card -->
   <div class="spotlight-card" id="teamLeaderboardCard">
     <div class="spotlight-header">
       <div class="trophy-badge">🏆</div>
       <div class="spotlight-details">
-        <div class="spotlight-name" id="leaderboardStatTitle">NCHC Leaderboard</div>
-        <div class="spotlight-sub" id="leaderboardStatSub">NCHC Men's Hockey Comparison</div>
+        <div class="spotlight-name" id="leaderboardStatTitle">Conference Leaderboard</div>
+        <div class="spotlight-sub" id="leaderboardStatSub">Collegiate Hockey Comparison</div>
       </div>
     </div>
     <div>
@@ -1018,7 +1157,7 @@
       <div class="table-card-left">
         <div class="table-card-title-wrap">
           <span class="table-card-title" id="teamStatsCardTitle">Overall Team Stats</span>
-          <span class="search-hint" style="font-size:0.82rem; margin-left:0.4rem;">(Click any stat below to rank all NCHC programs)</span>
+          <span class="search-hint" style="font-size:0.82rem; margin-left:0.4rem;">(Click any stat below to rank conference programs)</span>
         </div>
       </div>
     </div>
@@ -1032,119 +1171,217 @@
     <a href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
       TAPbot · St. Thomas Athletics · Broadcast Operations Tool
     </a>
-    <div style="font-size:0.82rem; color:var(--text-muted);">
-      NCHC Men's Ice Hockey Statistics
+    <div id="footerSubtitle" style="font-size:0.82rem; color:var(--text-muted);">
+      Collegiate Ice Hockey Statistics
     </div>
   </footer>
 
 </div>
 
 <script>
-  // ── Team Registry (Organized Alphabetically) ───────────────────────────────
-  const TEAMS = [
-    {
-      id: 'arizona_state_mhockey',
-      name: 'Arizona State Sun Devils',
-      shortName: 'Arizona State',
-      slug: 'arizona_state_mhockey',
-      color: '#ffc627',
-      statsSiteUrl: 'https://thesundevils.com/sports/ice-hockey/stats',
-      rosterSiteUrl: 'https://thesundevils.com/sports/ice-hockey/roster?view=list'
+  // ── Teams Registry (Men's NCHC + Women's WCHA) ─────────────────────────────
+  const TEAMS_CONFIG = {
+    men: {
+      divisionLabel: "Men's Hockey",
+      conferenceLabel: "NCHC",
+      defaultSlug: "st_thomas_mhockey",
+      nonConfSlug: "non_conf_mhockey",
+      teams: [
+        {
+          id: 'arizona_state_mhockey',
+          name: 'Arizona State Sun Devils',
+          shortName: 'Arizona State',
+          slug: 'arizona_state_mhockey',
+          color: '#ffc627',
+          statsSiteUrl: 'https://thesundevils.com/sports/ice-hockey/stats',
+          rosterSiteUrl: 'https://thesundevils.com/sports/ice-hockey/roster?view=table'
+        },
+        {
+          id: 'colorado_college_mhockey',
+          name: 'Colorado College Tigers',
+          shortName: 'Colorado College',
+          slug: 'colorado_college_mhockey',
+          color: '#f5a800',
+          statsSiteUrl: 'https://cctigers.com/sports/mens-ice-hockey/stats/2026-2027',
+          rosterSiteUrl: 'https://cctigers.com/sports/mens-ice-hockey/roster?print=true'
+        },
+        {
+          id: 'denver_mhockey',
+          name: 'Denver Pioneers',
+          shortName: 'Denver',
+          slug: 'denver_mhockey',
+          color: '#8b2332',
+          statsSiteUrl: 'https://denverpioneers.com/sports/mens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://denverpioneers.com/sports/mens-ice-hockey/roster/print'
+        },
+        {
+          id: 'miami_oh_mhockey',
+          name: 'Miami (OH) RedHawks',
+          shortName: 'Miami (OH)',
+          slug: 'miami_oh_mhockey',
+          color: '#b61229',
+          statsSiteUrl: 'https://miamiredhawks.com/sports/mens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://miamiredhawks.com/sports/mens-ice-hockey/roster/print'
+        },
+        {
+          id: 'minnesota_duluth_mhockey',
+          name: 'Minnesota Duluth Bulldogs',
+          shortName: 'Minnesota Duluth',
+          slug: 'minnesota_duluth_mhockey',
+          color: '#7a0019',
+          statsSiteUrl: 'https://umdbulldogs.com/sports/mens-ice-hockey/stats',
+          rosterSiteUrl: 'https://umdbulldogs.com/sports/mens-ice-hockey/roster?print=true'
+        },
+        {
+          id: 'north_dakota_mhockey',
+          name: 'North Dakota Fighting Hawks',
+          shortName: 'North Dakota',
+          slug: 'north_dakota_mhockey',
+          color: '#009a44',
+          statsSiteUrl: 'https://fightinghawks.com/sports/mens-ice-hockey/stats',
+          rosterSiteUrl: 'https://fightinghawks.com/sports/mens-ice-hockey/roster?print=true'
+        },
+        {
+          id: 'omaha_mhockey',
+          name: 'Omaha Mavericks',
+          shortName: 'Omaha',
+          slug: 'omaha_mhockey',
+          color: '#111111',
+          statsSiteUrl: 'https://omahamavs.com/sports/mens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://omahamavs.com/sports/mens-ice-hockey/roster/print'
+        },
+        {
+          id: 'st_cloud_state_mhockey',
+          name: 'St. Cloud State Huskies',
+          shortName: 'St. Cloud State',
+          slug: 'st_cloud_state_mhockey',
+          color: '#a6192e',
+          statsSiteUrl: 'https://scsuhuskies.com/sports/mens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://scsuhuskies.com/sports/mens-ice-hockey/roster/print'
+        },
+        {
+          id: 'st_thomas_mhockey',
+          name: 'St. Thomas Tommies',
+          shortName: 'St. Thomas',
+          slug: 'st_thomas_mhockey',
+          color: '#512888',
+          statsSiteUrl: 'https://tommiesports.com/sports/mhockey/stats/2026-27',
+          rosterSiteUrl: 'https://tommiesports.com/sports/mhockey/roster/print'
+        },
+        {
+          id: 'western_michigan_mhockey',
+          name: 'Western Michigan Broncos',
+          shortName: 'Western Michigan',
+          slug: 'western_michigan_mhockey',
+          color: '#5c3a21',
+          statsSiteUrl: 'https://wmubroncos.com/sports/mens-ice-hockey/stats',
+          rosterSiteUrl: 'https://wmubroncos.com/sports/mens-ice-hockey/roster?print=true'
+        },
+        {
+          id: 'non_conf_mhockey',
+          name: 'Non-Conf Opponent',
+          shortName: 'Non-Conf',
+          slug: 'non_conf_mhockey',
+          color: '#94a3b8',
+          isNonConf: true,
+          statsSiteUrl: '',
+          rosterSiteUrl: ''
+        }
+      ]
     },
-    {
-      id: 'colorado_college_mhockey',
-      name: 'Colorado College Tigers',
-      shortName: 'Colorado College',
-      slug: 'colorado_college_mhockey',
-      color: '#f5a800',
-      statsSiteUrl: 'https://cctigers.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://cctigers.com/sports/mens-ice-hockey/roster?print=true'
-    },
-    {
-      id: 'denver_mhockey',
-      name: 'Denver Pioneers',
-      shortName: 'Denver',
-      slug: 'denver_mhockey',
-      color: '#8b2332',
-      statsSiteUrl: 'https://denverpioneers.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://denverpioneers.com/sports/mens-ice-hockey/roster/print'
-    },
-    {
-      id: 'miami_oh_mhockey',
-      name: 'Miami (OH) RedHawks',
-      shortName: 'Miami (OH)',
-      slug: 'miami_oh_mhockey',
-      color: '#b61229',
-      statsSiteUrl: 'https://miamiredhawks.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://miamiredhawks.com/sports/mens-ice-hockey/roster/print'
-    },
-    {
-      id: 'minnesota_duluth_mhockey',
-      name: 'Minnesota Duluth Bulldogs',
-      shortName: 'Minnesota Duluth',
-      slug: 'minnesota_duluth_mhockey',
-      color: '#7a0019',
-      statsSiteUrl: 'https://umdbulldogs.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://umdbulldogs.com/sports/mens-ice-hockey/roster?print=true'
-    },
-    {
-      id: 'north_dakota_mhockey',
-      name: 'North Dakota Fighting Hawks',
-      shortName: 'North Dakota',
-      slug: 'north_dakota_mhockey',
-      color: '#009a44',
-      statsSiteUrl: 'https://fightinghawks.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://fightinghawks.com/sports/mens-ice-hockey/roster?print=true'
-    },
-    {
-      id: 'omaha_mhockey',
-      name: 'Omaha Mavericks',
-      shortName: 'Omaha',
-      slug: 'omaha_mhockey',
-      color: '#111111',
-      statsSiteUrl: 'https://omahamavs.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://omahamavs.com/sports/mens-ice-hockey/roster/print'
-    },
-    {
-      id: 'st_cloud_state_mhockey',
-      name: 'St. Cloud State Huskies',
-      shortName: 'St. Cloud State',
-      slug: 'st_cloud_state_mhockey',
-      color: '#a6192e',
-      statsSiteUrl: 'https://scsuhuskies.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://scsuhuskies.com/sports/mens-ice-hockey/roster/print'
-    },
-    {
-      id: 'st_thomas_mhockey',
-      name: 'St. Thomas Tommies',
-      shortName: 'St. Thomas',
-      slug: 'st_thomas_mhockey',
-      color: '#512888',
-      statsSiteUrl: 'https://tommiesports.com/sports/mhockey/stats/2026-27',
-      rosterSiteUrl: 'https://tommiesports.com/sports/mhockey/roster/print'
-    },
-    {
-      id: 'western_michigan_mhockey',
-      name: 'Western Michigan Broncos',
-      shortName: 'Western Michigan',
-      slug: 'western_michigan_mhockey',
-      color: '#5c3a21',
-      statsSiteUrl: 'https://wmubroncos.com/sports/mens-ice-hockey/stats',
-      rosterSiteUrl: 'https://wmubroncos.com/sports/mens-ice-hockey/roster?print=true'
-    },
-    {
-      id: 'non_conf',
-      name: 'Non-Conf Opponent',
-      shortName: 'Non-Conf',
-      slug: 'non_conf_mhockey',
-      color: '#94a3b8',
-      isNonConf: true,
-      statsSiteUrl: '',
-      rosterSiteUrl: ''
+    women: {
+      divisionLabel: "Women's Hockey",
+      conferenceLabel: "WCHA",
+      defaultSlug: "st_thomas_whockey",
+      nonConfSlug: "non_conf_whockey",
+      teams: [
+        {
+          id: 'bemidji_state_whockey',
+          name: 'Bemidji State Beavers',
+          shortName: 'Bemidji State',
+          slug: 'bemidji_state_whockey',
+          color: '#004d2c',
+          statsSiteUrl: 'https://bsubeavers.com/sports/womens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://bsubeavers.com/sports/womens-ice-hockey/roster?print=true'
+        },
+        {
+          id: 'minnesota_whockey',
+          name: 'Minnesota Golden Gophers',
+          shortName: 'Minnesota',
+          slug: 'minnesota_whockey',
+          color: '#7a0019',
+          statsSiteUrl: 'https://gophersports.com/sports/womens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://gophersports.com/sports/womens-ice-hockey/roster/print'
+        },
+        {
+          id: 'minnesota_duluth_whockey',
+          name: 'Minnesota Duluth Bulldogs',
+          shortName: 'Minnesota Duluth',
+          slug: 'minnesota_duluth_whockey',
+          color: '#7a0019',
+          statsSiteUrl: 'https://umdbulldogs.com/sports/womens-ice-hockey/stats',
+          rosterSiteUrl: 'https://umdbulldogs.com/sports/whockey/roster?print=true'
+        },
+        {
+          id: 'minnesota_state_whockey',
+          name: 'Minnesota State Mavericks',
+          shortName: 'Minnesota State',
+          slug: 'minnesota_state_whockey',
+          color: '#4b2e83',
+          statsSiteUrl: 'https://msumavericks.com/sports/womens-ice-hockey/stats/2026-27?path=whockey',
+          rosterSiteUrl: 'https://msumavericks.com/sports/womens-ice-hockey/roster?print=true'
+        },
+        {
+          id: 'ohio_state_whockey',
+          name: 'Ohio State Buckeyes',
+          shortName: 'Ohio State',
+          slug: 'ohio_state_whockey',
+          color: '#bb0000',
+          statsSiteUrl: 'https://ohiostatebuckeyes.com/sports/womens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://ohiostatebuckeyes.com/sports/womens-ice-hockey/roster/print'
+        },
+        {
+          id: 'st_cloud_state_whockey',
+          name: 'St. Cloud State Huskies',
+          shortName: 'St. Cloud State',
+          slug: 'st_cloud_state_whockey',
+          color: '#a6192e',
+          statsSiteUrl: 'https://scsuhuskies.com/sports/womens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://scsuhuskies.com/sports/womens-ice-hockey/roster/print'
+        },
+        {
+          id: 'st_thomas_whockey',
+          name: 'St. Thomas Tommies',
+          shortName: 'St. Thomas',
+          slug: 'st_thomas_whockey',
+          color: '#512888',
+          statsSiteUrl: 'https://tommiesports.com/sports/whockey/stats/2026-27',
+          rosterSiteUrl: 'https://tommiesports.com/sports/whockey/roster/print'
+        },
+        {
+          id: 'wisconsin_whockey',
+          name: 'Wisconsin Badgers',
+          shortName: 'Wisconsin',
+          slug: 'wisconsin_whockey',
+          color: '#c5050c',
+          statsSiteUrl: 'https://uwbadgers.com/sports/womens-ice-hockey/stats/2026-27',
+          rosterSiteUrl: 'https://uwbadgers.com/sports/womens-ice-hockey/roster/print'
+        },
+        {
+          id: 'non_conf_whockey',
+          name: 'Non-Conf Opponent',
+          shortName: 'Non-Conf',
+          slug: 'non_conf_whockey',
+          color: '#94a3b8',
+          isNonConf: true,
+          statsSiteUrl: '',
+          rosterSiteUrl: ''
+        }
+      ]
     }
-  ];
+  };
 
-  // ── Team Stats Definitions (Interactive comparison) ────────────────────────
+  // ── Team Stats Definitions ─────────────────────────────────────────────────
   const TEAM_STAT_DEFINITIONS = [
     { key: 'goals_per_game', label: 'G/G',       desc: 'Goals Per Game',             asc: false },
     { key: 'shots_per_game', label: 'SH/G',      desc: 'Shots Per Game',             asc: false },
@@ -1181,6 +1418,7 @@
     { key: 'min',    label: 'MIN' }
   ];
 
+  let CURRENT_DIVISION = 'men';
   let CURRENT_TEAM = 'st_thomas_mhockey';
   let RAW_DATA = null;
   let PLAYERS = [];
@@ -1190,7 +1428,7 @@
   let searchNum = '';
   let RANKS = {};
   let LOAD_TOKEN = 0;
-  let NCHC_CACHE = {};
+  let HOCKEY_CACHE = {};
   let ACTIVE_COMPARE_STAT = null;
 
   // ── Color Mode (Dark / Light) ───────────────────────────────────────────────
@@ -1208,23 +1446,45 @@
     try { localStorage.setItem('tap_color_mode', mode); } catch (e) {}
   }
 
-  // ── Render Alphabetical Nav Pills ──────────────────────────────────────────
-  const pillsContainer = document.getElementById('teamPills');
-  TEAMS.forEach(team => {
-    const btn = document.createElement('button');
-    btn.className = `team-pill ${team.slug === CURRENT_TEAM ? 'active' : ''} ${team.isNonConf ? 'non-conf' : ''}`;
-    btn.dataset.team = team.slug;
-    btn.innerHTML = `<span class="team-pill-dot" style="color:${team.color}"></span> <span>${team.shortName}</span>`;
-    btn.onclick = () => selectTeam(team.slug, btn);
-    pillsContainer.appendChild(btn);
-  });
+  // ── Division Switcher ───────────────────────────────────────────────────────
+  function switchDivision(division) {
+    if (CURRENT_DIVISION === division) return;
+    CURRENT_DIVISION = division;
+
+    document.getElementById('btnDivisionMen').classList.toggle('active', division === 'men');
+    document.getElementById('btnDivisionWomen').classList.toggle('active', division === 'women');
+
+    const cfg = TEAMS_CONFIG[division];
+    document.getElementById('pageTitle').textContent = `${cfg.conferenceLabel} ${cfg.divisionLabel} Season Stats`;
+    document.getElementById('footerSubtitle').textContent = `${cfg.conferenceLabel} ${cfg.divisionLabel} Statistics`;
+
+    HOCKEY_CACHE = {};
+    renderTeamPills();
+    selectTeam(cfg.defaultSlug);
+  }
+
+  // ── Render Team Pills ───────────────────────────────────────────────────────
+  function renderTeamPills() {
+    const pillsContainer = document.getElementById('teamPills');
+    const teams = TEAMS_CONFIG[CURRENT_DIVISION].teams;
+
+    pillsContainer.innerHTML = teams.map(team => `
+      <button class="team-pill ${team.slug === CURRENT_TEAM ? 'active' : ''} ${team.isNonConf ? 'non-conf' : ''}"
+              data-team="${team.slug}"
+              onclick="selectTeam('${team.slug}', this)">
+        <span class="team-pill-dot" style="color:${team.color}"></span>
+        <span>${team.shortName}</span>
+      </button>
+    `).join('');
+  }
 
   // ── Select Team ────────────────────────────────────────────────────────────
   function selectTeam(teamSlug, btn) {
     CURRENT_TEAM = teamSlug;
     document.body.setAttribute('data-theme', teamSlug);
-    document.querySelectorAll('.team-pill').forEach(p => p.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.team-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('data-team') === teamSlug);
+    });
 
     resetSearchAndSpotlight();
     loadTeamData(teamSlug);
@@ -1242,7 +1502,8 @@
   // ── Load Team Stats JSON ───────────────────────────────────────────────────
   async function loadTeamData(teamSlug) {
     const token = ++LOAD_TOKEN;
-    const team = TEAMS.find(t => t.slug === teamSlug) || TEAMS[0];
+    const divCfg = TEAMS_CONFIG[CURRENT_DIVISION];
+    const team = divCfg.teams.find(t => t.slug === teamSlug) || divCfg.teams[0];
 
     document.getElementById('statusDot').className = 'status-dot';
     document.getElementById('statusText').textContent = 'Loading…';
@@ -1269,7 +1530,7 @@
       RAW_DATA = data;
 
       if (!team.isNonConf) {
-        NCHC_CACHE[team.slug] = data.team_stats || {};
+        HOCKEY_CACHE[team.slug] = data.team_stats || {};
       }
 
       PLAYERS = (data.players || []).map(p => ({
@@ -1302,9 +1563,10 @@
       calculateRanks();
 
       const updatedTime = RAW_DATA.generated_at ? new Date(RAW_DATA.generated_at).toLocaleString() : 'Live';
-      document.getElementById('metaBar').innerHTML = `<strong>${RAW_DATA.team || team.name}</strong> · Updated: ${updatedTime}`;
-      document.getElementById('tableTitle').textContent = `${RAW_DATA.team || team.name} Men's Stats`;
-      document.getElementById('teamStatsCardTitle').textContent = `${RAW_DATA.team || team.name} Team Stats`;
+      const teamDisplayName = RAW_DATA.team || team.name;
+      document.getElementById('metaBar').innerHTML = `<strong>${teamDisplayName}</strong> · Updated: ${updatedTime}`;
+      document.getElementById('tableTitle').textContent = `${teamDisplayName} ${divCfg.divisionLabel} Stats`;
+      document.getElementById('teamStatsCardTitle').textContent = `${teamDisplayName} Team Stats`;
       document.getElementById('statusDot').className = 'status-dot';
       document.getElementById('statusText').textContent = `${PLAYERS.length} Players`;
 
@@ -1316,19 +1578,20 @@
       document.getElementById('statusDot').className = 'status-dot';
       document.getElementById('statusDot').style.background = 'var(--red)';
       document.getElementById('statusText').textContent = 'Error';
-      showTablePanel(`<span style="color:#f87171">Failed to load stats for ${team.name} (${team.slug}.json).</span><br><small style="color:var(--text-muted)">Ensure the scraper has generated this file.</small>`);
+      showTablePanel(`<span style="color:#f87171">Failed to load stats for ${team.name} (${team.slug}.json).</span><br><small style="color:var(--text-muted)">Ensure the hockey scraper has generated this file.</small>`);
       renderTeamStatsGrid();
     }
   }
 
-  // ── Prefetch Conference Stats for Leaderboards ──────────────────────────────
+  // ── Prefetch Conference Stats for Active Division ───────────────────────────
   async function prefetchConferenceStats() {
-    await Promise.all(TEAMS.filter(t => !t.isNonConf).map(async (t) => {
+    const divTeams = TEAMS_CONFIG[CURRENT_DIVISION].teams.filter(t => !t.isNonConf);
+    await Promise.all(divTeams.map(async (t) => {
       try {
         const res = await fetch(`${t.slug}.json?t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
-          NCHC_CACHE[t.slug] = data.team_stats || {};
+          HOCKEY_CACHE[t.slug] = data.team_stats || {};
         }
       } catch (e) {}
     }));
@@ -1464,13 +1727,14 @@
     notFound.style.display = 'none';
     card.style.display     = 'block';
 
-    const currentTeamObj = TEAMS.find(t => t.slug === CURRENT_TEAM) || TEAMS[0];
+    const divCfg = TEAMS_CONFIG[CURRENT_DIVISION];
+    const currentTeamObj = divCfg.teams.find(t => t.slug === CURRENT_TEAM) || divCfg.teams[0];
 
     document.getElementById('spotJersey').textContent = player.number || '—';
     document.getElementById('spotYr').textContent     = player.year || '—';
     document.getElementById('spotPos').textContent    = player.position || (player.is_goalie ? 'G' : 'F');
     document.getElementById('spotName').textContent   = player.name || '—';
-    document.getElementById('spotSub').textContent    = `${currentTeamObj.name} · Men's Hockey`;
+    document.getElementById('spotSub').textContent    = `${currentTeamObj.name} · ${divCfg.divisionLabel}`;
 
     const grid = document.getElementById('spotStatGrid');
 
@@ -1544,13 +1808,14 @@
     }
 
     const ts = RAW_DATA.team_stats || {};
-    const isNonConf = CURRENT_TEAM === 'non_conf';
+    const isNonConf = CURRENT_TEAM.startsWith('non_conf');
+    const confLabel = TEAMS_CONFIG[CURRENT_DIVISION].conferenceLabel;
 
     grid.innerHTML = TEAM_STAT_DEFINITIONS.map(def => {
       const val = ts[def.key] || '-';
       const isActive = (!isNonConf && ACTIVE_COMPARE_STAT === def.key) ? 'active-compare' : '';
       const clickAttr = isNonConf ? '' : `onclick="displayTeamLeaderboard('${def.key}')"`;
-      const titleAttr = isNonConf ? def.desc : `Click to rank all NCHC programs for ${def.desc}`;
+      const titleAttr = isNonConf ? def.desc : `Click to rank all ${confLabel} programs for ${def.desc}`;
 
       return `<div class="team-stat-box ${isActive} ${isNonConf ? 'is-non-conf-box' : ''}" ${clickAttr} title="${titleAttr}">
         <span class="team-stat-label">${def.label}</span>
@@ -1561,7 +1826,7 @@
 
   // ── Display Interactive Conference Leaderboard ──────────────────────────────
   async function displayTeamLeaderboard(statKey) {
-    if (CURRENT_TEAM === 'non_conf') return;
+    if (CURRENT_TEAM.startsWith('non_conf')) return;
 
     ACTIVE_COMPARE_STAT = statKey;
     renderTeamStatsGrid();
@@ -1571,9 +1836,10 @@
 
     await prefetchConferenceStats();
 
-    const confTeams = TEAMS.filter(t => !t.isNonConf);
+    const divCfg = TEAMS_CONFIG[CURRENT_DIVISION];
+    const confTeams = divCfg.teams.filter(t => !t.isNonConf);
     const rankedTeams = confTeams.map(t => {
-      const stats = NCHC_CACHE[t.slug] || {};
+      const stats = HOCKEY_CACHE[t.slug] || {};
       const rawV = stats[statKey] || '-';
       const numV = parseStat(rawV);
       return {
@@ -1592,7 +1858,7 @@
 
     const card = document.getElementById('teamLeaderboardCard');
     document.getElementById('leaderboardStatTitle').textContent = `${def.desc} (${def.label})`;
-    document.getElementById('leaderboardStatSub').textContent = `NCHC Conference Leaderboard · Men's Hockey`;
+    document.getElementById('leaderboardStatSub').textContent = `${divCfg.conferenceLabel} Conference Leaderboard · ${divCfg.divisionLabel}`;
 
     const grid = document.getElementById('leaderboardGrid');
     grid.innerHTML = rankedTeams.map((t, idx) => {
@@ -1649,7 +1915,8 @@
     applyColorMode(savedMode);
   } catch (e) {}
 
-  loadTeamData(CURRENT_TEAM);
+  renderTeamPills();
+  selectTeam('st_thomas_mhockey');
   prefetchConferenceStats();
 </script>
 
