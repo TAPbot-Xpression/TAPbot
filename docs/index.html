@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TAPbot — Hub Site</title>
+  <title>TAPbot — Broadcast Operations Tool</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
@@ -12,9 +12,9 @@
     /* ───────────────────────────────────────────────────────────────────────
        DESIGN: Video-switcher style "source bank".
        Each sport is a source button with a tally light:
-       - Green = Live data (scraped within 36h)
-       - Amber = Stale data (in-season but older than 36h)
-       - Grey  = Off-season
+       - Green = Live data (scraped within 24h & in-season)
+       - Amber = Stale data (in-season but older than 24h)
+       - Grey  = Off-season (regardless of scrape timestamp)
        - Red   = Missing / No data file
        ─────────────────────────────────────────────────────────────────────── */
     :root {
@@ -317,7 +317,8 @@
   ];
   // ═══════════════════════════════════════════════════════════════════════
 
-  const FRESH_HOURS = 36;
+  // Freshness threshold updated to 24 hours
+  const FRESH_HOURS = 24;
   const STAMP_KEYS = ['generated_at', 'updated_at', 'last_updated', 'scraped_at', 'timestamp', 'updated', 'as_of'];
 
   // Build the cards
@@ -392,12 +393,28 @@
       if (!res.ok) throw new Error(res.status);
 
       const stamp = findStamp(await res.json());
-      if (!stamp) { setTally(s._el, 'live', 'ONLINE'); return 'live'; }
+      const age = stamp ? (Date.now() - stamp) : null;
 
-      const age = Date.now() - stamp;
-      if (age <= FRESH_HOURS * 3600000) { setTally(s._el, 'live', `LIVE · ${ago(age)}`); return 'live'; }
-      if (!inSeason)                    { setTally(s._el, 'off',  `OFF-SEASON · ${ago(age)}`); return 'off'; }
-      setTally(s._el, 'stale', `STALE · ${ago(age)}`); return 'stale';
+      // 1. Off-season takes precedence regardless of scrape recency
+      if (!inSeason) {
+        setTally(s._el, 'off', age !== null ? `OFF-SEASON · ${ago(age)}` : 'OFF-SEASON');
+        return 'off';
+      }
+
+      // 2. In-season checks
+      if (!stamp) {
+        setTally(s._el, 'live', 'ONLINE');
+        return 'live';
+      }
+
+      if (age <= FRESH_HOURS * 3600000) {
+        setTally(s._el, 'live', `LIVE · ${ago(age)}`);
+        return 'live';
+      }
+
+      setTally(s._el, 'stale', `STALE · ${ago(age)}`);
+      return 'stale';
+
     } catch (e) {
       setTally(s._el, 'bad', 'NO DATA FILE');
       return 'bad';
