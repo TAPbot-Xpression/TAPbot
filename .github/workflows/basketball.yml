@@ -1,4 +1,4 @@
-name: Scrape Summit Basketball
+name: Scrape Basketball
 
 # Place this file at: .github/workflows/basketball.yml
 # Scrapes Summit League men's and women's basketball and commits JSON to docs/basketball/
