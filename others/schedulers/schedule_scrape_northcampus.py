@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-St. Thomas (MN) schedule scraper, set 2: Football, Volleyball, Baseball
+St. Thomas (MN) schedule scraper, north campus: Football, Volleyball, Baseball
 (with opponent schedules and Ross XPression superscript rank tags).
 
-Same architecture as schedule_scrape.py, but for Set 2 sports and saves to its
-own output file (schedule_set2.json).
+Same architecture as schedule_scrape.py, but for North Campus sports and saves to its
+own output file (schedule_northcampus.json).
 
 For each sport it:
   1. Pulls the schedule from the NCAA API (schedule-alt route) and keeps the
@@ -16,7 +16,7 @@ If schedule-alt doesn't have enough games, it falls back to scanning:
   - Volleyball and Baseball: daily scoreboards forward from tomorrow.
   - Football: weekly scoreboards (weeks 01-16).
 
-Opponent override: put a team name next to a sport in config_set2.txt (or config.txt)
+Opponent override: put a team name next to a sport in config_northcampus.txt (or fallback config.txt)
 in the same folder to look up that team instead of the automatic opponent.
 
 Each game has four fields: game_id, date, home_away, opponent.
@@ -24,11 +24,11 @@ If an opponent is ranked (1-25), the name is prefixed with Ross XPression
 superscript tags: '{SUP}14{}Opponent Name'.
 
 Usage:
-    python schedule_scrape_set2.py                 # next 8 games per sport
-    python schedule_scrape_set2.py --games 5       # next 5 games per sport
-    python schedule_scrape_set2.py --season 2026   # academic year STARTING in 2026 (2026-27)
-    python schedule_scrape_set2.py --dump          # save raw schedule-alt responses
-    python schedule_scrape_set2.py --scan          # skip schedule-alt, use scoreboard scan
+    python schedule_scrape_northcampus.py                 # next 8 games per sport
+    python schedule_scrape_northcampus.py --games 5       # next 5 games per sport
+    python schedule_scrape_northcampus.py --season 2026   # academic year STARTING in 2026 (2026-27)
+    python schedule_scrape_northcampus.py --dump          # save raw schedule-alt responses
+    python schedule_scrape_northcampus.py --scan          # skip schedule-alt, use scoreboard scan
 """
 
 import argparse
@@ -96,9 +96,9 @@ OPPONENT_NAMES = {
 }
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-OUTPUT_FILE = SCRIPT_DIR / "schedule_set2.json"
-CONFIG_FILE = SCRIPT_DIR / "config_set2.txt"       # primary override file
-CONFIG_FALLBACK = SCRIPT_DIR / "config.txt"        # fallback if config_set2.txt isn't present
+OUTPUT_FILE = SCRIPT_DIR / "schedule_northcampus.json"
+CONFIG_FILE = SCRIPT_DIR / "config_northcampus.txt"       # primary override file
+CONFIG_FALLBACK = SCRIPT_DIR / "config.txt"              # fallback if config_northcampus.txt isn't present
 # ----------------------------
 
 try:
@@ -154,9 +154,9 @@ def format_xpression_name(raw_name, rank_val=None):
     return clean_name
 
 
-# ---------- config.txt / config_set2.txt ----------
+# ---------- config_northcampus.txt / config.txt ----------
 def load_config():
-    """Read config_set2.txt (or fallback config.txt). Returns {sport_key: team name}."""
+    """Read config_northcampus.txt (or fallback config.txt). Returns {sport_key: team name}."""
     cfg_file = CONFIG_FILE if CONFIG_FILE.exists() else CONFIG_FALLBACK
     cfg = {}
     if not cfg_file.exists():
@@ -181,7 +181,7 @@ def load_config():
 # ---------- HTTP ----------
 def get_json(path, retries=3):
     """GET a path; returns parsed JSON, or None on 404. Raises after retries."""
-    req = urllib.request.Request(BASE_URL + path, headers={"User-Agent": "ncaa-schedule-scraper-set2"})
+    req = urllib.request.Request(BASE_URL + path, headers={"User-Agent": "ncaa-schedule-scraper-northcampus"})
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
@@ -530,7 +530,7 @@ def write_output(results):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="St. Thomas (MN) schedule scraper, set 2: Football, Volleyball, Baseball")
+    ap = argparse.ArgumentParser(description="St. Thomas (MN) schedule scraper, north campus: Football, Volleyball, Baseball")
     ap.add_argument("--season", type=int, default=default_season(),
                     help="academic year start, e.g. 2026 for 2026-27 (default: auto)")
     ap.add_argument("--games", type=int, default=MAX_GAMES,
