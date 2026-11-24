@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-scraper/scrape_baseball.py
+scrapers/diamondsports/scrape_baseball.py
 Unified multi-school scraper for Summit League baseball stats & rosters.
 
 Updates:
-  - Added StatBroadcast pitching table parser for NDSU (parses ERA, W-L, IP, BB, H, SO and calculates WHIP).
-  - Fixed NDSU roster matching so jersey numbers, positions, and academic years attach to all StatBroadcast batters and pitchers.
-  - Standardized all baseball JSON output filenames and slugs to match the basketball nomenclature (_men.json).
+  - Standardized JSON output filenames and team IDs to *_baseball.json
+  - Set default destination directory to docs/diamondsports/
+  - Removed master all_teams_stats.json creation
+  - Removed St. Thomas alias file generation
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import sys
 import time
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -32,19 +34,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("baseball")
 sys.setrecursionlimit(20000)
 
-DEFAULT_DOCS_DIR = "docs"
-NON_CONF_CONFIG_PATH = "non_conf_config.json"
-NON_CONF_ID = "non_conf_men"
-NON_CONF_FILE = "non_conf_men.json"
+# Resolve repository paths relative to this script
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
+DEFAULT_DOCS_DIR = str(REPO_ROOT / "docs" / "diamondsports")
+NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
+
+NON_CONF_ID = "non_conf_baseball"
+NON_CONF_FILE = "non_conf_baseball.json"
 CONCURRENCY_LIMIT = 4
 
 BATTING_FIELDS = ["AVG", "R", "H", "2B", "3B", "HR", "RBI", "OPS", "SLG%"]
 PITCHING_FIELDS = ["ERA", "WHIP", "W-L", "IP", "SO"]
 
-# ── Summit League Baseball Programs (_men Nomenclature) ────────────────────────
+# ── Summit League Baseball Programs ───────────────────────────────────────────
 TEAMS = [
     {
-        "id": "st_thomas_men",
+        "id": "st_thomas_baseball",
         "name": "St. Thomas Tommies",
         "type": "sidearm",
         "stats_url": "https://tommiesports.com/sports/baseball/stats/{year}",
@@ -54,11 +60,10 @@ TEAMS = [
             "https://tommiesports.com/sports/baseball/roster/{year}?print=true",
             "https://tommiesports.com/sports/baseball/roster"
         ],
-        "out_file": "st_thomas_men.json",
-        "alias_file": "baseball_stats.json"
+        "out_file": "st_thomas_baseball.json"
     },
     {
-        "id": "south_dakota_state_men",
+        "id": "south_dakota_state_baseball",
         "name": "South Dakota State Jackrabbits",
         "type": "sidearm",
         "stats_url": "https://gojacks.com/sports/baseball/stats/{year}",
@@ -68,10 +73,10 @@ TEAMS = [
             "https://gojacks.com/sports/baseball/roster/{year}?print=true",
             "https://gojacks.com/sports/baseball/roster"
         ],
-        "out_file": "south_dakota_state_men.json"
+        "out_file": "south_dakota_state_baseball.json"
     },
     {
-        "id": "northern_colorado_men",
+        "id": "northern_colorado_baseball",
         "name": "Northern Colorado Bears",
         "type": "sidearm",
         "stats_url": "https://uncbears.com/sports/baseball/stats/{year}",
@@ -81,10 +86,10 @@ TEAMS = [
             "https://uncbears.com/sports/baseball/roster/{year}?print=true",
             "https://uncbears.com/sports/baseball/roster"
         ],
-        "out_file": "northern_colorado_men.json"
+        "out_file": "northern_colorado_baseball.json"
     },
     {
-        "id": "omaha_men",
+        "id": "omaha_baseball",
         "name": "Omaha Mavericks",
         "type": "sidearm",
         "stats_url": "https://omahamavs.com/sports/baseball/stats/{year}",
@@ -94,10 +99,10 @@ TEAMS = [
             "https://omahamavs.com/sports/baseball/roster/{year}?print=true",
             "https://omahamavs.com/sports/baseball/roster"
         ],
-        "out_file": "omaha_men.json"
+        "out_file": "omaha_baseball.json"
     },
     {
-        "id": "oral_roberts_men",
+        "id": "oral_roberts_baseball",
         "name": "Oral Roberts Golden Eagles",
         "type": "sidearm",
         "stats_url": "https://oruathletics.com/sports/baseball/stats/{year}",
@@ -107,10 +112,10 @@ TEAMS = [
             "https://oruathletics.com/sports/baseball/roster/print/{year}",
             "https://oruathletics.com/sports/baseball/roster"
         ],
-        "out_file": "oral_roberts_men.json"
+        "out_file": "oral_roberts_baseball.json"
     },
     {
-        "id": "north_dakota_state_men",
+        "id": "north_dakota_state_baseball",
         "name": "North Dakota State Bison",
         "type": "statbroadcast",
         "stats_url": "https://stats.gobison.com/custompages/bsb/{year}/teamcume.htm",
@@ -121,7 +126,7 @@ TEAMS = [
             "https://gobison.com/sports/baseball/roster/{year}?print=true",
             "https://gobison.com/sports/baseball/roster"
         ],
-        "out_file": "north_dakota_state_men.json"
+        "out_file": "north_dakota_state_baseball.json"
     }
 ]
 
@@ -231,7 +236,6 @@ _CLASS_BASE = {
 }
 
 def format_player_name(raw: Any) -> str:
-    """Normalizes 'Lastname, Firstname' or 'Firstname Lastname' into clean 'Firstname Lastname, Suffix'."""
     if not raw:
         return ""
     name = _s(raw)
@@ -239,8 +243,6 @@ def format_player_name(raw: Any) -> str:
     name = re.sub(r"\([^)]*\)", " ", name)
     name = name.replace('"', " ").replace("\u201c", " ").replace("\u201d", " ")
     name = re.sub(r"#\s*\d+", " ", name)
-    
-    # Strip any leading uniform numbers that leaked in
     name = re.sub(r"^\s*\d{1,2}\s+", "", name)
     name = re.sub(r"\s+", " ", name).strip()
     if not name or "@" in name or "//" in name:
@@ -271,7 +273,6 @@ def format_player_name(raw: Any) -> str:
         else:
             name = first_name or last_name
 
-    # Remove duplicated glued strings e.g. "John SmithJohn Smith"
     words = name.split()
     half = len(words) // 2
     if len(words) >= 4 and len(words) % 2 == 0 and words[:half] == words[half:]:
@@ -394,7 +395,6 @@ def parse_roster_page(html: str) -> Tuple[Dict[str, Dict[str, str]], List[Dict[s
     roster_by_num: Dict[str, Dict[str, str]] = {}
     roster_list: List[Dict[str, str]] = []
 
-    # Decompose coaching staff
     for staff in soup.find_all(class_=re.compile(r"staff|coaches|coach", re.I)):
         staff.decompose()
     for hdr in soup.find_all(["h2", "h3", "h4"], string=re.compile(r"coaching staff|coaches", re.I)):
@@ -408,7 +408,6 @@ def parse_roster_page(html: str) -> Tuple[Dict[str, Dict[str, str]], List[Dict[s
         norm_pos = normalize_position(pos)
         norm_yr = normalize_year(yr)
 
-        # Disallow inverted assignments
         if not norm_pos and normalize_position(yr):
             norm_pos = normalize_position(yr)
         if not norm_yr and normalize_year(pos):
@@ -504,7 +503,6 @@ def parse_roster_page(html: str) -> Tuple[Dict[str, Dict[str, str]], List[Dict[s
     return roster_by_num, roster_list
 
 def match_roster_meta(jersey_num: str, name: str, roster_by_num: Dict[str, Any], roster_list: List[Dict[str, Any]]) -> Tuple[str, str, str, str]:
-    """Matches player name/jersey against roster records. Returns (matched_num, clean_name, pos, yr)."""
     clean_num = _s(jersey_num).strip()
     if clean_num in roster_by_num and clean_num not in ("999", ""):
         entry = roster_by_num[clean_num]
@@ -910,6 +908,10 @@ def parse_statbroadcast(html: str, roster_by_num: Dict[str, Any], roster_list: L
                     p["pitching_stats"] = {k: pit[k] for k in PITCHING_FIELDS}
                     players_map[jersey_int] = p
 
+    hitting_list.sort(key=lambda x: x.pop("_sort", 999))
+    pitching_list.sort(key=lambda x: x.pop("_sort", 999))
+    players_sorted = [players_map[k] for k in sorted(players_map.keys())]
+
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
 
 # ── Unified Extractor Router ──────────────────────────────────────────────────
@@ -1006,10 +1008,9 @@ async def run(args: argparse.Namespace) -> None:
 
     schools_to_scrape = TEAMS
     if args.school:
-        schools_to_scrape = [t for t in TEAMS if t["id"] == args.school.lower()]
+        schools_to_scrape = [t for t in TEAMS if t["id"] == args.school.lower() or t["id"].replace("_baseball", "") == args.school.lower()]
 
     logger.info("=== Summit League Baseball Scraper [%d School(s), Season: %s] ===", len(schools_to_scrape), year)
-    all_teams_data = {}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -1040,28 +1041,11 @@ async def run(args: argparse.Namespace) -> None:
                 with open(out_path, "w", encoding="utf-8") as f:
                     json.dump(stats_payload, f, indent=2)
 
-                if "alias_file" in school:
-                    alias_path = os.path.join(docs_dir, school["alias_file"])
-                    with open(alias_path, "w", encoding="utf-8") as f:
-                        json.dump(stats_payload, f, indent=2)
-
-                all_teams_data[school["id"]] = stats_payload
                 logger.info("  ✓ Saved %d batters and %d pitchers -> %s", len(stats_payload["hitting"]), len(stats_payload["pitching"]), school["out_file"])
             except Exception as e:
                 logger.exception("  ✗ Error processing %s: %s", school["name"], e)
 
         await browser.close()
-
-    # Save Master File
-    if len(all_teams_data) > 1:
-        master_file = os.path.join(docs_dir, "all_teams_stats.json")
-        with open(master_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "season": year,
-                "teams": all_teams_data
-            }, f, indent=2)
-        logger.info("★ Master file saved: %s (%d teams)", master_file, len(all_teams_data))
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Summit League Baseball Stats Scraper")
