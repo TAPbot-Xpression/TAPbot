@@ -10,40 +10,42 @@
 
   <style>
     /* ───────────────────────────────────────────────────────────────────────
-       DESIGN IDEA: a video-switcher "source bank".
-       Each sport is a source button with a tally light (green = live data,
-       amber = stale, grey = off-season, red = no data file). Control-room
-       dark by default, St. Thomas purple as the only accent.
+       DESIGN: Video-switcher style "source bank".
+       Each sport is a source button with a tally light:
+       - Green = Live data (scraped within 36h)
+       - Amber = Stale data (in-season but older than 36h)
+       - Grey  = Off-season
+       - Red   = Missing / No data file
        ─────────────────────────────────────────────────────────────────────── */
     :root {
-      --bg:        #0a0b10;
-      --panel:     #12141c;
-      --panel-2:   #181b26;
-      --line:      #262a3a;
-      --text:      #eceef5;
-      --muted:     #8d93a8;
-      --faint:     #565c73;
-      --purple:    #7b3fd1;       /* St. Thomas accent, brightened for dark UI */
+      --bg:          #0a0b10;
+      --panel:       #12141c;
+      --panel-2:     #181b26;
+      --line:        #262a3a;
+      --text:        #eceef5;
+      --muted:       #8d93a8;
+      --faint:       #565c73;
+      --purple:      #7b3fd1;       /* St. Thomas accent */
       --purple-glow: rgba(123, 63, 209, 0.38);
-      --live:      #2fd47a;
-      --stale:     #f5a524;
-      --off:       #6b7189;
-      --bad:       #ef4a4a;
+      --live:        #2fd47a;
+      --stale:       #f5a524;
+      --off:         #6b7189;
+      --bad:         #ef4a4a;
     }
     [data-scheme="light"] {
-      --bg:        #eef0f6;
-      --panel:     #ffffff;
-      --panel-2:   #f5f6fb;
-      --line:      #d5d9e6;
-      --text:      #14162b;
-      --muted:     #50566e;
-      --faint:     #8a90a8;
-      --purple:    #512888;
+      --bg:          #eef0f6;
+      --panel:       #ffffff;
+      --panel-2:     #f5f6fb;
+      --line:        #d5d9e6;
+      --text:        #14162b;
+      --muted:       #50566e;
+      --faint:       #8a90a8;
+      --purple:      #512888;
       --purple-glow: rgba(81, 40, 136, 0.22);
-      --live:      #14a85a;
-      --stale:     #c77d0a;
-      --off:       #7b8199;
-      --bad:       #d12f2f;
+      --live:        #14a85a;
+      --stale:       #c77d0a;
+      --off:         #7b8199;
+      --bad:         #d12f2f;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -54,7 +56,6 @@
       font-family: 'Barlow', system-ui, sans-serif;
       min-height: 100vh;
       padding: 2rem 1.5rem 3rem;
-      /* faint scan-line texture so the page feels like a monitor wall */
       background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,0.015) 3px 4px);
       transition: background-color .25s, color .25s;
     }
@@ -89,7 +90,7 @@
     }
     .theme-btn:hover { border-color: var(--purple); }
 
-    /* ── Summary strip ────────────────────────────────────────────────────── */
+    /* ── Summary Strip ────────────────────────────────────────────────────── */
     .summary {
       display: flex; flex-wrap: wrap; gap: .5rem 1.5rem;
       margin: 1rem 0 1.75rem;
@@ -97,7 +98,7 @@
     }
     .summary b { color: var(--text); font-weight: 600; }
 
-    /* ── Source bank ──────────────────────────────────────────────────────── */
+    /* ── Source Bank Grid ─────────────────────────────────────────────────── */
     .bank {
       display: grid; gap: 1rem;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
@@ -110,7 +111,6 @@
       color: inherit; text-decoration: none; overflow: hidden;
       transition: transform .15s, border-color .15s, box-shadow .15s;
     }
-    /* purple edge lights up on hover / focus like a selected source */
     .source::before {
       content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
       background: var(--line); transition: background .15s, box-shadow .15s;
@@ -130,7 +130,7 @@
       letter-spacing: .14em; color: var(--faint);
     }
 
-    /* tally light + status text */
+    /* Tally light + status indicator */
     .tally {
       display: inline-flex; align-items: center; gap: .5rem;
       font-family: 'IBM Plex Mono', monospace; font-size: .74rem; font-weight: 600;
@@ -168,6 +168,7 @@
     }
     .source:hover .src-open { transform: translateX(4px); }
 
+    /* ── Footer ───────────────────────────────────────────────────────────── */
     footer {
       margin-top: 2.5rem; padding-top: 1.1rem; border-top: 1px solid var(--line);
       display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem;
@@ -197,49 +198,47 @@
   <main class="bank" id="bank"></main>
 
   <footer>
-    <a id="repoLink" href="#" target="_blank" rel="noopener noreferrer">TAPbot · GitHub repository ↗</a>
+    <a id="repoLink" href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">TAPbot · GitHub repository ↗</a>
     <span>Data refreshes automatically · confirm <code>generated_at</code> before going to air</span>
   </footer>
 
 </div>
 
 <script>
-  // ══ EDIT HERE ═══════════════════════════════════════════════════════════
-  // To add a sport: copy one block, change the fields, done.
-  // To change a sport's dashboard: edit docs/<sport>/index.html — not this file.
-  //
-  // href        folder holding that sport's own dashboard (relative path)
-  // statusFile  any JSON in that folder with a timestamp, used for the tally light
-  //             (the hub checks generated_at / updated_at / last_updated / etc.)
-  // seasonMonths months (1–12) the sport is active; outside them, stale data
-  //             shows as "Off-season" instead of a warning
-  const REPO_URL = 'https://github.com/TAPbot-Xpression/TAPbot-data'; // ← update to your new repo name
+  // ══ HUB SITE CONFIGURATION ══════════════════════════════════════════════
+  const REPO_URL = 'https://github.com/TAPbot-Xpression/TAPbot';
 
   const SPORTS = [
     {
-      name: 'NCHC Hockey', league: "Men's Ice Hockey · NCHC",
-      detail: '10 programs + Non Conf', href: 'hockey/',
+      name: 'NCHC Hockey',
+      league: "Men's Ice Hockey · NCHC",
+      detail: '10 programs + Non Conf',
+      href: 'hockey/',
       statusFile: 'hockey/st_thomas_mhockey.json',
       seasonMonths: [10, 11, 12, 1, 2, 3, 4]
     },
     {
-      name: 'Summit Basketball', league: "Men's & Women's · Summit League",
-      detail: '16 programs + Non Conf', href: 'basketball/',
-      statusFile: 'basketball/st_thomas_men.json',       // ← VERIFY: use a real filename from that folder
+      name: 'Summit Basketball',
+      league: "Men's & Women's · Summit League",
+      detail: '16 programs + Non Conf',
+      href: 'basketball/',
+      statusFile: 'basketball/st_thomas_men.json',
       seasonMonths: [11, 12, 1, 2, 3]
     },
     {
-      // Folder renamed baseball → diamondsports so Softball can live here later.
-      // When Softball is added, update league/detail below. If softball has a
-      // different season, split it into its own entry in this array.
-      name: 'Diamond Sports', league: 'Baseball · Summit League',
-      detail: '6 BSB programs + 7 SB programs + Non Conf', href: 'diamondsports/',
-      statusFile: 'diamondsports/baseball_stats.json',   // ← VERIFY: use a real filename from that folder
-      seasonMonths: [2, 3, 4, 5]
+      name: 'Diamond Sports',
+      league: 'Baseball & Softball · Summit League',
+      detail: '6 BSB + 7 SB programs + Non Conf',
+      href: 'diamondsports/',
+      statusFile: 'diamondsports/st_thomas_baseball.json',
+      fallbackStatusFile: 'diamondsports/st_thomas_softball.json',
+      seasonMonths: [2, 3, 4, 5, 6]
     },
     {
-      name: 'Standings & Polls', league: 'Conference standings + USCHO polls',
-      detail: '12 feeds', href: 'standings/',
+      name: 'Standings & Polls',
+      league: 'Conference standings + USCHO polls',
+      detail: '12 feeds',
+      href: 'standings/',
       statusFile: 'standings/data.json',
       seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     }
@@ -272,20 +271,26 @@
     s._el = a;
   });
 
-  // Find a timestamp in the JSON (top level, first array item, or one level down)
+  // Find a timestamp in the JSON (top level, first array item, or nested in object)
   function findStamp(obj) {
     if (Array.isArray(obj)) obj = obj[0];
     if (!obj || typeof obj !== 'object') return null;
     const pick = o => {
       for (const k of STAMP_KEYS) {
-        if (o[k]) { const t = Date.parse(o[k]); if (!isNaN(t)) return t; }
+        if (o[k]) {
+          const t = Date.parse(o[k]);
+          if (!isNaN(t)) return t;
+        }
       }
       return null;
     };
     let t = pick(obj);
     if (t) return t;
     for (const v of Object.values(obj)) {
-      if (v && typeof v === 'object' && !Array.isArray(v)) { t = pick(v); if (t) return t; }
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        t = pick(v);
+        if (t) return t;
+      }
     }
     return null;
   }
@@ -308,8 +313,12 @@
     const month = new Date().getMonth() + 1;
     const inSeason = s.seasonMonths.includes(month);
     try {
-      const res = await fetch(`${s.statusFile}?t=${Date.now()}`);
+      let res = await fetch(`${s.statusFile}?t=${Date.now()}`);
+      if (!res.ok && s.fallbackStatusFile) {
+        res = await fetch(`${s.fallbackStatusFile}?t=${Date.now()}`);
+      }
       if (!res.ok) throw new Error(res.status);
+
       const stamp = findStamp(await res.json());
       if (!stamp) { setTally(s._el, 'live', 'ONLINE'); return 'live'; }
 
@@ -333,7 +342,7 @@
     document.getElementById('summary').innerHTML = parts.map(p => `<span>${p}</span>`).join('');
   })();
 
-  // Theme toggle (remembered between visits)
+  // Theme toggle (persisted via localStorage)
   const root = document.documentElement, btn = document.getElementById('themeBtn');
   function applyScheme(s) {
     root.dataset.scheme = s;
