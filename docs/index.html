@@ -218,24 +218,27 @@
   const SPORTS = [
     {
       name: 'NCHC Hockey', league: "Men's Ice Hockey · NCHC",
-      detail: '10 programs', href: 'hockey/',
+      detail: '10 programs + Non Conf', href: 'hockey/',
       statusFile: 'hockey/st_thomas_mhockey.json',
       seasonMonths: [10, 11, 12, 1, 2, 3, 4]
     },
     {
       name: 'Summit Basketball', league: "Men's & Women's · Summit League",
-      detail: '8 programs × 2', href: 'basketball/',
+      detail: '16 programs + Non Conf', href: 'basketball/',
       statusFile: 'basketball/st_thomas_men.json',       // ← VERIFY: use a real filename from that folder
       seasonMonths: [11, 12, 1, 2, 3]
     },
     {
-      name: 'Summit Baseball', league: 'Baseball · Summit League',
-      detail: '6 programs', href: 'baseball/',
-      statusFile: 'baseball/baseball_stats.json',
+      // Folder renamed baseball → diamondsports so Softball can live here later.
+      // When Softball is added, update league/detail below. If softball has a
+      // different season, split it into its own entry in this array.
+      name: 'Diamond Sports', league: 'Baseball · Summit League',
+      detail: '6 BSB programs + 7 SB programs + Non Conf', href: 'diamondsports/',
+      statusFile: 'diamondsports/baseball_stats.json',   // ← VERIFY: use a real filename from that folder
       seasonMonths: [2, 3, 4, 5]
     },
     {
-      name: 'Standings & Polls', league: 'Conference standings · USCHO polls',
+      name: 'Standings & Polls', league: 'Conference standings + USCHO polls',
       detail: '12 feeds', href: 'standings/',
       statusFile: 'standings/data.json',
       seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
