@@ -1,10 +1,10 @@
 {
-  "team": "Minnesota-Duluth",
+  "team": "Minnesota Duluth",
   "slug": "minnesota_duluth_mhockey",
   "gender": "men",
   "sport": "hockey",
   "conference": "NCHC",
-  "generated_at": "2026-11-24T22:12:42Z",
+  "generated_at": "2026-11-24T22:38:46Z",
   "source_stats_url": "https://umdbulldogs.com/sports/mens-ice-hockey/stats",
   "source_roster_url": "https://umdbulldogs.com/sports/mens-ice-hockey/roster?print=true",
   "site_style": "Old Style (jQuery UI tabs)",
