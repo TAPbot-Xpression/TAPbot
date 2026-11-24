@@ -1,358 +1,945 @@
 <!DOCTYPE html>
-<html lang="en" data-scheme="dark">
+<html lang="en" data-color-mode="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TAPbot — Hub Site</title>
+  <title>TAPbot - Tommie Athletics Standings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+  
   <style>
-    /* ───────────────────────────────────────────────────────────────────────
-       DESIGN: Video-switcher style "source bank".
-       Each sport is a source button with a tally light:
-       - Green = Live data (scraped within 36h)
-       - Amber = Stale data (in-season but older than 36h)
-       - Grey  = Off-season
-       - Red   = Missing / No data file
-       ─────────────────────────────────────────────────────────────────────── */
+    /* ── Base Theme Variables (Dark Mode by Default) ─────────────────────────── */
     :root {
-      --bg:          #0a0b10;
-      --panel:       #12141c;
-      --panel-2:     #181b26;
-      --line:        #262a3a;
-      --text:        #eceef5;
-      --muted:       #8d93a8;
-      --faint:       #565c73;
-      --purple:      #7b3fd1;       /* St. Thomas accent */
-      --purple-glow: rgba(123, 63, 209, 0.38);
-      --live:        #2fd47a;
-      --stale:       #f5a524;
-      --off:         #6b7189;
-      --bad:         #ef4a4a;
-    }
-    [data-scheme="light"] {
-      --bg:          #eef0f6;
-      --panel:       #ffffff;
-      --panel-2:     #f5f6fb;
-      --line:        #d5d9e6;
-      --text:        #14162b;
-      --muted:       #50566e;
-      --faint:       #8a90a8;
-      --purple:      #512888;
-      --purple-glow: rgba(81, 40, 136, 0.22);
-      --live:        #14a85a;
-      --stale:       #c77d0a;
-      --off:         #7b8199;
-      --bad:         #d12f2f;
+      --bg:             #0c0d10;
+      --surface:        #14161d;
+      --surface-2:      #1a1e28;
+      --surface-3:      #222736;
+      --border:         #262c3a;
+      --border-light:   #3b4254;
+
+      --team-primary:   #510C76;
+      --team-accent:    #8b2fc9;
+      --team-glow:      rgba(139, 47, 201, 0.35);
+      --team-light:     #e9d5ff;
+      --ust-highlight:  rgba(139, 47, 201, 0.18);
+
+      --text:           #e2e8f0;
+      --text-muted:     #94a3b8;
+      --text-faint:     #64748b;
+
+      --badge-ok-bg:    #14532d;
+      --badge-ok-txt:   #4ade80;
+      --badge-stale-bg: #713f12;
+      --badge-stale-txt:#fde047;
+      --badge-error-bg: #450a0a;
+      --badge-error-txt:#f87171;
+
+      --radius:         12px;
+      --radius-sm:      8px;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ── Light Mode Color Overrides ─────────────────────────────────────────── */
+    [data-color-mode="light"] {
+      --bg:             #f8fafc;
+      --surface:        #ffffff;
+      --surface-2:      #f1f5f9;
+      --surface-3:      #e2e8f0;
+      --border:         #cbd5e1;
+      --border-light:   #94a3b8;
+
+      --text:           #0f172a;
+      --text-muted:     #475569;
+      --text-faint:     #94a3b8;
+
+      --ust-highlight:  rgba(139, 47, 201, 0.12);
+
+      --badge-ok-bg:    #dcfce7;
+      --badge-ok-txt:   #15803d;
+      --badge-stale-bg: #fef9c3;
+      --badge-stale-txt:#a16207;
+      --badge-error-bg: #fee2e2;
+      --badge-error-txt:#b91c1c;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      font-family: 'Barlow', system-ui, sans-serif;
       min-height: 100vh;
-      padding: 2rem 1.5rem 3rem;
-      background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,0.015) 3px 4px);
-      transition: background-color .25s, color .25s;
+      padding: 2.5rem 1.5rem 4.5rem;
+      transition: background-color 0.25s, color 0.25s;
     }
-    [data-scheme="light"] body { background-image: none; }
 
-    .wrap { max-width: 1100px; margin: 0 auto; }
+    .container {
+      max-width: 1480px;
+      margin: 0 auto;
+    }
 
-    /* ── Header ───────────────────────────────────────────────────────────── */
+    /* ── TAPbot Back Button ─────────────────────────────────────────────────── */
+    .tap-back {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      margin: 0 0 1.25rem;
+      padding: .45rem .85rem;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font: 700 .82rem/1 'JetBrains Mono', monospace;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: color .15s, border-color .15s, box-shadow .15s;
+    }
+    .tap-back:hover,
+    .tap-back:focus-visible {
+      color: var(--text);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 10px var(--team-glow);
+    }
+    .tap-back:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 3px; }
+    .tap-back-arrow { transition: transform .15s; }
+    .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
+
+    /* ── Header ───────────────────────────────────────────────────────────────── */
     header {
-      display: flex; justify-content: space-between; align-items: flex-end;
-      gap: 1rem; flex-wrap: wrap;
-      padding-bottom: 1.25rem; border-bottom: 1px solid var(--line);
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
     }
-    .eyebrow {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: .75rem; font-weight: 600; letter-spacing: .16em;
-      text-transform: uppercase; color: var(--purple);
+
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 0;
+      flex: 1 1 auto;
     }
+
+    .wordmark-eyebrow {
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
     h1 {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: clamp(2.2rem, 6vw, 3.8rem);
-      font-weight: 800; letter-spacing: -.01em; line-height: .95;
-      text-transform: uppercase; margin-top: .3rem;
-    }
-    h1 span { color: var(--faint); }
-
-    .theme-btn {
-      background: var(--panel); border: 1px solid var(--line); color: var(--text);
-      font-family: 'IBM Plex Mono', monospace; font-size: .78rem; font-weight: 600;
-      padding: .5rem .9rem; border-radius: 999px; cursor: pointer;
-      transition: border-color .15s;
-    }
-    .theme-btn:hover { border-color: var(--purple); }
-
-    /* ── Summary Strip ────────────────────────────────────────────────────── */
-    .summary {
-      display: flex; flex-wrap: wrap; gap: .5rem 1.5rem;
-      margin: 1rem 0 1.75rem;
-      font-family: 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--muted);
-    }
-    .summary b { color: var(--text); font-weight: 600; }
-
-    /* ── Source Bank Grid ─────────────────────────────────────────────────── */
-    .bank {
-      display: grid; gap: 1rem;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+      font-size: clamp(1.45rem, 2.4vw, 2.2rem);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--text);
     }
 
-    .source {
-      position: relative; display: flex; flex-direction: column; gap: 1.1rem;
-      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-      padding: 1.25rem 1.4rem 1.3rem;
-      color: inherit; text-decoration: none; overflow: hidden;
-      transition: transform .15s, border-color .15s, box-shadow .15s;
-    }
-    .source::before {
-      content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
-      background: var(--line); transition: background .15s, box-shadow .15s;
-    }
-    .source:hover, .source:focus-visible {
-      transform: translateY(-2px); border-color: var(--purple);
-      box-shadow: 0 8px 30px var(--purple-glow);
-    }
-    .source:hover::before, .source:focus-visible::before {
-      background: var(--purple); box-shadow: 0 0 14px var(--purple);
-    }
-    .source:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
-
-    .src-top { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
-    .src-id {
-      font-family: 'IBM Plex Mono', monospace; font-size: .72rem; font-weight: 600;
-      letter-spacing: .14em; color: var(--faint);
+    .meta {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 0.2rem;
+      line-height: 1.4;
     }
 
-    /* Tally light + status indicator */
-    .tally {
-      display: inline-flex; align-items: center; gap: .5rem;
-      font-family: 'IBM Plex Mono', monospace; font-size: .74rem; font-weight: 600;
-      letter-spacing: .04em; color: var(--muted);
+    /* ── Header Right Controls (Theme Switcher) ──────────────────────────────── */
+    .header-right-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.65rem;
+      flex-shrink: 0;
     }
-    .tally i {
-      width: 11px; height: 11px; border-radius: 50%; background: var(--faint);
-      box-shadow: 0 0 0 3px rgba(255,255,255,.04);
-    }
-    .tally[data-state="live"]  i { background: var(--live);  box-shadow: 0 0 10px var(--live);  animation: pulse 2.4s ease-in-out infinite; }
-    .tally[data-state="stale"] i { background: var(--stale); box-shadow: 0 0 10px var(--stale); }
-    .tally[data-state="off"]   i { background: var(--off); }
-    .tally[data-state="bad"]   i { background: var(--bad);   box-shadow: 0 0 10px var(--bad); }
-    .tally[data-state="live"]  { color: var(--live); }
-    .tally[data-state="stale"] { color: var(--stale); }
-    .tally[data-state="bad"]   { color: var(--bad); }
 
-    @keyframes pulse { 50% { opacity: .45; } }
-
-    .src-name {
-      font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
-      font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1; text-transform: uppercase;
+    .top-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
-    .src-league { color: var(--muted); font-size: .98rem; margin-top: .3rem; }
 
-    .src-foot {
-      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
-      margin-top: auto; padding-top: .9rem; border-top: 1px dashed var(--line);
+    .control-pill-group {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 9px;
+      gap: 3px;
     }
-    .src-detail { font-family: 'IBM Plex Mono', monospace; font-size: .76rem; color: var(--faint); }
-    .src-open {
-      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.15rem;
-      letter-spacing: .08em; text-transform: uppercase; color: var(--purple);
-      transition: transform .15s;
-    }
-    .source:hover .src-open { transform: translateX(4px); }
 
-    /* ── Footer ───────────────────────────────────────────────────────────── */
+    .control-pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .control-pill-btn:hover {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    /* ── Controls Bar ─────────────────────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding: 0.85rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+
+    .filter-btn {
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.65rem 1.25rem;
+      border-radius: 9px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .filter-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface-3);
+      border-color: var(--border-light);
+    }
+
+    .filter-btn.active {
+      background: var(--team-primary);
+      border-color: var(--team-accent);
+      color: #ffffff;
+      box-shadow: 0 0 16px var(--team-glow);
+    }
+
+    .site-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.55rem 0.95rem;
+      border-radius: 8px;
+      background: rgba(139, 47, 201, 0.15);
+      border: 1px solid rgba(139, 47, 201, 0.35);
+      color: var(--team-light);
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    [data-color-mode="light"] .site-link-btn {
+      color: var(--team-accent);
+    }
+
+    .site-link-btn:hover {
+      background: var(--team-primary);
+      color: #ffffff;
+      border-color: var(--team-accent);
+      box-shadow: 0 0 12px var(--team-glow);
+    }
+
+    /* ── Grid ─────────────────────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+
+    .card:hover {
+      border-color: var(--border-light);
+    }
+
+    /* ── Card Header ──────────────────────────────────────────────────────────── */
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.95rem 1.35rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+    }
+
+    .card-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .card-league {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .card-header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-shrink: 0;
+    }
+
+    .card-source-link {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.22rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .card-source-link:hover {
+      color: var(--team-light);
+      border-color: var(--team-accent);
+      background: rgba(139, 47, 201, 0.15);
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .badge-ok     { background: var(--badge-ok-bg);    color: var(--badge-ok-txt); }
+    .badge-stale  { background: var(--badge-stale-bg); color: var(--badge-stale-txt); }
+    .badge-error  { background: var(--badge-error-bg); color: var(--badge-error-txt); }
+
+    /* ── Table ────────────────────────────────────────────────────────────────── */
+    .table-wrap {
+      width: 100%;
+      flex: 1;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    thead th {
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.75rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      text-align: left;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    thead th.num { text-align: center; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface-2); }
+
+    tbody tr.highlight-ust {
+      background: var(--ust-highlight) !important;
+    }
+
+    tbody tr.highlight-ust td.team-cell .team-name {
+      color: var(--team-accent);
+      font-weight: 700;
+    }
+
+    td {
+      padding: 0.75rem 0.9rem;
+      vertical-align: middle;
+    }
+
+    td.rank {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-align: center;
+      width: 44px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .rank-top3 { color: #fbbf24 !important; }
+
+    td.team-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .team-acronym {
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 0.18rem 0.45rem;
+      border-radius: 4px;
+      background: var(--surface-3);
+      color: var(--text);
+      letter-spacing: 0.04em;
+      display: inline-block;
+      text-align: center;
+      min-width: 42px;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid var(--border);
+    }
+
+    .highlight-ust .team-acronym {
+      background: var(--team-primary);
+      color: #ffffff;
+      box-shadow: 0 0 6px rgba(139, 47, 201, 0.5);
+      border-color: var(--team-accent);
+    }
+
+    .team-name {
+      color: var(--text);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    td.record {
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.92rem;
+      color: var(--text);
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    td.pts-col {
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #c084fc;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    [data-color-mode="light"] td.pts-col {
+      color: var(--team-accent);
+    }
+
+    td.trend-cell { text-align: center; width: 62px; font-family: 'JetBrains Mono', monospace; }
+
+    .trend-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.15rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .trend-up   { color: #4ade80; background: rgba(74, 222, 128, 0.14); }
+    .trend-down { color: #f87171; background: rgba(248, 113, 113, 0.14); }
+    .trend-same { color: var(--text-faint); }
+    .trend-new  { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
+
+    .poll-date-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.5rem;
+      border-radius: 999px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .message {
+      padding: 3rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .message-icon {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    /* ── Page Footer ──────────────────────────────────────────────────────────── */
     footer {
-      margin-top: 2.5rem; padding-top: 1.1rem; border-top: 1px solid var(--line);
-      display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem;
-      font-family: 'IBM Plex Mono', monospace; font-size: .76rem; color: var(--muted);
+      margin-top: 3.5rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
     }
-    footer a { color: var(--purple); font-weight: 600; text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
 
-    @media (prefers-reduced-motion: reduce) {
-      * { animation: none !important; transition: none !important; }
+    footer a {
+      color: var(--team-accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.15s ease;
     }
+
+    footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
-    <div>
-      <div class="eyebrow">Tommie Athletic Productions Broadcast Operations Tool</div>
-      <h1>TAPbot <span>/ Hub Site</span></h1>
-    </div>
-    <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle light and dark mode">☀ Light</button>
-  </header>
+  <div class="container">
 
-  <div class="summary" id="summary" aria-live="polite">Checking sources…</div>
+    <!-- TAPbot: back to Hub Site -->
+    <a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
+      <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
+    </a>
 
-  <main class="bank" id="bank"></main>
+    <!-- Header -->
+    <header>
+      <div class="wordmark">
+        <span class="wordmark-eyebrow" id="eyebrowText">Tommie Athletics · 2026-27</span>
+        <h1 id="pageTitle">TAPbot - Tommie Athletics Standings</h1>
+        <div class="meta" id="last-generated-time">Loading feed…</div>
+      </div>
 
-  <footer>
-    <a id="repoLink" href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">TAPbot · GitHub repository ↗</a>
-    <span>Data refreshes automatically · confirm <code>generated_at</code> before going to air</span>
-  </footer>
+      <!-- Right Controls: Theme Toggle -->
+      <div class="header-right-controls">
+        <div class="top-toolbar">
+          <div class="control-pill-group" role="group" aria-label="Theme Selection">
+            <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
+              <span id="themeToggleLabel">🌙 Dark</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
 
-</div>
-
-<script>
-  // ══ HUB SITE CONFIGURATION ══════════════════════════════════════════════
-  const REPO_URL = 'https://github.com/TAPbot-Xpression/TAPbot';
-
-  const SPORTS = [
-    {
-      name: 'NCHC Hockey',
-      league: "Men's Ice Hockey · NCHC",
-      detail: '10 programs + Non Conf',
-      href: 'hockey/',
-      statusFile: 'hockey/st_thomas_mhockey.json',
-      seasonMonths: [10, 11, 12, 1, 2, 3, 4]
-    },
-    {
-      name: 'Summit Basketball',
-      league: "Men's & Women's · Summit League",
-      detail: '16 programs + Non Conf',
-      href: 'basketball/',
-      statusFile: 'basketball/st_thomas_men.json',
-      seasonMonths: [11, 12, 1, 2, 3]
-    },
-    {
-      name: 'Diamond Sports',
-      league: 'Baseball & Softball · Summit League',
-      detail: '6 BSB + 7 SB programs + Non Conf',
-      href: 'diamondsports/',
-      statusFile: 'diamondsports/st_thomas_baseball.json',
-      fallbackStatusFile: 'diamondsports/st_thomas_softball.json',
-      seasonMonths: [2, 3, 4, 5, 6]
-    },
-    {
-      name: 'Standings & Polls',
-      league: 'Conference standings + USCHO polls',
-      detail: '12 feeds',
-      href: 'standings/',
-      statusFile: 'standings/data.json',
-      seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    }
-  ];
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const FRESH_HOURS = 36;
-  const STAMP_KEYS = ['generated_at', 'updated_at', 'last_updated', 'scraped_at', 'timestamp', 'updated', 'as_of'];
-
-  // Build the cards
-  const bank = document.getElementById('bank');
-  SPORTS.forEach((s, i) => {
-    const a = document.createElement('a');
-    a.className = 'source';
-    a.href = s.href;
-    a.innerHTML = `
-      <div class="src-top">
-        <span class="src-id">SRC ${String(i + 1).padStart(2, '0')}</span>
-        <span class="tally" data-state="checking"><i></i><span class="tally-text">Checking…</span></span>
+    <div class="controls">
+      <div class="filter-group" id="filter-buttons">
+        <button class="filter-btn active" data-filter="all">All Sports</button>
+        <button class="filter-btn" data-filter="fall">Fall</button>
+        <button class="filter-btn" data-filter="winter">Winter</button>
+        <button class="filter-btn" data-filter="spring">Spring</button>
       </div>
       <div>
-        <div class="src-name">${s.name}</div>
-        <div class="src-league">${s.league}</div>
+        <a href="data.json" target="_blank" rel="noopener noreferrer" class="site-link-btn">
+          data.json ↗
+        </a>
       </div>
-      <div class="src-foot">
-        <span class="src-detail">${s.detail}</span>
-        <span class="src-open">Open dashboard →</span>
-      </div>`;
-    bank.appendChild(a);
-    s._el = a;
-  });
+    </div>
 
-  // Find a timestamp in the JSON (top level, first array item, or nested in object)
-  function findStamp(obj) {
-    if (Array.isArray(obj)) obj = obj[0];
-    if (!obj || typeof obj !== 'object') return null;
-    const pick = o => {
-      for (const k of STAMP_KEYS) {
-        if (o[k]) {
-          const t = Date.parse(o[k]);
-          if (!isNaN(t)) return t;
-        }
-      }
-      return null;
+    <div class="grid" id="sports-grid">
+      <div class="card" style="grid-column: 1 / -1;">
+        <div class="message">
+          <span class="message-icon">⏳</span>
+          Loading live standings and polls from data.json…
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-main">
+        <a href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
+          TAPbot · Developed by St. Thomas Athletics · Hosted on GitHub
+        </a>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    let sportsData = {};
+    let activeFilter = "all";
+
+    const DISPLAY_ORDER = [
+      "wsoc", "msoc", "pfl", "wvball",
+      "whockey", "uscho_womens_poll",
+      "mhockey", "uscho_mens_poll",
+      "wbball", "mbball",
+      "baseball", "summit_193", "bsb",
+      "softball", "summit_195", "sball"
+    ];
+
+    const SEASON_MAP = {
+      wsoc: "fall", msoc: "fall", pfl: "fall", wvball: "fall",
+      whockey: "winter", uscho_womens_poll: "winter",
+      mhockey: "winter", uscho_mens_poll: "winter",
+      wbball: "winter", mbball: "winter",
+      summit_193: "spring", baseball: "spring", bsb: "spring",
+      summit_195: "spring", softball: "spring", sball: "spring"
     };
-    let t = pick(obj);
-    if (t) return t;
-    for (const v of Object.values(obj)) {
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
-        t = pick(v);
-        if (t) return t;
+
+    // ── Theme Switcher ─────────────────────────────────────────────────────────
+    function toggleColorMode() {
+      const htmlEl = document.documentElement;
+      const currentMode = htmlEl.getAttribute('data-color-mode') || 'dark';
+      const nextMode = currentMode === 'dark' ? 'light' : 'dark';
+      applyColorMode(nextMode);
+    }
+
+    function applyColorMode(mode) {
+      document.documentElement.setAttribute('data-color-mode', mode);
+      const label = document.getElementById('themeToggleLabel');
+      if (label) label.textContent = mode === 'dark' ? '🌙 Dark' : '☀️ Light';
+      try { localStorage.setItem('tap_color_mode', mode); } catch (e) {}
+    }
+
+    async function loadData() {
+      const grid = document.getElementById("sports-grid");
+      const metaTime = document.getElementById("last-generated-time");
+
+      try {
+        const res = await fetch("data.json?_=" + Date.now());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        sportsData = data.sports || {};
+
+        if (data.generated_at) {
+          const genDate = new Date(data.generated_at);
+          metaTime.textContent = "Feed updated: " + genDate.toLocaleString(undefined, {
+            month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short"
+          });
+        } else {
+          metaTime.textContent = "Feed loaded";
+        }
+
+        renderGrid();
+      } catch (err) {
+        grid.innerHTML = `
+          <div class="card" style="grid-column: 1 / -1;">
+            <div class="message">
+              <span class="message-icon">⚠️</span>
+              Could not load feed: ${err.message}<br/>
+              <small style="color:var(--text-muted); margin-top:0.5rem; display:block;">Ensure data.json is in the docs/standings/ directory.</small>
+            </div>
+          </div>
+        `;
+        metaTime.textContent = "Connection error";
       }
     }
-    return null;
-  }
 
-  function ago(ms) {
-    const m = Math.round(ms / 60000);
-    if (m < 60) return `${Math.max(m, 1)}m ago`;
-    const h = Math.round(m / 60);
-    if (h < 48) return `${h}h ago`;
-    return `${Math.round(h / 24)}d ago`;
-  }
+    function getSeasonCategory(sportId, sportObj) {
+      if (SEASON_MAP[sportId]) return SEASON_MAP[sportId];
 
-  function setTally(card, state, text) {
-    const t = card.querySelector('.tally');
-    t.dataset.state = state;
-    t.querySelector('.tally-text').textContent = text;
-  }
+      const name = (sportObj && sportObj.name ? sportObj.name : sportId).toLowerCase();
 
-  async function checkSport(s) {
-    const month = new Date().getMonth() + 1;
-    const inSeason = s.seasonMonths.includes(month);
+      if (name.includes("baseball") || name.includes("softball") ||
+          name.includes("track") || name.includes("golf") ||
+          name.includes("tennis") || sportId.startsWith("summit_19")) return "spring";
+
+      if (name.includes("hockey") || name.includes("basketball") ||
+          name.includes("swim")) return "winter";
+
+      if (name.includes("soccer") || name.includes("football") ||
+          name.includes("volleyball") || name.includes("cross country")) return "fall";
+
+      return "other";
+    }
+
+    function cleanSportTitle(id, rawName) {
+      if (id === "pfl") return "Football";
+      if (id === "whockey") return "Women's Hockey";
+      if (id === "mhockey") return "Men's Hockey";
+      if (!rawName) return id;
+      return rawName.replace(/^Summit League\s+/i, '').trim();
+    }
+
+    function getLeagueLabel(id) {
+      if (id === "pfl") return "Pioneer Football League";
+      if (id === "mhockey") return "NCHC Men's Ice Hockey";
+      if (id === "whockey") return "WCHA Women's Ice Hockey";
+      if (id === "uscho_mens_poll" || id === "uscho_womens_poll") return "National Ranking · USCHO";
+      return "Summit League";
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById("sports-grid");
+
+      const knownKeys = DISPLAY_ORDER.filter(id => sportsData[id]);
+      const remainingKeys = Object.keys(sportsData).filter(id => !DISPLAY_ORDER.includes(id));
+      const sortedKeys = [...knownKeys, ...remainingKeys];
+
+      if (sortedKeys.length === 0) {
+        grid.innerHTML = `<div class="card" style="grid-column: 1 / -1;"><div class="message">No sport standings or polls available in feed.</div></div>`;
+        return;
+      }
+
+      const filtered = sortedKeys.filter(id => {
+        if (activeFilter === "all") return true;
+        return getSeasonCategory(id, sportsData[id]) === activeFilter;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="card" style="grid-column: 1 / -1;"><div class="message">No tables found for this season filter.</div></div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(id => buildCard(id, sportsData[id])).join("");
+    }
+
+    function buildCard(id, s) {
+      const isError = s.status === "error" || !s.rows || s.rows.length === 0;
+      const isStale = s.status === "stale";
+      const isPoll  = id.includes("poll") || s.type === "poll";
+      const isNCHC  = id === "mhockey";
+
+      let badgeClass = "badge-ok";
+      let badgeText  = isPoll ? "National Poll" : "Live";
+      if (isError) { badgeClass = "badge-error"; badgeText = "Off Season / Error"; }
+      else if (isStale) { badgeClass = "badge-stale"; badgeText = "⚠ Stale"; }
+
+      const sourceLinkText = isPoll ? "Official USCHO Poll ↗" : "Official Standings ↗";
+      const sourceLink = s.source
+        ? `<a href="${escHtml(s.source)}" target="_blank" rel="noopener noreferrer" class="card-source-link">${sourceLinkText}</a>`
+        : "";
+
+      let bodyContent = "";
+
+      if (isError) {
+        bodyContent = `
+          <div class="message">
+            <span class="message-icon">📋</span>
+            ${escHtml(s.error || "No current active data found.")}
+          </div>`;
+
+      } else if (isPoll) {
+        bodyContent = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num">#</th>
+                  <th>Team</th>
+                  <th class="num">Record</th>
+                  <th class="num pts-col">Pts (1st)</th>
+                  <th class="num">Last</th>
+                  <th class="num">Chg</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${s.rows.map(r => {
+                  const isUST     = r.team && r.team.toLowerCase().includes("st. thomas");
+                  const top3Class = r.rank <= 3 ? "rank-top3" : "";
+                  let trendClass  = "trend-same";
+                  let trendSymbol = r.trend || "=";
+                  if (r.trend_dir === "up")        { trendClass = "trend-up";   trendSymbol = `▲ ${String(r.trend).replace('+', '')}`; }
+                  else if (r.trend_dir === "down") { trendClass = "trend-down"; trendSymbol = `▼ ${String(r.trend).replace('-', '')}`; }
+                  else if (r.trend_dir === "new")  { trendClass = "trend-new";  trendSymbol = "NEW"; }
+                  return `
+                    <tr class="${isUST ? 'highlight-ust' : ''}">
+                      <td class="rank ${top3Class}">${r.rank}</td>
+                      <td><div class="team-cell"><span class="team-name">${escHtml(r.team)}</span></div></td>
+                      <td class="record">${escHtml(r.record || '—')}</td>
+                      <td class="pts-col">${escHtml(r.pts || '—')}</td>
+                      <td class="record">${escHtml(r.last_poll || 'NR')}</td>
+                      <td class="trend-cell"><span class="trend-badge ${trendClass}">${trendSymbol}</span></td>
+                    </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>`;
+
+      } else if (isNCHC) {
+        bodyContent = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num">#</th>
+                  <th>Team</th>
+                  <th class="num pts-col">PTS</th>
+                  <th class="num">Conf GP</th>
+                  <th class="num">Conf</th>
+                  <th class="num">OW-OL-SW</th>
+                  <th class="num">Overall</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${s.rows.map(r => {
+                  const isUST = r.acronym === "UST" || (r.team && r.team.toLowerCase().includes("st. thomas"));
+                  return `
+                    <tr class="${isUST ? 'highlight-ust' : ''}">
+                      <td class="rank">${r.rank}</td>
+                      <td><div class="team-cell">
+                        <span class="team-acronym">${escHtml(r.acronym || '—')}</span>
+                        <span class="team-name">${escHtml(r.team)}</span>
+                      </div></td>
+                      <td class="pts-col">${escHtml(r.pts ?? '0')}</td>
+                      <td class="record">${escHtml(r.gp ?? '0')}</td>
+                      <td class="record">${escHtml(r.conf || '—')}</td>
+                      <td class="record">${escHtml(r.ow_ol_sw || '0-0-0')}</td>
+                      <td class="record">${escHtml(r.ovr || '—')}</td>
+                    </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>`;
+
+      } else {
+        const hasCpts   = s.rows && s.rows.some(r => r.cpts !== undefined);
+        const hasPts    = s.rows && s.rows.some(r => r.pts !== undefined);
+        const ptsHeader = hasCpts ? "CPTS" : (hasPts ? "PTS" : null);
+
+        bodyContent = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num">#</th>
+                  <th>Team</th>
+                  <th class="num">Conf</th>
+                  <th class="num">Overall</th>
+                  ${ptsHeader ? `<th class="num pts-col">${ptsHeader}</th>` : ""}
+                </tr>
+              </thead>
+              <tbody>
+                ${s.rows.map(r => {
+                  const isUST  = r.acronym === "UST" || (r.team && r.team.toLowerCase().includes("st. thomas"));
+                  const ptsVal = hasCpts ? (r.cpts ?? "—") : (hasPts ? (r.pts ?? "—") : null);
+                  return `
+                    <tr class="${isUST ? 'highlight-ust' : ''}">
+                      <td class="rank">${r.rank}</td>
+                      <td><div class="team-cell">
+                        <span class="team-acronym">${escHtml(r.acronym || '—')}</span>
+                        <span class="team-name">${escHtml(r.team)}</span>
+                      </div></td>
+                      <td class="record">${escHtml(r.conf)}</td>
+                      <td class="record">${escHtml(r.ovr)}</td>
+                      ${ptsHeader ? `<td class="pts-col">${escHtml(ptsVal)}</td>` : ""}
+                    </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>`;
+      }
+
+      const displayTitle = cleanSportTitle(id, s.name);
+      const dateBadge    = s.poll_date ? `<span class="poll-date-badge">${escHtml(s.poll_date)}</span>` : "";
+
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-league">${escHtml(getLeagueLabel(id))}</div>
+              <h2 class="card-title">${escHtml(displayTitle)}${dateBadge}</h2>
+            </div>
+            <div class="card-header-right">
+              ${sourceLink}
+              <span class="badge ${badgeClass}">${badgeText}</span>
+            </div>
+          </div>
+          ${bodyContent}
+        </div>`;
+    }
+
+    function escHtml(str) {
+      return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeFilter = btn.dataset.filter;
+        renderGrid();
+      });
+    });
+
+    // ── Theme Init & Initial Load ──────────────────────────────────────────────
     try {
-      let res = await fetch(`${s.statusFile}?t=${Date.now()}`);
-      if (!res.ok && s.fallbackStatusFile) {
-        res = await fetch(`${s.fallbackStatusFile}?t=${Date.now()}`);
-      }
-      if (!res.ok) throw new Error(res.status);
+      const savedMode = localStorage.getItem('tap_color_mode') || 'dark';
+      applyColorMode(savedMode);
+    } catch (e) {}
 
-      const stamp = findStamp(await res.json());
-      if (!stamp) { setTally(s._el, 'live', 'ONLINE'); return 'live'; }
+    loadData();
+  </script>
 
-      const age = Date.now() - stamp;
-      if (age <= FRESH_HOURS * 3600000) { setTally(s._el, 'live', `LIVE · ${ago(age)}`); return 'live'; }
-      if (!inSeason)                    { setTally(s._el, 'off',  `OFF-SEASON · ${ago(age)}`); return 'off'; }
-      setTally(s._el, 'stale', `STALE · ${ago(age)}`); return 'stale';
-    } catch (e) {
-      setTally(s._el, 'bad', 'NO DATA FILE');
-      return 'bad';
-    }
-  }
-
-  (async () => {
-    const states = await Promise.all(SPORTS.map(checkSport));
-    const n = k => states.filter(x => x === k).length;
-    const parts = [`<b>${SPORTS.length}</b> sources`, `<b>${n('live')}</b> live`];
-    if (n('stale')) parts.push(`<b>${n('stale')}</b> stale`);
-    if (n('off'))   parts.push(`<b>${n('off')}</b> off-season`);
-    if (n('bad'))   parts.push(`<b>${n('bad')}</b> missing`);
-    document.getElementById('summary').innerHTML = parts.map(p => `<span>${p}</span>`).join('');
-  })();
-
-  // Theme toggle (persisted via localStorage)
-  const root = document.documentElement, btn = document.getElementById('themeBtn');
-  function applyScheme(s) {
-    root.dataset.scheme = s;
-    btn.textContent = s === 'dark' ? '☀ Light' : '🌙 Dark';
-    localStorage.setItem('tap_scheme', s);
-  }
-  btn.addEventListener('click', () => applyScheme(root.dataset.scheme === 'dark' ? 'light' : 'dark'));
-  applyScheme(localStorage.getItem('tap_scheme') || 'dark');
-
-  document.getElementById('repoLink').href = REPO_URL;
-</script>
 </body>
 </html>
