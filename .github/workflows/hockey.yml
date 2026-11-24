@@ -1,0 +1,121 @@
+name: Scrape NCHC Hockey
+
+# Place this file at: .github/workflows/hockey.yml
+
+on:
+  schedule:
+    # GitHub cron runs in UTC. 14:15 UTC = 8:15 AM CST / 9:15 AM CDT in St. Paul.
+    # Staggered off the top of the hour to avoid GitHub's busiest delay window.
+    # Other sports: 14:30, 14:45, 15:00 so their pushes never collide.
+    - cron: "15 14 * * *"
+
+  workflow_dispatch:
+    inputs:
+      only_teams:
+        description: "Teams to scrape (e.g. 'St. Thomas,Denver') or blank for all"
+        required: false
+        default: ""
+        type: string
+      enable_debug:
+        description: "Save raw debug HTML snapshots (uploaded as an artifact)"
+        required: false
+        default: false
+        type: boolean
+
+  push:
+    branches: [main]
+    paths:                          # only hockey changes trigger this workflow
+      - "scrapers/hockey/**"
+      - ".github/workflows/hockey.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hockey-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scrapers/hockey/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scrapers/hockey/requirements.txt
+
+      - name: Install Playwright browser
+        run: playwright install --with-deps chromium
+
+      - name: Run NCHC hockey scraper
+        env:
+          ONLY: ${{ inputs.only_teams }}
+          DEBUG: ${{ inputs.enable_debug }}
+        run: |
+          ARGS=()
+          if [ -n "$ONLY" ]; then
+            ARGS+=(--only "$ONLY")
+          fi
+          if [ "$DEBUG" = "true" ]; then
+            ARGS+=(--debug)
+          fi
+          echo "Executing: python scrapers/hockey/scrape_nchc_hockey.py ${ARGS[*]}"
+          python scrapers/hockey/scrape_nchc_hockey.py "${ARGS[@]}"
+
+      - name: Upload debug snapshots
+        if: ${{ inputs.enable_debug == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hockey-debug
+          path: debug/
+          if-no-files-found: ignore
+
+      - name: Commit JSON
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/hockey
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git commit -m "chore(hockey): update stats [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+
+          # Other sport workflows may push at the same time, so retry with a rebase.
+          for i in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push attempt $i failed, retrying..."
+            sleep 5
+          done
+
+          echo "Could not push after 3 attempts."
+          exit 1
+
+  deploy:
+    needs: scrape
+    if: needs.scrape.outputs.changed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
