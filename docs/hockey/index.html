@@ -983,14 +983,10 @@
     /* ── Footer ──────────────────────────────────────────────────────────────── */
     footer {
       margin-top: 3.5rem;
-      padding-top: 1.5rem;
+      padding-top: 1.75rem;
       border-top: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-      font-size: 0.88rem;
+      text-align: center;
+      font-size: 0.92rem;
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
     }
@@ -998,7 +994,12 @@
     footer a {
       color: var(--team-accent);
       text-decoration: none;
-      font-weight: 700;
+      font-weight: 600;
+      transition: color 0.15s ease;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
     }
 
     @media (max-width: 720px) {
@@ -1169,11 +1170,8 @@
   <!-- Footer with Repository Link -->
   <footer>
     <a href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
-      TAPbot · St. Thomas Athletics · Broadcast Operations Tool
+      TAPbot - Developed by St. Thomas Athletics - Hosted on GitHub
     </a>
-    <div id="footerSubtitle" style="font-size:0.82rem; color:var(--text-muted);">
-      Collegiate Ice Hockey Statistics
-    </div>
   </footer>
 
 </div>
@@ -1456,7 +1454,6 @@
 
     const cfg = TEAMS_CONFIG[division];
     document.getElementById('pageTitle').textContent = `${cfg.conferenceLabel} ${cfg.divisionLabel} Season Stats`;
-    document.getElementById('footerSubtitle').textContent = `${cfg.conferenceLabel} ${cfg.divisionLabel} Statistics`;
 
     HOCKEY_CACHE = {};
     renderTeamPills();
