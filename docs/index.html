@@ -160,6 +160,32 @@
     }
     .summary b { color: var(--text); font-weight: 700; }
 
+    /* ── Section Dividers / Group Headers ─────────────────────────────────── */
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 1.5rem 0 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .section-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .bank-gap {
+      margin-top: 2.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px dashed var(--line);
+    }
+
     /* ── Source Bank Grid ─────────────────────────────────────────────────── */
     .bank {
       display: grid; gap: 1.25rem;
@@ -186,6 +212,22 @@
     }
     .source:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
 
+    /* Placeholder style */
+    .source.placeholder {
+      opacity: 0.82;
+      border-style: dashed;
+    }
+    .source.placeholder:hover {
+      border-color: var(--border-light);
+      box-shadow: none;
+      transform: none;
+      cursor: default;
+    }
+    .source.placeholder::before {
+      background: var(--faint);
+      box-shadow: none;
+    }
+
     .src-top { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
     .src-id {
       font-family: 'JetBrains Mono', monospace; font-size: .74rem; font-weight: 700;
@@ -202,13 +244,15 @@
       width: 11px; height: 11px; border-radius: 50%; background: var(--faint);
       box-shadow: 0 0 0 3px rgba(255,255,255,.04);
     }
-    .tally[data-state="live"]  i { background: var(--live);  box-shadow: 0 0 10px var(--live);  animation: pulse 2.4s ease-in-out infinite; }
-    .tally[data-state="stale"] i { background: var(--stale); box-shadow: 0 0 10px var(--stale); }
-    .tally[data-state="off"]   i { background: var(--off); }
-    .tally[data-state="bad"]   i { background: var(--bad);   box-shadow: 0 0 10px var(--bad); }
-    .tally[data-state="live"]  { color: var(--live); }
-    .tally[data-state="stale"] { color: var(--stale); }
-    .tally[data-state="bad"]   { color: var(--bad); }
+    .tally[data-state="live"]        i { background: var(--live);  box-shadow: 0 0 10px var(--live);  animation: pulse 2.4s ease-in-out infinite; }
+    .tally[data-state="stale"]       i { background: var(--stale); box-shadow: 0 0 10px var(--stale); }
+    .tally[data-state="off"]         i { background: var(--off); }
+    .tally[data-state="bad"]         i { background: var(--bad);   box-shadow: 0 0 10px var(--bad); }
+    .tally[data-state="placeholder"] i { background: var(--faint); }
+    .tally[data-state="live"]        { color: var(--live); }
+    .tally[data-state="stale"]       { color: var(--stale); }
+    .tally[data-state="bad"]         { color: var(--bad); }
+    .tally[data-state="placeholder"] { color: var(--faint); }
 
     @keyframes pulse { 50% { opacity: .45; } }
 
@@ -229,15 +273,29 @@
       transition: transform .15s;
     }
     .source:hover .src-open { transform: translateX(4px); }
+    .source.placeholder .src-open { color: var(--faint); transform: none; }
 
     /* ── Footer ───────────────────────────────────────────────────────────── */
     footer {
-      margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
-      display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem;
-      font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: var(--muted);
+      margin-top: 3.5rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
     }
-    footer a { color: var(--purple); font-weight: 700; text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
+
+    footer a {
+      color: var(--purple);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.15s ease;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
 
     @media (prefers-reduced-motion: reduce) {
       * { animation: none !important; transition: none !important; }
@@ -265,11 +323,21 @@
 
   <div class="summary" id="summary" aria-live="polite">Checking sources…</div>
 
-  <main class="bank" id="bank"></main>
+  <!-- Group 1: Team & Season Stat Dashboards -->
+  <div class="section-label">Team &amp; Player Statistics</div>
+  <main class="bank" id="statsBank"></main>
+
+  <!-- Gap between stats and utility feeds -->
+  <div class="bank-gap"></div>
+
+  <!-- Group 2: Standings, Polls & Schedulers -->
+  <div class="section-label">Standings &amp; Schedules</div>
+  <main class="bank" id="utilityBank"></main>
 
   <footer>
-    <a id="repoLink" href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">TAPbot · GitHub repository ↗</a>
-    <span>Data refreshes automatically · confirm <code>generated_at</code> before going to air</span>
+    <a id="repoLink" href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
+      TAPbot - Developed by St. Thomas Athletics - Hosted on GitHub
+    </a>
   </footer>
 
 </div>
@@ -278,7 +346,8 @@
   // ══ HUB SITE CONFIGURATION ══════════════════════════════════════════════
   const REPO_URL = 'https://github.com/TAPbot-Xpression/TAPbot';
 
-  const SPORTS = [
+  // Group 1: Stat Dashboards (Hockey, Basketball, Diamond Sports, Volleyball, Football)
+  const STAT_SPORTS = [
     {
       name: 'Hockey',
       league: "Men's Ice Hockey (NCHC) & Women's Ice Hockey (WCHA)",
@@ -305,27 +374,63 @@
       seasonMonths: [2, 3, 4, 5, 6]
     },
     {
+      name: 'Volleyball',
+      league: "Women's Volleyball · Summit League",
+      detail: 'Coming soon · Scraper in development',
+      href: '#',
+      isPlaceholder: true,
+      seasonMonths: [8, 9, 10, 11]
+    },
+    {
+      name: 'Football',
+      league: "Pioneer Football League (PFL)",
+      detail: 'Coming soon · Scraper in development',
+      href: '#',
+      isPlaceholder: true,
+      seasonMonths: [8, 9, 10, 11, 12]
+    }
+  ];
+
+  // Group 2: Standings, Polls & Scheduler
+  const UTILITY_SPORTS = [
+    {
       name: 'Standings & Polls',
       league: 'Conference standings + USCHO polls',
       detail: '12 feeds',
       href: 'standings/',
       statusFile: 'standings/data.json',
       seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    },
+    {
+      name: 'Schedulers',
+      league: 'North & South Campus Game Schedules',
+      detail: 'North & South campus live feeds',
+      href: 'scheduler/',
+      statusFile: 'schedulers/schedule_southcampus.json',
+      fallbackStatusFile: 'schedulers/schedule_northcampus.json',
+      seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     }
   ];
 
   const FRESH_HOURS = 24;
-  const STAMP_KEYS = ['generated_at', 'updated_at', 'last_updated', 'scraped_at', 'timestamp', 'updated', 'as_of'];
+  const STAMP_KEYS = ['updated_at', 'generated_at', 'last_updated', 'scraped_at', 'timestamp', 'updated', 'as_of'];
 
-  const bank = document.getElementById('bank');
-  SPORTS.forEach((s, i) => {
-    const a = document.createElement('a');
-    a.className = 'source';
-    a.href = s.href;
+  let globalSrcIndex = 1;
+
+  function createSourceCard(s, targetContainer) {
+    const isPh = !!s.isPlaceholder;
+    const a = document.createElement(isPh ? 'div' : 'a');
+    a.className = `source ${isPh ? 'placeholder' : ''}`;
+    if (!isPh) a.href = s.href;
+
+    const srcNum = String(globalSrcIndex++).padStart(2, '0');
+
     a.innerHTML = `
       <div class="src-top">
-        <span class="src-id">SRC ${String(i + 1).padStart(2, '0')}</span>
-        <span class="tally" data-state="checking"><i></i><span class="tally-text">Checking…</span></span>
+        <span class="src-id">SRC ${srcNum}</span>
+        <span class="tally" data-state="${isPh ? 'placeholder' : 'checking'}">
+          <i></i><span class="tally-text">${isPh ? 'IN DEVELOPMENT' : 'Checking…'}</span>
+        </span>
       </div>
       <div>
         <div class="src-name">${s.name}</div>
@@ -333,11 +438,21 @@
       </div>
       <div class="src-foot">
         <span class="src-detail">${s.detail}</span>
-        <span class="src-open">Open dashboard →</span>
+        <span class="src-open">${isPh ? 'Planned' : 'Open dashboard →'}</span>
       </div>`;
-    bank.appendChild(a);
+
+    targetContainer.appendChild(a);
     s._el = a;
-  });
+  }
+
+  // Populate Groups
+  const statsBank = document.getElementById('statsBank');
+  const utilityBank = document.getElementById('utilityBank');
+
+  STAT_SPORTS.forEach(s => createSourceCard(s, statsBank));
+  UTILITY_SPORTS.forEach(s => createSourceCard(s, utilityBank));
+
+  const ALL_SPORTS = [...STAT_SPORTS, ...UTILITY_SPORTS];
 
   function findStamp(obj) {
     if (Array.isArray(obj)) obj = obj[0];
@@ -377,6 +492,8 @@
   }
 
   async function checkSport(s) {
+    if (s.isPlaceholder) return 'placeholder';
+
     const month = new Date().getMonth() + 1;
     const inSeason = s.seasonMonths.includes(month);
     try {
@@ -414,9 +531,14 @@
   }
 
   (async () => {
-    const states = await Promise.all(SPORTS.map(checkSport));
+    const activeToCheck = ALL_SPORTS.filter(s => !s.isPlaceholder);
+    const states = await Promise.all(activeToCheck.map(checkSport));
     const n = k => states.filter(x => x === k).length;
-    const parts = [`<b>${SPORTS.length}</b> sources`, `<b>${n('live')}</b> live`];
+
+    const parts = [
+      `<b>${ALL_SPORTS.length}</b> sources (${activeToCheck.length} active)`,
+      `<b>${n('live')}</b> live`
+    ];
     if (n('stale')) parts.push(`<b>${n('stale')}</b> stale`);
     if (n('off'))   parts.push(`<b>${n('off')}</b> off-season`);
     if (n('bad'))   parts.push(`<b>${n('bad')}</b> missing`);
