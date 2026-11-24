@@ -1,0 +1,369 @@
+{
+  "updated_at": "2026-11-24T22:00:36.220383+00:00",
+  "team": "St. Thomas (MN)",
+  "sports": {
+    "mens_basketball": {
+      "name": "Men's Basketball",
+      "game_count": 8,
+      "games": [
+        {
+          "game_id": "6652486",
+          "date": "Nov. 25",
+          "home_away": "AT",
+          "opponent": "UNCW"
+        },
+        {
+          "game_id": "6650583",
+          "date": "Nov. 27",
+          "home_away": "AT",
+          "opponent": "Liberty"
+        },
+        {
+          "game_id": "6653918",
+          "date": "Nov. 28",
+          "home_away": "AT",
+          "opponent": "Princeton"
+        },
+        {
+          "game_id": "6652275",
+          "date": "Dec. 3",
+          "home_away": "VS",
+          "opponent": "North Central (MN)"
+        },
+        {
+          "game_id": "6653919",
+          "date": "Dec. 5",
+          "home_away": "AT",
+          "opponent": "Bucknell"
+        },
+        {
+          "game_id": "6653920",
+          "date": "Dec. 10",
+          "home_away": "VS",
+          "opponent": "UNC Asheville"
+        },
+        {
+          "game_id": "6653921",
+          "date": "Dec. 12",
+          "home_away": "VS",
+          "opponent": "Arkansas St."
+        },
+        {
+          "game_id": "6653922",
+          "date": "Dec. 15",
+          "home_away": "VS",
+          "opponent": "UC San Diego"
+        }
+      ],
+      "opponent_schedule": {
+        "team": "UNCW",
+        "source": "auto",
+        "game_count": 8,
+        "games": [
+          {
+            "game_id": "6652486",
+            "date": "Nov. 25",
+            "home_away": "VS",
+            "opponent": "St. Thomas"
+          },
+          {
+            "game_id": "6652487",
+            "date": "Nov. 27",
+            "home_away": "VS",
+            "opponent": "Princeton"
+          },
+          {
+            "game_id": "6652488",
+            "date": "Nov. 28",
+            "home_away": "VS",
+            "opponent": "Liberty"
+          },
+          {
+            "game_id": "6652489",
+            "date": "Dec. 2",
+            "home_away": "AT",
+            "opponent": "Marshall"
+          },
+          {
+            "game_id": "6652490",
+            "date": "Dec. 5",
+            "home_away": "VS",
+            "opponent": "Valparaiso"
+          },
+          {
+            "game_id": "6650585",
+            "date": "Dec. 12",
+            "home_away": "AT",
+            "opponent": "Ga. Southern"
+          },
+          {
+            "game_id": "6652491",
+            "date": "Dec. 19",
+            "home_away": "VS",
+            "opponent": "Radford"
+          },
+          {
+            "game_id": "6652492",
+            "date": "Dec. 28",
+            "home_away": "VS",
+            "opponent": "Columbia (SC)"
+          }
+        ]
+      }
+    },
+    "womens_basketball": {
+      "name": "Women's Basketball",
+      "game_count": 8,
+      "games": [
+        {
+          "game_id": "6660862",
+          "date": "Nov. 27",
+          "home_away": "AT",
+          "opponent": "CSUN"
+        },
+        {
+          "game_id": "6660863",
+          "date": "Nov. 28",
+          "home_away": "AT",
+          "opponent": "California Baptist"
+        },
+        {
+          "game_id": "6650123",
+          "date": "Dec. 2",
+          "home_away": "AT",
+          "opponent": "{SUP}17{}Minnesota"
+        },
+        {
+          "game_id": "6646430",
+          "date": "Dec. 10",
+          "home_away": "VS",
+          "opponent": "Grand Canyon"
+        },
+        {
+          "game_id": "6660864",
+          "date": "Dec. 13",
+          "home_away": "AT",
+          "opponent": "Detroit Mercy"
+        },
+        {
+          "game_id": "6647885",
+          "date": "Dec. 15",
+          "home_away": "AT",
+          "opponent": "Bowling Green"
+        },
+        {
+          "game_id": "6652003",
+          "date": "Dec. 22",
+          "home_away": "VS",
+          "opponent": "Green Bay"
+        },
+        {
+          "game_id": "6660851",
+          "date": "Dec. 28",
+          "home_away": "VS",
+          "opponent": "Wis.-Superior"
+        }
+      ],
+      "opponent_schedule": {
+        "team": "CSUN",
+        "source": "auto",
+        "game_count": 8,
+        "games": [
+          {
+            "game_id": "6660862",
+            "date": "Nov. 27",
+            "home_away": "VS",
+            "opponent": "St. Thomas"
+          },
+          {
+            "game_id": "6661658",
+            "date": "Nov. 28",
+            "home_away": "AT",
+            "opponent": "Idaho"
+          },
+          {
+            "game_id": "6652109",
+            "date": "Dec. 3",
+            "home_away": "AT",
+            "opponent": "Cal Poly"
+          },
+          {
+            "game_id": "6648187",
+            "date": "Dec. 5",
+            "home_away": "VS",
+            "opponent": "CSU Bakersfield"
+          },
+          {
+            "game_id": "6661659",
+            "date": "Dec. 10",
+            "home_away": "VS",
+            "opponent": "Westcliff"
+          },
+          {
+            "game_id": "6661660",
+            "date": "Dec. 19",
+            "home_away": "VS",
+            "opponent": "New Mexico St."
+          },
+          {
+            "game_id": "6650243",
+            "date": "Dec. 31",
+            "home_away": "VS",
+            "opponent": "Sacramento St."
+          },
+          {
+            "game_id": "6646755",
+            "date": "Jan. 2",
+            "home_away": "VS",
+            "opponent": "Utah Valley"
+          }
+        ]
+      }
+    },
+    "mens_hockey": {
+      "name": "Men's Hockey",
+      "game_count": 8,
+      "games": [
+        {
+          "game_id": "6643423",
+          "date": "Nov. 25",
+          "home_away": "AT",
+          "opponent": "Bemidji St."
+        },
+        {
+          "game_id": "6643424",
+          "date": "Nov. 28",
+          "home_away": "VS",
+          "opponent": "Bemidji St."
+        },
+        {
+          "game_id": "6642723",
+          "date": "Dec. 4",
+          "home_away": "VS",
+          "opponent": "Omaha"
+        },
+        {
+          "game_id": "6642724",
+          "date": "Dec. 5",
+          "home_away": "VS",
+          "opponent": "Omaha"
+        },
+        {
+          "game_id": "6643425",
+          "date": "Dec. 11",
+          "home_away": "AT",
+          "opponent": "Colorado College"
+        },
+        {
+          "game_id": "6643426",
+          "date": "Dec. 12",
+          "home_away": "AT",
+          "opponent": "Colorado College"
+        },
+        {
+          "game_id": "6643185",
+          "date": "Jan. 1",
+          "home_away": "AT",
+          "opponent": "Providence"
+        },
+        {
+          "game_id": "6643186",
+          "date": "Jan. 2",
+          "home_away": "AT",
+          "opponent": "Providence"
+        }
+      ],
+      "opponent_schedule": {
+        "team": "Bemidji St.",
+        "source": "auto",
+        "game_count": 8,
+        "games": [
+          {
+            "game_id": "6643423",
+            "date": "Nov. 25",
+            "home_away": "VS",
+            "opponent": "St. Thomas"
+          },
+          {
+            "game_id": "6643424",
+            "date": "Nov. 28",
+            "home_away": "AT",
+            "opponent": "St. Thomas"
+          },
+          {
+            "game_id": "6642651",
+            "date": "Dec. 4",
+            "home_away": "AT",
+            "opponent": "Augustana (SD)"
+          },
+          {
+            "game_id": "6642652",
+            "date": "Dec. 5",
+            "home_away": "AT",
+            "opponent": "Augustana (SD)"
+          },
+          {
+            "game_id": "6642698",
+            "date": "Dec. 11",
+            "home_away": "VS",
+            "opponent": "Michigan Tech"
+          },
+          {
+            "game_id": "6642699",
+            "date": "Dec. 12",
+            "home_away": "VS",
+            "opponent": "Michigan Tech"
+          },
+          {
+            "game_id": "6643519",
+            "date": "Dec. 16",
+            "home_away": "AT",
+            "opponent": "{SUP}11{}St. Cloud State"
+          },
+          {
+            "game_id": "6666288",
+            "date": "Jan. 2",
+            "home_away": "AT",
+            "opponent": "{SUP}2{}Minnesota"
+          }
+        ]
+      }
+    },
+    "softball": {
+      "name": "Softball",
+      "game_count": 0,
+      "games": [],
+      "opponent_schedule": {
+        "team": null,
+        "source": "auto",
+        "game_count": 0,
+        "games": [],
+        "note": "No upcoming St. Thomas game, so there is no opponent to look up."
+      }
+    },
+    "mens_soccer": {
+      "name": "Men's Soccer",
+      "game_count": 0,
+      "games": [],
+      "opponent_schedule": {
+        "team": null,
+        "source": "auto",
+        "game_count": 0,
+        "games": [],
+        "note": "No upcoming St. Thomas game, so there is no opponent to look up."
+      }
+    },
+    "womens_soccer": {
+      "name": "Women's Soccer",
+      "game_count": 0,
+      "games": [],
+      "opponent_schedule": {
+        "team": null,
+        "source": "auto",
+        "game_count": 0,
+        "games": [],
+        "note": "No upcoming St. Thomas game, so there is no opponent to look up."
+      }
+    }
+  }
+}
