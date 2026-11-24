@@ -3,36 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TAPbot - Standings</title>
+  <title>TAPbot - Standings &amp; Polls</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
-  
+
   <style>
     /* ── Color System & Default Theme (Dark) ─────────────────────────────────── */
     :root {
-      --bg:             #0c0d10;
-      --surface:        #14161d;
-      --surface-2:      #1a1e28;
-      --surface-3:      #222736;
-      --border:         #262c3a;
-      --border-light:   #3b4254;
+      --bg:             #080c14;
+      --surface:        #0f1623;
+      --surface-2:      #161f30;
+      --surface-3:      #1d2840;
+      --border:         #1e2d47;
+      --border-light:   #2a3d5c;
 
-      --team-primary:   #510C76;
-      --team-accent:    #8b2fc9;
-      --team-glow:      rgba(139, 47, 201, 0.35);
-      --team-light:     #e9d5ff;
-      --ust-highlight:  rgba(139, 47, 201, 0.18);
+      --team-primary:   #5b2d86;
+      --team-accent:    #8b5cf6;
+      --team-glow:      rgba(139, 92, 246, 0.35);
+      --team-light:     #ddd6fe;
+      --team-btn-text:  #ffffff;
+      --ust-highlight:  rgba(139, 92, 246, 0.18);
 
-      --text:           #e2e8f0;
-      --text-muted:     #94a3b8;
-      --text-faint:     #64748b;
+      --gold:           #fbbf24;
+      --gold-bg:        rgba(251, 191, 36, 0.14);
+      --silver:         #e2e8f0;
+      --silver-bg:      rgba(226, 232, 240, 0.14);
+      --bronze:         #f97316;
+      --bronze-bg:      rgba(249, 115, 22, 0.14);
 
-      --badge-ok-bg:    #14532d;
-      --badge-ok-txt:   #4ade80;
-      --badge-stale-bg: #713f12;
-      --badge-stale-txt:#fde047;
-      --badge-error-bg: #450a0a;
+      --text:           #e8edf5;
+      --text-muted:     #8a9fb8;
+      --text-faint:     #4d627d;
+
+      --green:          #10b981;
+      --red:            #ef4444;
+      --amber:          #f59e0b;
+
+      --badge-ok-bg:    rgba(16, 185, 129, 0.15);
+      --badge-ok-txt:   #34d399;
+      --badge-stale-bg: rgba(245, 158, 11, 0.15);
+      --badge-stale-txt:#fbbf24;
+      --badge-error-bg: rgba(239, 68, 68, 0.15);
       --badge-error-txt:#f87171;
 
       --radius:         12px;
@@ -52,7 +64,8 @@
       --text-muted:     #475569;
       --text-faint:     #94a3b8;
 
-      --ust-highlight:  rgba(139, 47, 201, 0.12);
+      --team-light:     #7c3aed;
+      --ust-highlight:  rgba(139, 92, 246, 0.12);
 
       --badge-ok-bg:    #dcfce7;
       --badge-ok-txt:   #15803d;
@@ -69,7 +82,7 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -78,7 +91,7 @@
     }
 
     .container {
-      max-width: 1480px;
+      max-width: 1400px;
       margin: 0 auto;
     }
 
@@ -217,9 +230,9 @@
       border: 1.5px solid var(--border);
       color: var(--text-muted);
       padding: 0.65rem 1.25rem;
-      border-radius: 9px;
-      font-size: 0.9rem;
-      font-weight: 700;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 800;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -236,10 +249,10 @@
     }
 
     .filter-btn.active {
-      background: var(--team-primary);
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-3) 100%);
       border-color: var(--team-accent);
       color: #ffffff;
-      box-shadow: 0 0 16px var(--team-glow);
+      box-shadow: 0 0 18px var(--team-glow), inset 0 1px 1px rgba(255,255,255,0.2);
     }
 
     .site-link-btn {
@@ -248,9 +261,9 @@
       gap: 0.35rem;
       padding: 0.55rem 0.95rem;
       border-radius: 8px;
-      background: rgba(139, 47, 201, 0.15);
-      border: 1px solid rgba(139, 47, 201, 0.35);
-      color: var(--team-light);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-light);
+      color: var(--team-accent);
       font-size: 0.85rem;
       font-weight: 700;
       text-decoration: none;
@@ -259,13 +272,9 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    [data-color-mode="light"] .site-link-btn {
-      color: var(--team-accent);
-    }
-
     .site-link-btn:hover {
-      background: var(--team-primary);
-      color: #ffffff;
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
       border-color: var(--team-accent);
       box-shadow: 0 0 12px var(--team-glow);
     }
@@ -288,12 +297,13 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      transition: border-color 0.15s ease;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
       width: 100%;
     }
 
     .card:hover {
       border-color: var(--border-light);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
 
     /* ── Card Header ──────────────────────────────────────────────────────────── */
@@ -317,15 +327,15 @@
 
     .card-league {
       font-size: 0.74rem;
-      font-weight: 700;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.1em;
       color: var(--team-accent);
       font-family: 'JetBrains Mono', monospace;
     }
 
     .card-title {
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       font-weight: 800;
       color: var(--text);
       letter-spacing: -0.01em;
@@ -339,13 +349,13 @@
     }
 
     .card-source-link {
-      font-size: 0.75rem;
+      font-size: 0.76rem;
       font-weight: 700;
-      color: var(--text-muted);
+      color: var(--team-accent);
       text-decoration: none;
       padding: 0.22rem 0.55rem;
       border-radius: 6px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-light);
       background: rgba(255,255,255,0.04);
       white-space: nowrap;
       transition: all 0.15s ease;
@@ -353,16 +363,16 @@
     }
 
     .card-source-link:hover {
-      color: var(--team-light);
-      border-color: var(--team-accent);
-      background: rgba(139, 47, 201, 0.15);
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      box-shadow: 0 0 8px var(--team-glow);
     }
 
     .badge {
       font-size: 0.72rem;
       padding: 0.25rem 0.6rem;
       border-radius: 999px;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       white-space: nowrap;
@@ -382,21 +392,21 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.92rem;
+      font-size: 0.95rem;
     }
 
     thead th {
-      background: var(--surface-2);
+      background: rgba(0, 0, 0, 0.2);
       color: var(--text-muted);
-      font-size: 0.74rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      padding: 0.75rem 0.9rem;
+      padding: 0.8rem 0.9rem;
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
       text-align: left;
-      font-family: 'JetBrains Mono', monospace;
     }
 
     thead th.num { text-align: center; }
@@ -407,13 +417,13 @@
     }
 
     tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: var(--surface-2); }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
 
     tbody tr.highlight-ust {
       background: var(--ust-highlight) !important;
     }
 
-    tbody tr.highlight-ust td.team-cell .team-name {
+    tbody tr.highlight-ust .team-name {
       color: var(--team-accent);
       font-weight: 700;
     }
@@ -425,16 +435,16 @@
 
     td.rank {
       color: var(--text-muted);
-      font-size: 0.85rem;
-      font-weight: 700;
+      font-size: 0.88rem;
+      font-weight: 800;
       text-align: center;
       width: 44px;
       font-family: 'JetBrains Mono', monospace;
     }
 
-    .rank-top3 { color: #fbbf24 !important; }
+    .rank-top3 { color: var(--gold) !important; }
 
-    td.team-cell {
+    .team-cell {
       display: flex;
       align-items: center;
       gap: 0.6rem;
@@ -458,7 +468,7 @@
     .highlight-ust .team-acronym {
       background: var(--team-primary);
       color: #ffffff;
-      box-shadow: 0 0 6px rgba(139, 47, 201, 0.5);
+      box-shadow: 0 0 8px var(--team-glow);
       border-color: var(--team-accent);
     }
 
@@ -470,7 +480,6 @@
 
     td.record {
       text-align: center;
-      font-variant-numeric: tabular-nums;
       font-size: 0.92rem;
       color: var(--text);
       white-space: nowrap;
@@ -479,16 +488,11 @@
 
     td.pts-col {
       text-align: center;
-      font-variant-numeric: tabular-nums;
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: #c084fc;
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: var(--team-accent);
       white-space: nowrap;
       font-family: 'JetBrains Mono', monospace;
-    }
-
-    [data-color-mode="light"] td.pts-col {
-      color: var(--team-accent);
     }
 
     td.trend-cell { text-align: center; width: 62px; font-family: 'JetBrains Mono', monospace; }
@@ -499,22 +503,21 @@
       justify-content: center;
       gap: 0.15rem;
       font-size: 0.72rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
+      font-weight: 800;
       padding: 0.15rem 0.45rem;
       border-radius: 4px;
       font-family: 'JetBrains Mono', monospace;
     }
 
-    .trend-up   { color: #4ade80; background: rgba(74, 222, 128, 0.14); }
-    .trend-down { color: #f87171; background: rgba(248, 113, 113, 0.14); }
+    .trend-up   { color: var(--green); background: rgba(16, 185, 129, 0.15); }
+    .trend-down { color: var(--red);   background: rgba(239, 68, 68, 0.15); }
     .trend-same { color: var(--text-faint); }
-    .trend-new  { color: #fbbf24; background: rgba(251, 191, 36, 0.14); }
+    .trend-new  { color: var(--gold);  background: var(--gold-bg); }
 
     .poll-date-badge {
       display: inline-block;
       font-size: 0.72rem;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-muted);
       background: var(--surface-3);
       border: 1px solid var(--border);
@@ -530,6 +533,7 @@
       text-align: center;
       color: var(--text-muted);
       font-size: 0.95rem;
+      font-family: 'JetBrains Mono', monospace;
     }
 
     .message-icon {
@@ -572,7 +576,7 @@
     <header>
       <div class="wordmark">
         <span class="wordmark-eyebrow" id="eyebrowText">Tommie Athletic Productions Broadcast Operations Tool · 2026-27 Season</span>
-        <h1 id="pageTitle">TAPbot - Standings & Polls</h1>
+        <h1 id="pageTitle">Standings &amp; Polls</h1>
         <div class="meta" id="last-generated-time">Loading feed…</div>
       </div>
 
@@ -922,7 +926,6 @@
       });
     });
 
-    // ── Theme Init & Initial Load ──────────────────────────────────────────────
     try {
       const savedMode = localStorage.getItem('tap_color_mode') || 'dark';
       applyColorMode(savedMode);
