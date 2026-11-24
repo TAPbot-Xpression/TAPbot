@@ -1,0 +1,56 @@
+name: Deploy site
+
+# Place this file at: .github/workflows/deploy.yml
+#
+# This is the ONLY workflow that publishes the website. Each sport's scraper
+# workflow commits its JSON, then calls this one. Deploying one artifact of the
+# whole docs/ folder keeps one sport's deploy from wiping out the others.
+
+on:
+  # Called by hockey.yml, basketball.yml, baseball.yml, standings.yml
+  workflow_call:
+
+  # Manual "Run workflow" button
+  workflow_dispatch:
+
+  # Redeploys when you edit any page or JSON by hand (for example, a dashboard index.html).
+  # Bot commits made with GITHUB_TOKEN do not trigger this, so scrapers call it explicitly.
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          # IMPORTANT: check out the current tip of main, not the commit that
+          # triggered the run. Otherwise a scraper's fresh JSON commit is skipped
+          # and the site publishes stale data.
+          ref: main
+
+      - name: Upload docs/ as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
