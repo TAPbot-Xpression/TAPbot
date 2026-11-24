@@ -1,14 +1,16 @@
-name: Scrape NCHC Hockey
+name: Scrape Hockey
 
 # Place this file at: .github/workflows/hockey.yml
 
 on:
   schedule:
-    # GitHub cron runs in UTC. 14:15 UTC = 8:15 AM CST / 9:15 AM CDT in St. Paul.
-    # Staggered off the top of the hour to avoid GitHub's busiest delay window.
-    # Other sports: 14:30, 14:45, 15:00 so their pushes never collide.
-    - cron: "15 14 * * *"
-
+    # GitHub cron is UTC-only and cannot follow daylight saving time.
+    # Two entries cover both seasons. The "gate" job below only lets the run
+    # that lands around 4:30 AM in St. Paul (America/Chicago) continue.
+    #   09:30 UTC = 4:30 AM CDT (mid-March to early November)
+    #   10:30 UTC = 4:30 AM CST (early November to mid-March)
+    - cron: "30 9 * * *"
+    - cron: "30 10 * * *"
   workflow_dispatch:
     inputs:
       only_teams:
@@ -21,7 +23,6 @@ on:
         required: false
         default: false
         type: boolean
-
   push:
     branches: [main]
     paths:                          # only hockey changes trigger this workflow
@@ -36,12 +37,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    # Scheduled runs only continue if the St. Paul clock reads about 4:30 AM.
+    # Manual runs and pushes always continue.
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check St. Paul local time
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then
+            echo "Not a scheduled run - continuing."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          H=$(TZ=America/Chicago date +%-H)
+          M=$(TZ=America/Chicago date +%-M)
+          MINS=$((H * 60 + M))
+          echo "St. Paul local time: $(TZ=America/Chicago date '+%H:%M %Z')"
+
+          # Accept 4:20 AM to 5:15 AM local, which tolerates GitHub start delays.
+          if [ "$MINS" -ge 260 ] && [ "$MINS" -le 315 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Outside the 4:30 AM St. Paul window - skipping this cron."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   scrape:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
       changed: ${{ steps.commit.outputs.changed }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -59,7 +92,7 @@ jobs:
       - name: Install Playwright browser
         run: playwright install --with-deps chromium
 
-      - name: Run NCHC hockey scraper
+      - name: Run hockey scraper
         env:
           ONLY: ${{ inputs.only_teams }}
           DEBUG: ${{ inputs.enable_debug }}
@@ -71,8 +104,8 @@ jobs:
           if [ "$DEBUG" = "true" ]; then
             ARGS+=(--debug)
           fi
-          echo "Executing: python scrapers/hockey/scrape_nchc_hockey.py ${ARGS[*]}"
-          python scrapers/hockey/scrape_nchc_hockey.py "${ARGS[@]}"
+          echo "Executing: python scrapers/hockey/scrape_hockey.py ${ARGS[*]}"
+          python scrapers/hockey/scrape_hockey.py "${ARGS[@]}"
 
       - name: Upload debug snapshots
         if: ${{ inputs.enable_debug == true }}
@@ -87,15 +120,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add docs/hockey
-
           if git diff --cached --quiet; then
             echo "No changes to commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
           git commit -m "chore(hockey): update stats [$(date -u '+%Y-%m-%d %H:%M UTC')]"
 
           # Other sport workflows may push at the same time, so retry with a rebase.
@@ -107,7 +137,6 @@ jobs:
             echo "Push attempt $i failed, retrying..."
             sleep 5
           done
-
           echo "Could not push after 3 attempts."
           exit 1
 
