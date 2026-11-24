@@ -1,14 +1,13 @@
 # Place this file at: .github/workflows/schedule_scrapers.yml (replaces the existing one)
 #
-# Runs the North Campus and South Campus schedule scrapers every morning at
-# 4:00 AM Central, copies the JSON into docs/schedulers/, commits it to main,
-# then calls the shared deploy.yml so GitHub Pages publishes the new files.
+# Runs the unified schedule scraper (all sports, North + South Campus) every morning
+# at 4:00 AM Central, copies the JSON into docs/schedulers/, commits it to main,
+# then calls the shared deploy.yml so GitHub Pages publishes the new file.
 #
-# Scrapers live in: others/schedulers/
-# Published JSON:   docs/schedulers/schedule_northcampus.json
-#                   docs/schedulers/schedule_southcampus.json
+# Scraper lives in: others/schedulers/schedule_scrape_all.py
+# Published JSON:   docs/schedulers/all_schedules.json
 
-name: Scrape Schedules (North + South Campus)
+name: Scrape Schedules
 
 on:
   schedule:
@@ -35,7 +34,7 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     outputs:
       changed: ${{ steps.commit.outputs.changed }}
 
@@ -67,29 +66,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The scrapers use only the Python standard library, so there is nothing to pip install.
-      # They read config_northcampus.txt / config_southcampus.txt from their own folder.
-      - name: Run North Campus scraper
+      # The scraper uses only the Python standard library, so there is nothing to pip install.
+      # It reads config_all.txt (or falls back to config.txt) from its own folder.
+      - name: Run unified schedule scraper
         if: steps.tz.outputs.go == 'true'
-        run: python others/schedulers/schedule_scrape_northcampus.py
-
-      # always() means South Campus still runs even if North Campus fails
-      - name: Run South Campus scraper
-        if: always() && steps.tz.outputs.go == 'true'
-        run: python others/schedulers/schedule_scrape_southcampus.py
+        run: python others/schedulers/schedule_scrape_all.py
 
       - name: Copy JSON into docs/schedulers
         if: always() && steps.tz.outputs.go == 'true'
         run: |
           mkdir -p docs/schedulers
-          for f in schedule_northcampus.json schedule_southcampus.json; do
-            if [ -f "others/schedulers/$f" ]; then
-              cp "others/schedulers/$f" "docs/schedulers/$f"
-              echo "Copied $f"
-            else
-              echo "$f was not created. Keeping the previous version, if any."
-            fi
-          done
+          f="all_schedules.json"
+          if [ -f "others/schedulers/$f" ]; then
+            cp "others/schedulers/$f" "docs/schedulers/$f"
+            echo "Copied $f"
+          else
+            echo "$f was not created. Keeping the previous version, if any."
+          fi
 
       - name: Commit JSON
         id: commit
