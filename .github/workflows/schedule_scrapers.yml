@@ -1,57 +1,126 @@
-# Save this file in your repo at: .github/workflows/schedule_scrapers.yml
+# Place this file at: .github/workflows/schedule_scrapers.yml (replaces the existing one)
 #
-# Runs the North Campus and South Campus schedule scrapers every morning
-# at 4:00 AM CST, then commits the updated JSON files back to the repo.
+# Runs the North Campus and South Campus schedule scrapers every morning at
+# 4:00 AM Central, copies the JSON into docs/schedulers/, commits it to main,
+# then calls the shared deploy.yml so GitHub Pages publishes the new files.
+#
+# Scrapers live in: others/schedulers/
+# Published JSON:   docs/schedulers/schedule_northcampus.json
+#                   docs/schedulers/schedule_southcampus.json
 
-name: Schedule Scrapers
+name: Scrape Schedules (North + South Campus)
 
 on:
   schedule:
-    # GitHub cron runs in UTC. 10:00 UTC = 4:00 AM CST (UTC-6).
-    # During daylight saving (CDT, UTC-5) this fires at 5:00 AM Central.
-    - cron: "0 10 * * *"
-  workflow_dispatch:   # adds a "Run workflow" button so you can test it manually
+    # GitHub cron is UTC only and has no daylight saving support.
+    # Both times are scheduled; the "Check Central time" step lets only the
+    # one that lands on 4 AM Central through.
+    - cron: "0 10 * * *"   # 4:00 AM CST (winter)
+    - cron: "0 9 * * *"    # 4:00 AM CDT (summer)
+  workflow_dispatch:        # manual "Run workflow" button
+  push:
+    branches: [main]
+    paths:
+      # only schedule scraper changes trigger this workflow
+      - "others/schedulers/**"
+      - ".github/workflows/schedule_scrapers.yml"
 
 permissions:
-  contents: write      # needed so the workflow can commit the JSON files
+  contents: write
 
 concurrency:
-  group: schedule-scrapers
+  group: schedule-scrape
   cancel-in-progress: false
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
 
     steps:
-      - name: Check out repo
+      - name: Check Central time
+        id: tz
+        run: |
+          # Manual runs and push runs always go. Scheduled runs only go at 4 AM Central.
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=America/Chicago date +%H)
+          echo "Central hour is $HOUR"
+          if [ "$HOUR" = "04" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Not 4 AM Central. Skipping this run."
+          fi
+
+      - name: Checkout repository
+        if: steps.tz.outputs.go == 'true'
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.12
+        if: steps.tz.outputs.go == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # The scrapers use only the Python standard library, so there is nothing to pip install.
+      # They read config_northcampus.txt / config_southcampus.txt from their own folder.
       - name: Run North Campus scraper
-        run: python schedule_scrape_northcampus.py
+        if: steps.tz.outputs.go == 'true'
+        run: python others/schedulers/schedule_scrape_northcampus.py
 
-      # if: always() means South Campus still runs even if North Campus fails
+      # always() means South Campus still runs even if North Campus fails
       - name: Run South Campus scraper
-        if: always()
-        run: python schedule_scrape_southcampus.py
+        if: always() && steps.tz.outputs.go == 'true'
+        run: python others/schedulers/schedule_scrape_southcampus.py
 
-      - name: Commit updated schedule files
-        if: always()
+      - name: Copy JSON into docs/schedulers
+        if: always() && steps.tz.outputs.go == 'true'
+        run: |
+          mkdir -p docs/schedulers
+          for f in schedule_northcampus.json schedule_southcampus.json; do
+            if [ -f "others/schedulers/$f" ]; then
+              cp "others/schedulers/$f" "docs/schedulers/$f"
+              echo "Copied $f"
+            else
+              echo "$f was not created. Keeping the previous version, if any."
+            fi
+          done
+
+      - name: Commit JSON
+        id: commit
+        if: always() && steps.tz.outputs.go == 'true'
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add schedule_northcampus.json || true
-          git add schedule_southcampus.json || true
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/schedulers
           if git diff --cached --quiet; then
             echo "No changes to commit."
-          else
-            git commit -m "Update schedules $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git pull --rebase
-            git push
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          git commit -m "chore(schedulers): update schedules [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+          # Other sport workflows may push at the same time, so retry with a rebase.
+          for i in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "Could not push after 3 attempts."
+          exit 1
+
+  deploy:
+    needs: scrape
+    if: needs.scrape.outputs.changed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
