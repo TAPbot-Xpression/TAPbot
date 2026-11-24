@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-color-mode="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
 
   <style>
-    /* ── Team Color Themes (Dynamically applied via data-theme) ─────────────── */
+    /* ── Base Theme Variables (Dark Mode by Default) ─────────────────────────── */
     :root {
       --bg:             #080c14;
       --surface:        #0f1623;
@@ -45,6 +45,25 @@
       --radius-sm:      8px;
     }
 
+    /* ── Light Mode Color Overrides ─────────────────────────────────────────── */
+    [data-color-mode="light"] {
+      --bg:             #f8fafc;
+      --surface:        #ffffff;
+      --surface-2:      #f1f5f9;
+      --surface-3:      #e2e8f0;
+      --border:         #cbd5e1;
+      --border-light:   #94a3b8;
+
+      --text:           #0f172a;
+      --text-muted:     #475569;
+      --text-faint:     #94a3b8;
+
+      --gold-bg:        rgba(251, 191, 36, 0.22);
+      --silver-bg:      rgba(148, 163, 184, 0.22);
+      --bronze-bg:      rgba(249, 115, 22, 0.22);
+    }
+
+    /* ── Team Color Themes (Dynamically applied via data-theme) ─────────────── */
     [data-theme="kansas_city"] {
       --team-primary:   #002b49;
       --team-accent:    #004b87;
@@ -126,10 +145,34 @@
       font-size: 16px;
       min-height: 100vh;
       padding: 2.5rem 1.5rem 4.5rem;
-      transition: background-color 0.3s;
+      transition: background-color 0.25s, color 0.25s;
     }
 
     .container { max-width: 1360px; margin: 0 auto; }
+
+    /* ── TAPbot Back Button ─────────────────────────────────────────────────── */
+    .tap-back {
+      display: inline-flex; align-items: center; gap: .45rem;
+      margin: 0 0 1.25rem;
+      padding: .45rem .85rem;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font: 700 .82rem/1 'JetBrains Mono', monospace;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: color .15s, border-color .15s, box-shadow .15s;
+    }
+    .tap-back:hover,
+    .tap-back:focus-visible {
+      color: var(--text);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 10px var(--team-glow);
+    }
+    .tap-back:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 3px; }
+    .tap-back-arrow { transition: transform .15s; }
+    .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
 
     /* ── Header ─────────────────────────────────────────────────────────────── */
     header {
@@ -140,7 +183,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 1.25rem;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
     }
 
     .wordmark {
@@ -166,7 +209,7 @@
       font-weight: 900;
       letter-spacing: -0.03em;
       line-height: 1.15;
-      color: #f1f5f9;
+      color: var(--text);
     }
 
     .meta {
@@ -178,13 +221,58 @@
       line-height: 1.4;
     }
 
-    /* ── Large Primary Division Switcher ─────────────────────────────────────── */
+    /* ── Header Right Controls (Division + Theme Switcher) ───────────────────── */
+    .header-right-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .top-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .control-pill-group {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 9px;
+      gap: 3px;
+    }
+
+    .control-pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .control-pill-btn:hover {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    /* ── Division Switcher ───────────────────────────────────────────────────── */
     .division-control-wrap {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 0.45rem;
-      flex-shrink: 0;
+      gap: 0.35rem;
     }
 
     .division-caption {
@@ -203,7 +291,7 @@
       padding: 5px;
       border-radius: 14px;
       gap: 6px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
 
     .div-btn {
@@ -237,7 +325,7 @@
     .div-btn.active {
       background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-3) 100%);
       border-color: var(--team-accent);
-      color: #ffffff;
+      color: var(--team-btn-text, #ffffff);
       box-shadow: 0 0 18px var(--team-glow), inset 0 1px 1px rgba(255,255,255,0.2);
       transform: scale(1.02);
     }
@@ -294,7 +382,7 @@
     .team-pill.active {
       background: var(--surface-2);
       border-color: var(--team-accent);
-      color: #fff;
+      color: var(--text);
       box-shadow: 0 0 15px var(--team-glow);
     }
 
@@ -391,7 +479,7 @@
       background: var(--surface);
       border: 1.5px solid var(--team-accent);
       border-radius: var(--radius);
-      box-shadow: 0 0 35px var(--team-glow), 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 0 35px var(--team-glow), 0 8px 32px rgba(0,0,0,0.3);
       overflow: hidden;
       margin-bottom: 2.25rem;
       animation: fadeIn 0.2s ease;
@@ -478,6 +566,7 @@
       font-size: 1.65rem;
       font-weight: 800;
       letter-spacing: -0.02em;
+      color: #ffffff;
     }
 
     .spotlight-sub {
@@ -729,7 +818,7 @@
     .toggle-btn.active {
       background: var(--surface-2);
       border-color: var(--team-accent);
-      color: #ffffff;
+      color: var(--text);
       box-shadow: 0 0 12px var(--team-glow);
     }
 
@@ -739,11 +828,11 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 1.02rem; /* Increased readability */
+      font-size: 1.02rem;
     }
 
     thead th {
-      background: rgba(0,0,0,0.3);
+      background: rgba(0,0,0,0.15);
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.88rem;
@@ -773,7 +862,7 @@
       white-space: nowrap;
       text-align: center;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.98rem; /* Increased readability */
+      font-size: 0.98rem;
     }
 
     tbody td.col-player {
@@ -781,7 +870,7 @@
       font-family: 'Inter', sans-serif;
       font-weight: 600;
       cursor: pointer;
-      color: #ffffff;
+      color: var(--text);
       transition: color 0.15s ease;
       font-size: 1rem;
     }
@@ -797,7 +886,7 @@
       font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
       width: 55px;
-      text-align: center; /* Centered player numbers */
+      text-align: center;
     }
 
     tbody td.col-pos,
@@ -911,7 +1000,7 @@
       font-size: 0.92rem;
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
-      background: rgba(0,0,0,0.25);
+      background: rgba(0,0,0,0.15);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       padding: 0.85rem 1.15rem;
@@ -947,6 +1036,7 @@
 
     @media (max-width: 720px) {
       header { flex-wrap: wrap; }
+      .header-right-controls { width: 100%; align-items: flex-start; }
       .division-control-wrap { align-items: flex-start; width: 100%; }
       .division-switcher { width: 100%; justify-content: center; }
       .div-btn { flex: 1; justify-content: center; }
@@ -961,34 +1051,9 @@
 <div class="container">
 
   <!-- TAPbot: back to Hub Site -->
-<style>
-  .tap-back {
-    display: inline-flex; align-items: center; gap: .45rem;
-    margin: 0 0 1.25rem;
-    padding: .45rem .85rem;
-    background: var(--surface, #12141c);
-    border: 1px solid var(--border-light, var(--border, #262a3a));
-    border-radius: 999px;
-    color: var(--text-muted, #8d93a8);
-    font: 700 .82rem/1 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
-    letter-spacing: .04em;
-    text-decoration: none;
-    transition: color .15s, border-color .15s, box-shadow .15s;
-  }
-  .tap-back:hover,
-  .tap-back:focus-visible {
-    color: var(--text, #eceef5);
-    border-color: var(--team-accent, #7b3fd1);
-    box-shadow: 0 0 10px var(--team-glow, rgba(123, 63, 209, .35));
-  }
-  .tap-back:focus-visible { outline: 2px solid var(--team-accent, #7b3fd1); outline-offset: 3px; }
-  .tap-back-arrow { transition: transform .15s; }
-  .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
-</style>
-
-<a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
-  <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
-</a>
+  <a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
+    <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
+  </a>
   
   <!-- Header -->
   <header>
@@ -998,18 +1063,28 @@
       <div class="meta" id="metaBar">Loading data…</div>
     </div>
 
-    <!-- Prominent Division Switcher -->
-    <div class="division-control-wrap">
-      <span class="division-caption">Select Division</span>
-      <div class="division-switcher" role="tablist" aria-label="Basketball Division Switcher">
-        <button id="btnMens" class="div-btn active" onclick="setGender('men')">
-          <span class="div-icon">🏀</span>
-          <span>Men's Basketball</span>
-        </button>
-        <button id="btnWomens" class="div-btn" onclick="setGender('women')">
-          <span class="div-icon">🏀</span>
-          <span>Women's Basketball</span>
-        </button>
+    <!-- Right Controls: Theme Toggle & Prominent Division Switcher -->
+    <div class="header-right-controls">
+      <div class="top-toolbar">
+        <div class="control-pill-group" role="group" aria-label="Theme Selection">
+          <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
+            <span id="themeToggleLabel">🌙 Dark</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="division-control-wrap">
+        <span class="division-caption">Select Division</span>
+        <div class="division-switcher" role="tablist" aria-label="Basketball Division Switcher">
+          <button id="btnMens" class="div-btn active" onclick="setGender('men')">
+            <span class="div-icon">🏀</span>
+            <span>Men's Basketball</span>
+          </button>
+          <button id="btnWomens" class="div-btn" onclick="setGender('women')">
+            <span class="div-icon">🏀</span>
+            <span>Women's Basketball</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -1312,7 +1387,7 @@
       name: 'Non-Conf Opponent',
       shortName: 'Non-Conf',
       isNonConf: true,
-      men:   { file: 'non_conf_men.json',       statsSiteUrl: '', rosterSiteUrl: '' },
+      men:   { file: 'non_conf_men.json',   statsSiteUrl: '', rosterSiteUrl: '' },
       women: { file: 'non_conf_women.json', statsSiteUrl: '', rosterSiteUrl: '' }
     }
   };
@@ -1393,6 +1468,21 @@
   let CONFERENCE_TEAM_CACHE = { men: {}, women: {} };
   let ACTIVE_COMPARE_STAT = null;
 
+  // ── Color Mode (Dark / Light) ───────────────────────────────────────────────
+  function toggleColorMode() {
+    const htmlEl = document.documentElement;
+    const currentMode = htmlEl.getAttribute('data-color-mode') || 'dark';
+    const nextMode = currentMode === 'dark' ? 'light' : 'dark';
+    applyColorMode(nextMode);
+  }
+
+  function applyColorMode(mode) {
+    document.documentElement.setAttribute('data-color-mode', mode);
+    const label = document.getElementById('themeToggleLabel');
+    if (label) label.textContent = mode === 'dark' ? '🌙 Dark' : '☀️ Light';
+    try { localStorage.setItem('tap_color_mode', mode); } catch (e) {}
+  }
+
   // ── Switch Gender Division ──────────────────────────────────────────────────
   function setGender(gender) {
     if (CURRENT_GENDER === gender) return;
@@ -1466,7 +1556,7 @@
   // ── Stat Parser & Cleaner Helper ────────────────────────────────────────────
   function cleanVal(v) {
     if (v === undefined || v === null) return '0.0';
-    return String(v).replace(/^\+/, '').trim(); // Remove positive '+' prefix
+    return String(v).replace(/^\+/, '').trim();
   }
 
   function parseStat(val) {
@@ -1801,7 +1891,7 @@
 
   // ── Display Conference Leaderboard Spotlight (Rank #1 to #8) ───────────────
   async function displayTeamLeaderboard(statKey) {
-    if (TEAMS[CURRENT_TEAM].isNonConf) return; // Ignore non-conf teams for leaderboard spotlight
+    if (TEAMS[CURRENT_TEAM].isNonConf) return;
 
     ACTIVE_COMPARE_STAT = statKey;
     renderTeamStatsTable();
@@ -1943,7 +2033,12 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // Initial load
+  // ── Theme Init & Initial Load ──────────────────────────────────────────────
+  try {
+    const savedMode = localStorage.getItem('tap_color_mode') || 'dark';
+    applyColorMode(savedMode);
+  } catch (e) {}
+
   loadTeamData('st_thomas');
   prefetchConferenceStats();
 </script>
