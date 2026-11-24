@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 """
 scrapers/diamondsports/scrape_baseball.py
-Unified multi-school scraper for Summit League baseball stats & rosters.
+Unified multi-school scraper for Summit League baseball AND softball stats & rosters.
 
-Updates:
-  - Standardized JSON output filenames and team IDs to *_baseball.json
-  - Set default destination directory to docs/diamondsports/
-  - Removed master all_teams_stats.json creation
-  - Removed St. Thomas alias file generation
+Site styles ("type" in TEAMS):
+  - "sidearm"       NEW STYLE   (Nuxt data first, HTML table fallback)
+  - "old"           OLD STYLE   (HTML tables first, Nuxt data fallback)
+  - "statbroadcast" NDSU STYLE  (StatBroadcast custom pages, Sidearm fallback)
+
+Outputs (docs/diamondsports/):
+  *_baseball.json, *_softball.json, non_conf_baseball.json, non_conf_softball.json
+
+Non-conference opponents are read from non_conf_config.json (same folder as this
+script). See load_non_conf_teams() for the expected format.
+
+Usage:
+  python scrape_baseball.py                      # baseball + softball
+  python scrape_baseball.py --sport softball     # softball only
+  python scrape_baseball.py --school omaha       # Omaha baseball + softball
 """
 
 from __future__ import annotations
@@ -31,7 +41,7 @@ from bs4 import BeautifulSoup
 from playwright.async_api import BrowserContext, Page, async_playwright
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("baseball")
+logger = logging.getLogger("diamondsports")
 sys.setrecursionlimit(20000)
 
 # Resolve repository paths relative to this script
@@ -40,18 +50,22 @@ REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DI
 DEFAULT_DOCS_DIR = str(REPO_ROOT / "docs" / "diamondsports")
 NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
 
-NON_CONF_ID = "non_conf_baseball"
-NON_CONF_FILE = "non_conf_baseball.json"
+SPORTS = ["baseball", "softball"]
 CONCURRENCY_LIMIT = 4
 
 BATTING_FIELDS = ["AVG", "R", "H", "2B", "3B", "HR", "RBI", "OPS", "SLG%"]
 PITCHING_FIELDS = ["ERA", "WHIP", "W-L", "IP", "SO"]
 
-# ── Summit League Baseball Programs ───────────────────────────────────────────
+# Position given to a pitcher when the roster doesn't supply one (set per sport)
+_DEFAULT_PITCH_POS = "RHP"
+
+# ── Summit League Programs ────────────────────────────────────────────────────
 TEAMS = [
+    # ═════════════════════════ BASEBALL ═════════════════════════
     {
         "id": "st_thomas_baseball",
         "name": "St. Thomas Tommies",
+        "sport": "baseball",
         "type": "sidearm",
         "stats_url": "https://tommiesports.com/sports/baseball/stats/{year}",
         "roster_candidates": [
@@ -65,6 +79,7 @@ TEAMS = [
     {
         "id": "south_dakota_state_baseball",
         "name": "South Dakota State Jackrabbits",
+        "sport": "baseball",
         "type": "sidearm",
         "stats_url": "https://gojacks.com/sports/baseball/stats/{year}",
         "roster_candidates": [
@@ -78,6 +93,7 @@ TEAMS = [
     {
         "id": "northern_colorado_baseball",
         "name": "Northern Colorado Bears",
+        "sport": "baseball",
         "type": "sidearm",
         "stats_url": "https://uncbears.com/sports/baseball/stats/{year}",
         "roster_candidates": [
@@ -91,6 +107,7 @@ TEAMS = [
     {
         "id": "omaha_baseball",
         "name": "Omaha Mavericks",
+        "sport": "baseball",
         "type": "sidearm",
         "stats_url": "https://omahamavs.com/sports/baseball/stats/{year}",
         "roster_candidates": [
@@ -104,6 +121,7 @@ TEAMS = [
     {
         "id": "oral_roberts_baseball",
         "name": "Oral Roberts Golden Eagles",
+        "sport": "baseball",
         "type": "sidearm",
         "stats_url": "https://oruathletics.com/sports/baseball/stats/{year}",
         "roster_candidates": [
@@ -117,6 +135,7 @@ TEAMS = [
     {
         "id": "north_dakota_state_baseball",
         "name": "North Dakota State Bison",
+        "sport": "baseball",
         "type": "statbroadcast",
         "stats_url": "https://stats.gobison.com/custompages/bsb/{year}/teamcume.htm",
         "fallback_stats_url": "https://gobison.com/sports/baseball/stats/{year}",
@@ -127,6 +146,109 @@ TEAMS = [
             "https://gobison.com/sports/baseball/roster"
         ],
         "out_file": "north_dakota_state_baseball.json"
+    },
+
+    # ═════════════════════════ SOFTBALL — NEW STYLE ═════════════════════════
+    {
+        "id": "st_thomas_softball",
+        "name": "St. Thomas Tommies",
+        "sport": "softball",
+        "type": "sidearm",
+        "stats_url": "https://tommiesports.com/sports/softball/stats/{year}",
+        "roster_candidates": [
+            "https://tommiesports.com/sports/softball/roster/print",
+            "https://tommiesports.com/sports/softball/roster/print/{year}",
+            "https://tommiesports.com/sports/softball/roster/{year}?print=true",
+            "https://tommiesports.com/sports/softball/roster"
+        ],
+        "out_file": "st_thomas_softball.json"
+    },
+    {
+        "id": "kansas_city_softball",
+        "name": "Kansas City Roos",
+        "sport": "softball",
+        "type": "sidearm",
+        "stats_url": "https://kcroos.com/sports/softball/stats/{year}",
+        "roster_candidates": [
+            "https://kcroos.com/sports/softball/roster/print",
+            "https://kcroos.com/sports/softball/roster/print/{year}",
+            "https://kcroos.com/sports/softball/roster/{year}?print=true",
+            "https://kcroos.com/sports/softball/roster"
+        ],
+        "out_file": "kansas_city_softball.json"
+    },
+    {
+        "id": "omaha_softball",
+        "name": "Omaha Mavericks",
+        "sport": "softball",
+        "type": "sidearm",
+        "stats_url": "https://omahamavs.com/sports/softball/stats/{year}",
+        "roster_candidates": [
+            "https://omahamavs.com/sports/softball/roster/print",
+            "https://omahamavs.com/sports/softball/roster/print/{year}",
+            "https://omahamavs.com/sports/softball/roster/{year}?print=true",
+            "https://omahamavs.com/sports/softball/roster"
+        ],
+        "out_file": "omaha_softball.json"
+    },
+    {
+        "id": "south_dakota_state_softball",
+        "name": "South Dakota State Jackrabbits",
+        "sport": "softball",
+        "type": "sidearm",
+        "stats_url": "https://gojacks.com/sports/softball/stats/{year}",
+        "roster_candidates": [
+            "https://gojacks.com/sports/softball/roster/print",
+            "https://gojacks.com/sports/softball/roster/print/{year}",
+            "https://gojacks.com/sports/softball/roster/{year}?print=true",
+            "https://gojacks.com/sports/softball/roster"
+        ],
+        "out_file": "south_dakota_state_softball.json"
+    },
+
+    # ═════════════════════════ SOFTBALL — OLD STYLE ═════════════════════════
+    {
+        "id": "north_dakota_softball",
+        "name": "North Dakota Fighting Hawks",
+        "sport": "softball",
+        "type": "old",
+        "stats_url": "https://fightinghawks.com/sports/softball/stats/{year}",
+        "roster_candidates": [
+            "https://fightinghawks.com/sports/softball/roster?print=true",
+            "https://fightinghawks.com/sports/softball/roster/{year}?print=true",
+            "https://fightinghawks.com/sports/softball/roster"
+        ],
+        "out_file": "north_dakota_softball.json"
+    },
+    {
+        "id": "south_dakota_softball",
+        "name": "South Dakota Coyotes",
+        "sport": "softball",
+        "type": "old",
+        "stats_url": "https://goyotes.com/sports/softball/stats/{year}",
+        "roster_candidates": [
+            "https://goyotes.com/sports/softball/roster?print=true",
+            "https://goyotes.com/sports/softball/roster/{year}?print=true",
+            "https://goyotes.com/sports/softball/roster"
+        ],
+        "out_file": "south_dakota_softball.json"
+    },
+
+    # ═════════════════════════ SOFTBALL — NDSU STYLE ═════════════════════════
+    {
+        "id": "north_dakota_state_softball",
+        "name": "North Dakota State Bison",
+        "sport": "softball",
+        "type": "statbroadcast",
+        "stats_url": "https://stats.gobison.com/custompages/sb/{year}/teamcume.htm",
+        "fallback_stats_url": "https://gobison.com/sports/softball/stats/{year}",
+        "roster_candidates": [
+            "https://gobison.com/sports/softball/roster/print",
+            "https://gobison.com/sports/softball/roster/print/{year}",
+            "https://gobison.com/sports/softball/roster/{year}?print=true",
+            "https://gobison.com/sports/softball/roster"
+        ],
+        "out_file": "north_dakota_state_softball.json"
     }
 ]
 
@@ -138,6 +260,61 @@ FETCH_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
+
+# ── Non-Conference Config Loader ──────────────────────────────────────────────
+# non_conf_config.json lives next to this script (scrapers/diamondsports/).
+# Format — one optional block per sport:
+#   {
+#     "baseball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." },
+#     "softball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." }
+#   }
+# Output files: docs/diamondsports/non_conf_baseball.json / non_conf_softball.json
+_STYLE_TO_TYPE = {
+    "new": "sidearm", "sidearm": "sidearm",
+    "old": "old",
+    "ndsu": "statbroadcast", "statbroadcast": "statbroadcast",
+}
+
+def load_non_conf_teams(sports: List[str]) -> List[Dict[str, Any]]:
+    path = NON_CONF_CONFIG_PATH
+    if not path.exists():
+        logger.info("No non_conf_config.json at %s — skipping non-conference teams.", path)
+        return []
+    try:
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Could not read %s: %s", path, e)
+        return []
+    if not isinstance(cfg, dict):
+        logger.warning("%s must be a JSON object keyed by sport.", path)
+        return []
+
+    teams: List[Dict[str, Any]] = []
+    for sport in sports:
+        info = cfg.get(sport)
+        if not isinstance(info, dict) or not str(info.get("stats_url", "")).strip():
+            continue
+        style = str(info.get("style") or "new").strip().lower()
+        ttype = _STYLE_TO_TYPE.get(style)
+        if not ttype:
+            logger.warning("Non-conf %s: unknown style '%s' — using 'new'.", sport, style)
+            ttype = "sidearm"
+        roster_url = str(info.get("roster_url") or "").strip()
+        team: Dict[str, Any] = {
+            "id": f"non_conf_{sport}",
+            "name": str(info.get("name") or "Non-Conference Opponent").strip(),
+            "sport": sport,
+            "type": ttype,
+            "stats_url": str(info["stats_url"]).strip(),
+            "roster_candidates": [roster_url] if roster_url else [],
+            "out_file": f"non_conf_{sport}.json",
+        }
+        fb = str(info.get("fallback_stats_url") or "").strip()
+        if fb:
+            team["fallback_stats_url"] = fb
+        teams.append(team)
+        logger.info("Loaded non-conference %s opponent: %s", sport, team["name"])
+    return teams
 
 # ── Cleaners & Evaluators ─────────────────────────────────────────────────────
 _BLANK = {"", "-1", "none", "null", "nan", "n/a", "na", "-", "--", "---", "-.---", "—"}
@@ -219,6 +396,7 @@ _SUFFIXES = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"}
 _POS_TOKENS = {
     "P", "RHP", "LHP", "C", "1B", "2B", "3B", "SS", "IF", "INF", "MIF", "CIF",
     "OF", "LF", "CF", "RF", "DH", "UT", "UTL", "UTIL",
+    "DP", "FLEX", "EH",  # softball
 }
 _POS_WORDS = {
     "PITCHER": "P", "CATCHER": "C", "INFIELDER": "INF", "OUTFIELDER": "OF", "UTILITY": "UTIL",
@@ -521,7 +699,7 @@ def match_roster_meta(jersey_num: str, name: str, roster_by_num: Dict[str, Any],
 
     return clean_num, format_player_name(name), "", ""
 
-# ── Nuxt 3 Stats Extractor ─────────────────────────────────────────────────────
+# ── Nuxt 3 Stats Extractor (NEW STYLE) ─────────────────────────────────────────
 def try_extract_nuxt(soup: BeautifulSoup, roster_by_num: Dict[str, Any], roster_list: List[Dict[str, Any]]) -> Optional[Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[int, Any]]]:
     payload_str = None
     tag = soup.find("script", id="__NUXT_DATA__")
@@ -627,7 +805,7 @@ def try_extract_nuxt(soup: BeautifulSoup, roster_by_num: Dict[str, Any], roster_
                 pitching_map[player_key] = {
                     "number": str(jersey_int) if jersey_int != 999 else effective_num,
                     "player": clean_name,
-                    "position": pos or "RHP",
+                    "position": pos or _DEFAULT_PITCH_POS,
                     "year": yr,
                     "ERA": era,
                     "WHIP": whip,
@@ -665,7 +843,7 @@ def try_extract_nuxt(soup: BeautifulSoup, roster_by_num: Dict[str, Any], roster_
 
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
 
-# ── Sidearm Classic HTML Table Parser (Oral Roberts Fix) ──────────────────────
+# ── Sidearm HTML Table Parser (OLD STYLE + Oral Roberts) ──────────────────────
 def try_extract_sidearm_html(soup: BeautifulSoup, roster_by_num: Dict[str, Any], roster_list: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[int, Any]]:
     hitting_list, pitching_list = [], []
     hitting_by_num, pitching_by_num = {}, {}
@@ -746,7 +924,7 @@ def try_extract_sidearm_html(soup: BeautifulSoup, roster_by_num: Dict[str, Any],
                 if parse_ip(ip) > 0 or era != "-":
                     rows_data.append({
                         "number": str(jersey_int) if jersey_int != 999 else effective_num,
-                        "player": clean_name, "position": pos or "RHP", "year": yr,
+                        "player": clean_name, "position": pos or _DEFAULT_PITCH_POS, "year": yr,
                         "ERA": era, "WHIP": whip, "W-L": wl, "IP": ip, "SO": so,
                         "_sort": jersey_int
                     })
@@ -788,7 +966,7 @@ def try_extract_sidearm_html(soup: BeautifulSoup, roster_by_num: Dict[str, Any],
 
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
 
-# ── StatBroadcast Parser (NDSU Batting & Pitching) ────────────────────────────
+# ── StatBroadcast Parser (NDSU STYLE: Batting & Pitching) ─────────────────────
 def parse_statbroadcast(html: str, roster_by_num: Dict[str, Any], roster_list: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, Any], Dict[int, Any]]:
     soup = BeautifulSoup(html, "html.parser")
     hitting_list, pitching_list = [], []
@@ -898,39 +1076,64 @@ def parse_statbroadcast(html: str, roster_by_num: Dict[str, Any], roster_list: L
 
                 if parse_ip(ip) > 0 or era != "-":
                     pit = {
-                        "number": num, "player": clean_name, "position": pos or "RHP", "year": yr,
+                        "number": num, "player": clean_name, "position": pos or _DEFAULT_PITCH_POS, "year": yr,
                         "ERA": era, "WHIP": whip, "W-L": wl, "IP": ip, "SO": so,
                         "_sort": jersey_int
                     }
                     pitching_list.append(pit)
                     pitching_by_num[num] = {k: v for k, v in pit.items() if k != "_sort"}
-                    p = players_map.get(jersey_int, {"jersey_number": jersey_int, "player_name": clean_name, "position": pos or "RHP", "year": yr})
+                    p = players_map.get(jersey_int, {"jersey_number": jersey_int, "player_name": clean_name, "position": pos or _DEFAULT_PITCH_POS, "year": yr})
                     p["pitching_stats"] = {k: pit[k] for k in PITCHING_FIELDS}
                     players_map[jersey_int] = p
 
     hitting_list.sort(key=lambda x: x.pop("_sort", 999))
     pitching_list.sort(key=lambda x: x.pop("_sort", 999))
-    players_sorted = [players_map[k] for k in sorted(players_map.keys())]
 
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
 
 # ── Unified Extractor Router ──────────────────────────────────────────────────
+def _has_rows(res: Any) -> bool:
+    return bool(res and (res[0] or res[1]))
+
 def extract_stats(stats_html: str, roster_html: str, school_meta: Dict[str, Any], year: str, roster_used_url: str = "") -> Dict[str, Any]:
+    global _DEFAULT_PITCH_POS
+    sport = school_meta.get("sport", "baseball")
+    _DEFAULT_PITCH_POS = "P" if sport == "softball" else "RHP"
+
     roster_by_num, roster_list = parse_roster_page(roster_html)
-    logger.info("  [%s] Parsed %d roster records (%d mapped with jersey #s)", school_meta["name"], len(roster_list), len(roster_by_num))
+    logger.info("  [%s %s] Parsed %d roster records (%d mapped with jersey #s)", school_meta["name"], sport, len(roster_list), len(roster_by_num))
 
     soup = BeautifulSoup(stats_html, "html.parser")
+    style = school_meta.get("type", "sidearm")
+
+    # Parser order depends on the site style
+    if style == "statbroadcast":
+        attempts = [
+            lambda: parse_statbroadcast(stats_html, roster_by_num, roster_list),
+            lambda: try_extract_nuxt(soup, roster_by_num, roster_list),
+            lambda: try_extract_sidearm_html(soup, roster_by_num, roster_list),
+        ]
+    elif style == "old":
+        attempts = [
+            lambda: try_extract_sidearm_html(soup, roster_by_num, roster_list),
+            lambda: try_extract_nuxt(soup, roster_by_num, roster_list),
+        ]
+    else:  # "sidearm" = new style
+        attempts = [
+            lambda: try_extract_nuxt(soup, roster_by_num, roster_list),
+            lambda: try_extract_sidearm_html(soup, roster_by_num, roster_list),
+        ]
+
     res = None
+    for i, attempt in enumerate(attempts):
+        if i > 0:
+            logger.info("  [%s %s] Primary parser found nothing — trying fallback parser #%d...", school_meta["name"], sport, i)
+        res = attempt()
+        if _has_rows(res):
+            break
 
-    if school_meta.get("type") == "statbroadcast":
-        res = parse_statbroadcast(stats_html, roster_by_num, roster_list)
-
-    if not res or not (res[0] or res[1]):
-        res = try_extract_nuxt(soup, roster_by_num, roster_list)
-
-    if not res or not (res[0] or res[1]):
-        logger.info("  [%s] Falling back to Sidearm HTML table parser...", school_meta["name"])
-        res = try_extract_sidearm_html(soup, roster_by_num, roster_list)
+    if res is None:
+        res = ([], [], {}, {}, {})
 
     hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map = res
 
@@ -941,10 +1144,10 @@ def extract_stats(stats_html: str, roster_html: str, school_meta: Dict[str, Any]
     return {
         "team_id": school_meta["id"],
         "team": school_meta["name"],
-        "sport": "baseball",
+        "sport": sport,
         "season": year,
         "source": school_meta["stats_url"].format(year=year),
-        "source_roster": roster_used_url or (school_meta.get("roster_candidates", [""])[0]),
+        "source_roster": roster_used_url or (school_meta.get("roster_candidates", [""])[0] if school_meta.get("roster_candidates") else ""),
         "status": "ok" if (hitting_list or pitching_list) else "empty",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "players": players_sorted,
@@ -1006,11 +1209,21 @@ async def run(args: argparse.Namespace) -> None:
     docs_dir = args.docs_dir
     os.makedirs(docs_dir, exist_ok=True)
 
-    schools_to_scrape = TEAMS
-    if args.school:
-        schools_to_scrape = [t for t in TEAMS if t["id"] == args.school.lower() or t["id"].replace("_baseball", "") == args.school.lower()]
+    sports = SPORTS if args.sport == "all" else [args.sport]
 
-    logger.info("=== Summit League Baseball Scraper [%d School(s), Season: %s] ===", len(schools_to_scrape), year)
+    # Conference teams for the selected sport(s) + non-conference opponents from config
+    schools_to_scrape = [t for t in TEAMS if t["sport"] in sports]
+    schools_to_scrape += load_non_conf_teams(sports)
+
+    if args.school:
+        key = args.school.lower()
+        schools_to_scrape = [
+            t for t in schools_to_scrape
+            if t["id"] == key or t["id"].replace("_baseball", "").replace("_softball", "") == key
+        ]
+
+    logger.info("=== Summit League Diamond Sports Scraper [%d team(s), sport: %s, season: %s] ===",
+                len(schools_to_scrape), args.sport, year)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -1020,14 +1233,15 @@ async def run(args: argparse.Namespace) -> None:
             stats_url = school["stats_url"].format(year=year)
             candidates = school.get("roster_candidates", [])
 
-            logger.info("Processing Baseball: %s...", school["name"])
+            logger.info("Processing %s: %s...", school["sport"].title(), school["name"])
             try:
                 # 1. Fetch Stats
                 if school.get("type") == "statbroadcast":
                     try:
                         stats_html = await asyncio.to_thread(fetch_html_static, stats_url)
                     except Exception:
-                        stats_html = await fetch_page_html(context, school["fallback_stats_url"].format(year=year))
+                        fallback = school.get("fallback_stats_url", school["stats_url"]).format(year=year)
+                        stats_html = await fetch_page_html(context, fallback)
                 else:
                     stats_html = await fetch_page_html(context, stats_url)
 
@@ -1048,10 +1262,11 @@ async def run(args: argparse.Namespace) -> None:
         await browser.close()
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Summit League Baseball Stats Scraper")
+    parser = argparse.ArgumentParser(description="Summit League Baseball & Softball Stats Scraper")
     parser.add_argument("--year", default="2026", help="Season year")
+    parser.add_argument("--sport", default="all", choices=["all", "baseball", "softball"], help="Which sport(s) to scrape")
     parser.add_argument("--docs-dir", default=DEFAULT_DOCS_DIR, help="Output destination folder")
-    parser.add_argument("--school", default=None, help="Scrape specific school ID")
+    parser.add_argument("--school", default=None, help="Scrape one school by ID (e.g. omaha_softball) or short name (e.g. omaha)")
     asyncio.run(run(parser.parse_args()))
 
 if __name__ == "__main__":
