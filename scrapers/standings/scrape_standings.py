@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """
+scrapers/standings/scrape_standings.py
 Fetch standings and national polls from Summit League, PFL, NCHC, WCHA, and USCHO.
+
 Extracts:
   - Sports Standings: Team Name, Acronym, Conference W-L, Overall W-L, CPTS/PTS, GP, and OW-OL-SW
   - USCHO Polls: Rank, Team Name, Record, Pts + First-Place Votes formatted as "123 (12)",
     Last Poll rank, and Poll movement (up/down/same/new).
 
-Writes structured output to docs/data.json.
+Output (repo-relative, resolved from this script's location):
+  docs/standings/data.json
 
-Safe by design: if any individual source fails, the last good data for that
-sport/poll stays in the file marked "stale", so the website never goes blank.
+Safe by design:
+  If any individual source fails, the last good data for that sport/poll stays
+  in the file marked "stale", so the website never goes blank.
 
 Usage:
-    python scraper/scrape.py
-    python scraper/scrape.py --out docs/data.json
+  python scrapers/standings/scrape_standings.py
+  python scrapers/standings/scrape_standings.py --out docs/standings/data.json
 """
 
 import argparse
@@ -22,10 +26,16 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+# ── Dynamic Path Resolution ──────────────────────────────────────────────────
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
+DEFAULT_OUT = REPO_ROOT / "docs" / "standings" / "data.json"
+
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
 # ── Team Acronym Translation Map (for Standings & Polls) ──────────────────────
 TEAM_ACRONYMS = {
@@ -196,10 +206,11 @@ FEEDS_CONFIG = [
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def clean(text):
-    return re.sub(r"\s+", " ", text or "").strip()
+def clean(text: Any) -> str:
+    return re.sub(r"\s+", " ", str(text) if text is not None else "").strip()
 
-def get_team_acronym(team_name, overrides=None):
+
+def get_team_acronym(team_name: str, overrides: Optional[Dict[str, str]] = None) -> str:
     """Translate raw team name into standard acronym with optional feed overrides."""
     cleaned = clean(team_name)
     active_map = {**TEAM_ACRONYMS, **(overrides or {})}
@@ -221,19 +232,23 @@ def get_team_acronym(team_name, overrides=None):
         return "".join(w[0] for w in words).upper()
     return cleaned[:4].upper()
 
-def header_cells(table):
+
+def header_cells(table: Any) -> List[str]:
     row = table.select_one("thead tr:last-of-type") or table.find("tr")
     return [clean(c.get_text()) for c in row.find_all(["th", "td"])] if row else []
 
-def body_rows(table):
+
+def body_rows(table: Any) -> List[Any]:
     rows = table.select("tbody tr") or table.find_all("tr")[1:]
     return [r for r in rows if r.find_all(["td", "th"])]
 
-def team_text(cell):
+
+def team_text(cell: Any) -> str:
     link = cell.find("a")
     return clean((link or cell).get_text())
 
-def is_pods_table(table):
+
+def is_pods_table(table: Any) -> bool:
     """Returns True if this table is a Pods/group sub-table rather than full standings."""
     hdrs = [h.lower() for h in header_cells(table)]
     if any("pod" in h or "group" in h for h in hdrs):
@@ -248,12 +263,12 @@ def is_pods_table(table):
 
 # ── Sidearm Standings Table Parser ────────────────────────────────────────────
 
-def parse_standings_table(html, meta):
+def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
     soup = BeautifulSoup(html, "html.parser")
-    point_col_type   = meta.get("point_col")
-    skip_pods        = meta.get("skip_pods", False)
-    overrides        = meta.get("acronym_overrides", None)
-    include_gp       = meta.get("include_gp", False)
+    point_col_type = meta.get("point_col")
+    skip_pods = meta.get("skip_pods", False)
+    overrides = meta.get("acronym_overrides", None)
+    include_gp = meta.get("include_gp", False)
     include_ow_ol_sw = meta.get("include_ow_ol_sw", False)
 
     target = None
@@ -288,17 +303,17 @@ def parse_standings_table(html, meta):
     if target is None:
         raise ValueError(f"Could not identify standings table for {meta['name']}")
 
-    headers    = header_cells(target)
+    headers = header_cells(target)
     hdrs_lower = [h.lower() for h in headers]
 
-    def idx(*candidates):
+    def idx(*candidates: str) -> Optional[int]:
         for c in candidates:
             for i, h in enumerate(hdrs_lower):
                 if c in h:
                     return i
         return None
 
-    def exact_idx(*candidates):
+    def exact_idx(*candidates: str) -> Optional[int]:
         for c in candidates:
             for i, h in enumerate(hdrs_lower):
                 if h == c:
@@ -335,13 +350,13 @@ def parse_standings_table(html, meta):
     sw_idx = None
     if include_ow_ol_sw:
         ow_ol_idx = exact_idx("ow-ol", "ow/ol", "ow - ol") or idx("ow-ol", "ow/ol")
-        sw_idx    = exact_idx("sw", "so wins", "shootout w") or idx("sw", "shootout w")
+        sw_idx = exact_idx("sw", "so wins", "shootout w") or idx("sw", "shootout w")
 
     rows = []
     for tr in body_rows(target):
         cells = tr.find_all(["td", "th"])
 
-        def cell_text(i):
+        def cell_text(i: Optional[int]) -> str:
             if i is None or i >= len(cells):
                 return ""
             return clean(cells[i].get_text())
@@ -368,12 +383,12 @@ def parse_standings_table(html, meta):
         else:
             ovr = "—"
 
-        row_data = {
-            "rank":    len(rows) + 1,
-            "team":    team,
+        row_data: Dict[str, Any] = {
+            "rank": len(rows) + 1,
+            "team": team,
             "acronym": acronym,
-            "conf":    conf,
-            "ovr":     ovr,
+            "conf": conf,
+            "ovr": ovr,
         }
 
         # Include Conference GP if configured
@@ -389,9 +404,9 @@ def parse_standings_table(html, meta):
         # Combine OW-OL and SW into "OW-OL-SW" (e.g., "0-0" and "0" -> "0-0-0")
         if include_ow_ol_sw:
             ow_ol_val = cell_text(ow_ol_idx).replace("–", "-") if ow_ol_idx is not None else "0-0"
-            sw_val    = cell_text(sw_idx) if sw_idx is not None else "0"
+            sw_val = cell_text(sw_idx) if sw_idx is not None else "0"
             ow_ol_val = ow_ol_val if ow_ol_val else "0-0"
-            sw_val    = sw_val if sw_val else "0"
+            sw_val = sw_val if sw_val else "0"
             row_data["ow_ol_sw"] = f"{ow_ol_val}-{sw_val}"
 
         rows.append(row_data)
@@ -410,16 +425,16 @@ def parse_standings_table(html, meta):
         raise ValueError(f"No team rows parsed for {meta['name']}")
 
     return {
-        "id":     meta["id"],
-        "name":   meta["name"],
+        "id": meta["id"],
+        "name": meta["name"],
         "source": meta["url"],
-        "rows":   rows,
+        "rows": rows,
     }
 
 
 # ── USCHO Poll Table Parser (Targets Bootstrap-Vue #btable) ───────────────────
 
-def parse_uscho_poll_table(html, meta):
+def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
     soup = BeautifulSoup(html, "html.parser")
 
     # 1. Extract Poll Date from header (e.g., "USCHO Division I Men's Poll - October 19, 2026")
@@ -452,14 +467,14 @@ def parse_uscho_poll_table(html, meta):
     headers = header_cells(target)
     hdrs_lower = [h.lower() for h in headers]
 
-    def idx(*candidates):
+    def idx(*candidates: str) -> Optional[int]:
         for c in candidates:
             for i, h in enumerate(hdrs_lower):
                 if c in h:
                     return i
         return None
 
-    def exact_idx(*candidates):
+    def exact_idx(*candidates: str) -> Optional[int]:
         for c in candidates:
             for i, h in enumerate(hdrs_lower):
                 if h == c:
@@ -468,9 +483,9 @@ def parse_uscho_poll_table(html, meta):
 
     rank_idx = exact_idx("rnk", "rank", "#", "rk") or idx("rnk", "rank")
     team_idx = exact_idx("team", "school") or idx("team", "school")
-    fpv_idx  = idx("first place", "(first place votes)", "fpv", "1st")
-    rec_idx  = exact_idx("record", "rec", "w-l-t") or idx("record", "rec")
-    pts_idx  = exact_idx("pts", "points", "total") or idx("pts", "point")
+    fpv_idx = idx("first place", "(first place votes)", "fpv", "1st")
+    rec_idx = exact_idx("record", "rec", "w-l-t") or idx("record", "rec")
+    pts_idx = exact_idx("pts", "points", "total") or idx("pts", "point")
     last_idx = exact_idx("last poll", "last", "prev", "last rnk") or idx("last", "prev")
 
     rows = []
@@ -479,7 +494,7 @@ def parse_uscho_poll_table(html, meta):
         if len(cells) < 4:
             continue
 
-        def cell_text(i):
+        def cell_text(i: Optional[int]) -> str:
             if i is None or i >= len(cells):
                 return ""
             return clean(cells[i].get_text())
@@ -542,18 +557,17 @@ def parse_uscho_poll_table(html, meta):
                 trend_dir = "same"
             last_display = str(last_rank)
         else:
-            last_rank = None
             last_display = "NR" if ("nr" in raw_last.lower() or not raw_last) else raw_last
             trend = "NEW"
             trend_dir = "new"
 
         rows.append({
-            "rank":      rank_val,
-            "team":      cleaned_team,
-            "record":    record or "—",
-            "pts":       formatted_pts,
+            "rank": rank_val,
+            "team": cleaned_team,
+            "record": record or "—",
+            "pts": formatted_pts,
             "last_poll": last_display,
-            "trend":     trend,
+            "trend": trend,
             "trend_dir": trend_dir,
         })
 
@@ -561,24 +575,24 @@ def parse_uscho_poll_table(html, meta):
         raise ValueError(f"No poll rows parsed from table for {meta['name']}")
 
     return {
-        "id":        meta["id"],
-        "name":      meta["name"],
-        "source":    meta["url"],
+        "id": meta["id"],
+        "name": meta["name"],
+        "source": meta["url"],
         "poll_date": poll_date,
-        "rows":      rows,
+        "rows": rows,
     }
 
 
 # ── Playwright Fetch ──────────────────────────────────────────────────────────
 
-def fetch_all_rendered(feeds):
+def fetch_all_rendered(feeds: List[Dict[str, Any]]) -> Dict[str, Any]:
     from playwright.sync_api import sync_playwright
 
     scraped_data = {}
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(user_agent=UA)
-        page    = context.new_page()
+        page = context.new_page()
 
         # Block media/fonts to speed up, keep scripts/styles for dynamic table mounting
         page.route(
@@ -589,9 +603,9 @@ def fetch_all_rendered(feeds):
         )
 
         for feed in feeds:
-            feed_id   = feed["id"]
+            feed_id = feed["id"]
             feed_type = feed.get("type", "standings")
-            url       = feed["url"]
+            url = feed["url"]
 
             print(f"Fetching [{feed['name']}] -> {url} ...")
             try:
@@ -622,8 +636,8 @@ def fetch_all_rendered(feeds):
                 print(f"  ✗ Error [{feed_id}]: {exc}", file=sys.stderr)
                 scraped_data[feed_id] = {
                     "status": "error",
-                    "error":  str(exc)[:300],
-                    "rows":   [],
+                    "error": str(exc)[:300],
+                    "rows": [],
                 }
 
         browser.close()
@@ -633,31 +647,32 @@ def fetch_all_rendered(feeds):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def now_iso():
+def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="docs/data.json", help="Path to output data.json")
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Summit League, NCHC, WCHA, PFL Standings and USCHO Polls Scraper")
+    ap.add_argument("--out", default=str(DEFAULT_OUT), help="Path to output data.json")
     args = ap.parse_args()
 
     out_path = Path(args.out)
 
-    old_sports = {}
+    old_sports: Dict[str, Any] = {}
     if out_path.exists():
         try:
             old_sports = json.loads(out_path.read_text(encoding="utf-8")).get("sports", {})
         except Exception:
             pass
 
-    new_scraped       = fetch_all_rendered(FEEDS_CONFIG)
+    new_scraped = fetch_all_rendered(FEEDS_CONFIG)
     current_timestamp = now_iso()
-    final_sports      = {}
+    final_sports: Dict[str, Any] = {}
 
     for feed in FEEDS_CONFIG:
         s_id = feed["id"]
-        res  = new_scraped.get(s_id)
-        old  = old_sports.get(s_id)
+        res = new_scraped.get(s_id)
+        old = old_sports.get(s_id)
 
         if res and res.get("status") == "ok":
             res["updated_at"] = current_timestamp
@@ -667,20 +682,20 @@ def main():
             final_sports[s_id] = {
                 **old,
                 "status": "stale",
-                "error":  res.get("error") if res else "Fetch failed",
+                "error": res.get("error") if res else "Fetch failed",
             }
         else:
             final_sports[s_id] = res or {
-                "id":     s_id,
-                "name":   feed["name"],
+                "id": s_id,
+                "name": feed["name"],
                 "source": feed["url"],
                 "status": "error",
-                "rows":   [],
+                "rows": [],
             }
 
     payload = {
         "generated_at": current_timestamp,
-        "sports":       final_sports,
+        "sports": final_sports,
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
