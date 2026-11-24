@@ -1,0 +1,22 @@
+{
+  "team": "Arizona State",
+  "slug": "arizona_state_mhockey",
+  "gender": "men",
+  "sport": "hockey",
+  "conference": "NCHC",
+  "generated_at": "2026-11-23T10:09:35Z",
+  "source_stats_url": "https://thesundevils.com/sports/ice-hockey/stats",
+  "source_roster_url": "https://thesundevils.com/sports/ice-hockey/roster?view=table",
+  "site_style": "WMT Digital (Static DOM)",
+  "team_stats": {
+    "goals_per_game": "-",
+    "shots_per_game": "-",
+    "shot_pct": "-",
+    "pp_pct": "-",
+    "pk_pct": "-",
+    "pen_per_game": "-",
+    "pim_per_game": "-",
+    "faceoff_pct": "-"
+  },
+  "players": []
+}
