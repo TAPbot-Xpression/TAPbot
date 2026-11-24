@@ -1,0 +1,4 @@
+# Leave blank for the automatic opponent
+football = 
+volleyball = 
+baseball = 
