@@ -162,7 +162,29 @@
 
     .container { max-width: 1360px; margin: 0 auto; }
 
-  
+    /* ── TAPbot Back Button ─────────────────────────────────────────────────── */
+    .tap-back {
+      display: inline-flex; align-items: center; gap: .45rem;
+      margin: 0 0 1.25rem;
+      padding: .45rem .85rem;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font: 700 .82rem/1 'JetBrains Mono', monospace;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: color .15s, border-color .15s, box-shadow .15s;
+    }
+    .tap-back:hover,
+    .tap-back:focus-visible {
+      color: var(--text);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 10px var(--team-glow);
+    }
+    .tap-back:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 3px; }
+    .tap-back-arrow { transition: transform .15s; }
+    .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
 
     /* ── Header ─────────────────────────────────────────────────────────────── */
     header {
@@ -195,10 +217,11 @@
     }
 
     h1 {
-      font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+      font-size: clamp(1.35rem, 2.3vw, 2rem);
       font-weight: 900;
       letter-spacing: -0.03em;
       line-height: 1.15;
+      color: var(--text);
     }
 
     .meta {
@@ -210,50 +233,120 @@
       line-height: 1.4;
     }
 
-    /* Top Right Global Controls (Sport + Theme Switchers) */
-    .top-controls {
+    /* ── Header Right Controls (Sport + Theme Switcher) ──────────────────────── */
+    .header-right-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .top-toolbar {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     .control-pill-group {
       display: inline-flex;
       background: var(--surface);
       border: 1px solid var(--border);
-      padding: 4px;
-      border-radius: 10px;
-      gap: 4px;
+      padding: 3px;
+      border-radius: 9px;
+      gap: 3px;
     }
 
     .control-pill-btn {
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 0.45rem 0.85rem;
+      padding: 0.4rem 0.8rem;
       border-radius: 7px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
       transition: all 0.15s ease;
       white-space: nowrap;
     }
 
-    .control-pill-btn:hover:not(.active) {
+    .control-pill-btn:hover {
       color: var(--text);
       background: var(--surface-2);
     }
 
-    .control-pill-btn.active {
-      background: var(--team-primary);
+    /* ── Large Primary Sport Switcher ────────────────────────────────────────── */
+    .division-control-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.35rem;
+    }
+
+    .division-caption {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .division-switcher {
+      display: inline-flex;
+      background: var(--surface);
+      border: 2px solid var(--border-light);
+      padding: 5px;
+      border-radius: 14px;
+      gap: 6px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .div-btn {
+      background: transparent;
+      border: 1.5px solid transparent;
+      color: var(--text-muted);
+      padding: 0.75rem 1.4rem;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+    }
+
+    .div-btn .div-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .div-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface-2);
+      border-color: var(--border);
+    }
+
+    .div-btn.active {
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-3) 100%);
       border-color: var(--team-accent);
       color: var(--team-btn-text, #ffffff);
-      box-shadow: 0 0 10px var(--team-glow);
+      box-shadow: 0 0 18px var(--team-glow), inset 0 1px 1px rgba(255,255,255,0.2);
+      transform: scale(1.02);
+    }
+
+    @media (max-width: 1100px) {
+      .div-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.95rem;
+      }
     }
 
     /* ── Team Selector Ribbon ────────────────────────────────────────────────── */
@@ -828,6 +921,10 @@
 
     @media (max-width: 720px) {
       header { flex-wrap: wrap; }
+      .header-right-controls { width: 100%; align-items: flex-start; }
+      .division-control-wrap { align-items: flex-start; width: 100%; }
+      .division-switcher { width: 100%; justify-content: center; }
+      .div-btn { flex: 1; justify-content: center; }
       .stat-grid { grid-template-columns: repeat(3, 1fr); }
       .team-pill.non-conf { margin-left: 0; }
     }
@@ -837,61 +934,41 @@
 
 <div class="container">
 
-    <!-- TAPbot: back to Hub Site -->
-<style>
-  .tap-back {
-    display: inline-flex; align-items: center; gap: .45rem;
-    margin: 0 0 1.25rem;
-    padding: .45rem .85rem;
-    background: var(--surface, #12141c);
-    border: 1px solid var(--border-light, var(--border, #262a3a));
-    border-radius: 999px;
-    color: var(--text-muted, #8d93a8);
-    font: 700 .82rem/1 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
-    letter-spacing: .04em;
-    text-decoration: none;
-    transition: color .15s, border-color .15s, box-shadow .15s;
-  }
-  .tap-back:hover,
-  .tap-back:focus-visible {
-    color: var(--text, #eceef5);
-    border-color: var(--team-accent, #7b3fd1);
-    box-shadow: 0 0 10px var(--team-glow, rgba(123, 63, 209, .35));
-  }
-  .tap-back:focus-visible { outline: 2px solid var(--team-accent, #7b3fd1); outline-offset: 3px; }
-  .tap-back-arrow { transition: transform .15s; }
-  .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
-</style>
-
-<a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
-  <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
-</a>
+  <!-- TAPbot: back to Hub Site -->
+  <a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
+    <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
+  </a>
 
   <!-- Header -->
   <header>
     <div class="wordmark">
-      <span class="wordmark-eyebrow" id="eyebrowText">Summit League Baseball · 2026 Season</span>
+      <span class="wordmark-eyebrow" id="eyebrowText">2026-27 Season</span>
       <h1 id="pageTitle">Summit League Baseball Season Stats</h1>
       <div class="meta" id="metaBar">Loading data…</div>
     </div>
 
-    <!-- Top Right Controls: Sport Toggle + Dark/Light Mode -->
-    <div class="top-controls">
-      <!-- Sport Switcher -->
-      <div class="control-pill-group" role="tablist" aria-label="Sport Selection">
-        <button id="btnSportBaseball" class="control-pill-btn active" onclick="switchSport('baseball')">
-          <span>⚾ Baseball</span>
-        </button>
-        <button id="btnSportSoftball" class="control-pill-btn" onclick="switchSport('softball')">
-          <span>🥎 Softball</span>
-        </button>
+    <!-- Right Controls: Theme Toggle & Prominent Sport Switcher -->
+    <div class="header-right-controls">
+      <div class="top-toolbar">
+        <div class="control-pill-group" role="group" aria-label="Theme Selection">
+          <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
+            <span id="themeToggleLabel">🌙 Dark</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Theme Switcher -->
-      <div class="control-pill-group" role="group" aria-label="Theme Selection">
-        <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
-          <span id="themeToggleLabel">🌙 Dark</span>
-        </button>
+      <div class="division-control-wrap">
+        <span class="division-caption">Select Sport</span>
+        <div class="division-switcher" role="tablist" aria-label="Diamond Sports Switcher">
+          <button id="btnSportBaseball" class="div-btn active" onclick="switchSport('baseball')">
+            <span class="div-icon">⚾</span>
+            <span>Baseball</span>
+          </button>
+          <button id="btnSportSoftball" class="div-btn" onclick="switchSport('softball')">
+            <span class="div-icon">🥎</span>
+            <span>Softball</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -1201,8 +1278,14 @@
     const htmlEl = document.documentElement;
     const currentMode = htmlEl.getAttribute('data-color-mode') || 'dark';
     const nextMode = currentMode === 'dark' ? 'light' : 'dark';
-    htmlEl.setAttribute('data-color-mode', nextMode);
-    document.getElementById('themeToggleLabel').textContent = nextMode === 'dark' ? '🌙 Dark' : '☀️ Light';
+    applyColorMode(nextMode);
+  }
+
+  function applyColorMode(mode) {
+    document.documentElement.setAttribute('data-color-mode', mode);
+    const label = document.getElementById('themeToggleLabel');
+    if (label) label.textContent = mode === 'dark' ? '🌙 Dark' : '☀️ Light';
+    try { localStorage.setItem('tap_color_mode', mode); } catch (e) {}
   }
 
   // ── Sport Switcher ──────────────────────────────────────────────────────────
@@ -1687,7 +1770,12 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── Initial Load ───────────────────────────────────────────────────────────
+  // ── Theme Init & Initial Load ──────────────────────────────────────────────
+  try {
+    const savedMode = localStorage.getItem('tap_color_mode') || 'dark';
+    applyColorMode(savedMode);
+  } catch (e) {}
+
   renderTeamPills();
   selectTeam('st_thomas_baseball');
 </script>
