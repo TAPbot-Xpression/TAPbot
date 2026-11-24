@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="en" data-color-mode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TAPbot - Game Schedules</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Color System & Default Theme (Dark) ─────────────────────────────────── */
+    :root {
+      --bg:             #080c14;
+      --surface:        #0f1623;
+      --surface-2:      #161f30;
+      --surface-3:      #1d2840;
+      --border:         #1e2d47;
+      --border-light:   #2a3d5c;
+
+      --team-primary:   #5b2d86;
+      --team-accent:    #8b5cf6;
+      --team-glow:      rgba(139, 92, 246, 0.35);
+      --team-light:     #ddd6fe;
+      --team-btn-text:  #ffffff;
+      --next-bg:        rgba(139, 92, 246, 0.16);
+
+      --gold:           #fbbf24;
+      --gold-bg:        rgba(251, 191, 36, 0.14);
+      --silver:         #e2e8f0;
+      --silver-bg:      rgba(226, 232, 240, 0.14);
+      --bronze:         #f97316;
+      --bronze-bg:      rgba(249, 115, 22, 0.14);
+
+      --text:           #e8edf5;
+      --text-muted:     #8a9fb8;
+      --text-faint:     #4d627d;
+
+      --green:          #10b981;
+      --red:            #ef4444;
+      --amber:          #f59e0b;
+
+      --badge-ok-bg:    rgba(16, 185, 129, 0.15);
+      --badge-ok-txt:   #34d399;
+      --badge-stale-bg: rgba(245, 158, 11, 0.15);
+      --badge-stale-txt:#fbbf24;
+      --badge-error-bg: rgba(239, 68, 68, 0.15);
+      --badge-error-txt:#f87171;
+
+      --radius:         12px;
+      --radius-sm:      8px;
+    }
+
+    /* ── Light Mode Color Overrides ─────────────────────────────────────────── */
+    [data-color-mode="light"] {
+      --bg:             #f8fafc;
+      --surface:        #ffffff;
+      --surface-2:      #f1f5f9;
+      --surface-3:      #e2e8f0;
+      --border:         #cbd5e1;
+      --border-light:   #94a3b8;
+
+      --text:           #0f172a;
+      --text-muted:     #475569;
+      --text-faint:     #94a3b8;
+
+      --team-accent:    #7c3aed;
+      --team-glow:      rgba(124, 58, 237, 0.22);
+      --next-bg:        rgba(124, 58, 237, 0.10);
+
+      --gold-bg:        rgba(251, 191, 36, 0.22);
+      --silver-bg:      rgba(148, 163, 184, 0.22);
+      --bronze-bg:      rgba(249, 115, 22, 0.22);
+
+      --badge-ok-bg:    #dcfce7;
+      --badge-ok-txt:   #15803d;
+      --badge-stale-bg: #fef9c3;
+      --badge-stale-txt:#a16207;
+      --badge-error-bg: #fee2e2;
+      --badge-error-txt:#b91c1c;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      min-height: 100vh;
+      padding: 2.5rem 1.5rem 4.5rem;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── TAPbot Back Button ─────────────────────────────────────────────────── */
+    .tap-back {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      margin: 0 0 1.25rem;
+      padding: .45rem .85rem;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font: 700 .82rem/1 'JetBrains Mono', monospace;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: color .15s, border-color .15s, box-shadow .15s;
+    }
+    .tap-back:hover,
+    .tap-back:focus-visible {
+      color: var(--text);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 10px var(--team-glow);
+    }
+    .tap-back:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 3px; }
+    .tap-back-arrow { transition: transform .15s; }
+    .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    header {
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .wordmark-eyebrow {
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    h1 {
+      font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .meta {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 0.25rem;
+      line-height: 1.5;
+    }
+    .meta strong { color: var(--text); }
+    .meta .meta-stale { color: var(--amber); }
+    .meta .meta-bad   { color: var(--red); }
+
+    /* ── Header Right Controls ───────────────────────────────────────────────── */
+    .header-right-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .top-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .control-pill-group {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 9px;
+      gap: 3px;
+    }
+
+    .control-pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .control-pill-btn:hover:not(:disabled) {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+    .control-pill-btn:disabled {
+      opacity: .6;
+      cursor: progress;
+    }
+
+    /* ── Primary Campus Switcher ─────────────────────────────────────────────── */
+    .division-control-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.35rem;
+    }
+
+    .division-caption {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .division-switcher {
+      display: inline-flex;
+      background: var(--surface);
+      border: 2px solid var(--border-light);
+      padding: 5px;
+      border-radius: 14px;
+      gap: 6px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .div-btn {
+      background: transparent;
+      border: 1.5px solid transparent;
+      color: var(--text-muted);
+      padding: 0.75rem 1.2rem;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+    }
+
+    .div-btn .div-icon { font-size: 1.25rem; line-height: 1; }
+
+    .div-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+    }
+
+    .div-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface-2);
+      border-color: var(--border);
+    }
+
+    .div-btn.active {
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-3) 100%);
+      border-color: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      box-shadow: 0 0 18px var(--team-glow), inset 0 1px 1px rgba(255,255,255,0.2);
+      transform: scale(1.02);
+    }
+    .div-btn.active .div-count {
+      color: #ffffff;
+      border-color: rgba(255,255,255,0.35);
+    }
+
+    @media (max-width: 1100px) {
+      .div-btn { padding: 0.6rem 0.9rem; font-size: 0.95rem; }
+    }
+
+    /* ── Sport Selector Ribbon ───────────────────────────────────────────────── */
+    .selector-block { margin-bottom: 2rem; }
+
+    .section-caption {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.65rem;
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .team-pills {
+      display: flex;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .team-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.55rem 1.05rem;
+      border-radius: 9999px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+
+    .team-pill:hover {
+      border-color: var(--border-light);
+      color: var(--text);
+      background: var(--surface-2);
+      transform: translateY(-1px);
+    }
+
+    .team-pill.active {
+      background: var(--surface-2);
+      border-color: var(--team-accent);
+      color: var(--text);
+      box-shadow: 0 0 16px var(--team-glow);
+    }
+
+    .team-pill-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+    }
+
+    .team-pill.non-conf {
+      border-style: dashed;
+      border-color: var(--border-light);
+    }
+    .team-pill.static { cursor: default; }
+    .team-pill.static:hover {
+      transform: none;
+      background: var(--surface);
+      color: var(--text-muted);
+      border-color: var(--border-light);
+    }
+
+    .pill-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--text-faint);
+    }
+    .team-pill.active .pill-count { color: var(--team-accent); }
+
+    /* ── Notice Banner ───────────────────────────────────────────────────────── */
+    .notice {
+      display: none;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1.15rem;
+      font-size: 0.9rem;
+      color: var(--amber);
+      margin-bottom: 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Next Up Spotlight Card ──────────────────────────────────────────────── */
+    .spotlight-card {
+      display: none;
+      background: var(--surface);
+      border: 1.5px solid var(--team-accent);
+      border-radius: var(--radius);
+      box-shadow: 0 0 32px var(--team-glow), 0 8px 28px rgba(0,0,0,0.4);
+      overflow: hidden;
+      margin-bottom: 2rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .spotlight-header {
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-2) 100%);
+      padding: 1.15rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sport-badge {
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      font-size: 1.75rem;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 18px var(--team-glow);
+    }
+
+    .spotlight-meta-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .spot-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 800;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-light);
+      color: var(--text);
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      min-width: 40px;
+      text-align: center;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .spotlight-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+    }
+
+    .spotlight-name {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .spotlight-sub {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .stat-cell {
+      background: var(--surface);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      border: none;
+      text-align: left;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .stat-cell:hover { background: var(--surface-2); }
+
+    .stat-key {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .stat-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stat-cell.rank-1 {
+      background: var(--gold-bg);
+      border-bottom: 2.5px solid var(--gold);
+    }
+    .stat-cell.rank-1 .stat-val { color: var(--gold); }
+
+    .rank-tag {
+      font-size: 0.65rem;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 800;
+      background: var(--gold);
+      color: #000;
+    }
+
+    /* ── Schedule Cards Grid ─────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      width: 100%;
+      scroll-margin-top: 1rem;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--sport-color, var(--team-accent));
+      box-shadow: 0 0 14px var(--sport-color, var(--team-glow));
+      z-index: 1;
+    }
+
+    .card:hover {
+      border-color: var(--border-light);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .card.flash {
+      border-color: var(--team-accent);
+      box-shadow: 0 0 24px var(--team-glow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.95rem 1.35rem 0.95rem 1.6rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+    }
+
+    .card-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .card-league {
+      font-size: 0.74rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .card-header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .badge-ok    { background: var(--badge-ok-bg);    color: var(--badge-ok-txt); }
+    .badge-stale { background: var(--badge-stale-bg); color: var(--badge-stale-txt); }
+    .badge-error { background: var(--badge-error-bg); color: var(--badge-error-txt); }
+
+    /* ── Schedule Tables ─────────────────────────────────────────────────────── */
+    .table-wrap {
+      width: 100%;
+      flex: 1;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    thead th {
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.8rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      text-align: left;
+    }
+    thead th:first-child { padding-left: 1.6rem; }
+    thead th.num { text-align: center; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
+    tbody tr.row-next { background: var(--next-bg); }
+    tbody tr.row-past { opacity: 0.5; }
+    tbody tr.row-ust .opp-name {
+      color: var(--team-accent);
+      font-weight: 800;
+    }
+
+    td {
+      padding: 0.75rem 0.9rem;
+      vertical-align: middle;
+    }
+    td:first-child { padding-left: 1.6rem; }
+
+    td.col-date {
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    td.col-date .dow {
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.78rem;
+      margin-right: 0.45rem;
+      text-transform: uppercase;
+    }
+    td.col-in  { text-align: center; white-space: nowrap; }
+    td.col-ha  { text-align: center; }
+    td.col-opp { font-weight: 600; }
+    td.col-id  {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .opp-name { color: var(--text); }
+
+    .rank-chip {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      margin-right: 0.45rem;
+      background: var(--gold-bg);
+      color: var(--gold);
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      vertical-align: middle;
+    }
+
+    .ha-badge {
+      display: inline-block;
+      min-width: 38px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 0.18rem 0.45rem;
+      border-radius: 4px;
+      text-align: center;
+      letter-spacing: 0.04em;
+      border: 1px solid var(--border);
+    }
+    .ha-vs { color: var(--badge-ok-txt);    background: var(--badge-ok-bg); }
+    .ha-at { color: var(--badge-stale-txt); background: var(--badge-stale-bg); }
+    .ha-na { color: var(--text-faint); }
+
+    .in-chip {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      color: var(--text-muted);
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .in-chip.today {
+      color: #000;
+      background: var(--gold);
+      border-color: var(--gold);
+      box-shadow: 0 0 10px rgba(251,191,36,0.45);
+    }
+    .in-chip.tomorrow {
+      color: var(--gold);
+      background: var(--gold-bg);
+      border-color: rgba(251,191,36,0.35);
+    }
+    .in-chip.past { color: var(--text-faint); }
+
+    /* ── Opponent Scouting (collapsible) ─────────────────────────────────────── */
+    .scout {
+      border-top: 1px dashed var(--border-light);
+      background: var(--surface);
+    }
+
+    .scout summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.8rem 1.35rem 0.8rem 1.6rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .scout summary::-webkit-details-marker { display: none; }
+    .scout summary::before {
+      content: "▸";
+      color: var(--team-accent);
+      transition: transform 0.15s;
+    }
+    .scout[open] summary::before { transform: rotate(90deg); }
+    .scout summary:hover {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+    .scout summary:focus-visible {
+      outline: 2px solid var(--team-accent);
+      outline-offset: -2px;
+    }
+    .scout-team { color: var(--team-accent); }
+    .scout-count {
+      margin-left: auto;
+      font-size: 0.72rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .scout .table-wrap { border-top: 1px solid var(--border); }
+
+    /* ── Messages & Off-season Block ─────────────────────────────────────────── */
+    .empty, .message {
+      padding: 3rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.6;
+    }
+    .message-icon {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .offseason-block { margin-bottom: 2rem; }
+    .legend {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      line-height: 1.6;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────────────── */
+    footer {
+      margin-top: 3.5rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    footer a {
+      color: var(--team-accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.15s ease;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 720px) {
+      header { flex-wrap: wrap; }
+      .header-right-controls { width: 100%; align-items: flex-start; }
+      .division-control-wrap { align-items: flex-start; width: 100%; }
+      .division-switcher { width: 100%; justify-content: center; }
+      .div-btn {
+        flex: 1;
+        justify-content: center;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 0.6rem 0.4rem;
+        font-size: 0.85rem;
+      }
+      .col-id, th.col-id { display: none; }
+      .spotlight-header { flex-wrap: wrap; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- TAPbot: back to Hub Site -->
+  <a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
+    <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
+  </a>
+
+  <!-- Header -->
+  <header>
+    <div class="wordmark">
+      <span class="wordmark-eyebrow" id="eyebrowText">Tommie Athletic Productions Broadcast Operations Tool · 2026-27 Season</span>
+      <h1 id="pageTitle">Game Schedules</h1>
+      <div class="meta" id="metaBar">Loading schedules…</div>
+    </div>
+
+    <!-- Right Controls: Standardized Pill Switcher + 3-Way Campus Selector -->
+    <div class="header-right-controls">
+      <div class="top-toolbar">
+        <div class="control-pill-group" role="group" aria-label="Refresh">
+          <button id="btnRefresh" class="control-pill-btn" onclick="loadAll()" title="Reload both schedule files">
+            <span id="refreshLabel">⟳ Refresh</span>
+          </button>
+        </div>
+        <div class="control-pill-group" role="group" aria-label="Theme Selection">
+          <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
+            <span id="themeToggleLabel">🌙 Dark</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="division-control-wrap">
+        <span class="division-caption">Select Campus</span>
+        <div class="division-switcher" role="tablist" aria-label="Campus Switcher">
+          <button id="btnCampus_all" class="div-btn active" role="tab" aria-selected="true" onclick="setCampus('all')">
+            <span class="div-icon">🏟️</span>
+            <span>All Sports</span>
+            <span class="div-count" title="Upcoming games">0</span>
+          </button>
+          <button id="btnCampus_north" class="div-btn" role="tab" aria-selected="false" onclick="setCampus('north')">
+            <span class="div-icon">🏈</span>
+            <span>North Campus</span>
+            <span class="div-count" title="Upcoming games">0</span>
+          </button>
+          <button id="btnCampus_south" class="div-btn" role="tab" aria-selected="false" onclick="setCampus('south')">
+            <span class="div-icon">🏀</span>
+            <span>South Campus</span>
+            <span class="div-count" title="Upcoming games">0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sport Selector Ribbon -->
+  <section class="selector-block">
+    <span class="section-caption">Select Sport</span>
+    <div class="team-pills" id="sportPills"></div>
+  </section>
+
+  <!-- Partial Load Notice -->
+  <div class="notice" id="loadNotice" role="status"></div>
+
+  <!-- Next Up Spotlight Card -->
+  <div class="spotlight-card" id="nextUpCard">
+    <div class="spotlight-header">
+      <div class="sport-badge" id="nextBadge">🏟️</div>
+      <div class="spotlight-meta-stack">
+        <span class="spot-tag" id="nextTagHA">—</span>
+        <span class="spot-tag" id="nextTagIn">—</span>
+      </div>
+      <div class="spotlight-details">
+        <div class="spotlight-name" id="nextTitle">—</div>
+        <div class="spotlight-sub" id="nextSub">—</div>
+      </div>
+    </div>
+    <div>
+      <div class="stat-grid" id="nextGrid"></div>
+    </div>
+  </div>
+
+  <!-- Schedule Cards Grid -->
+  <div class="grid" id="cardsGrid">
+    <div class="card" style="grid-column: 1 / -1; --sport-color: var(--team-accent);">
+      <div class="message"><span class="message-icon">⏳</span>Loading live schedules…</div>
+    </div>
+  </div>
+
+  <!-- Off-season / Completed Sports -->
+  <section class="offseason-block" id="offSeasonBlock" style="display:none;">
+    <span class="section-caption">No Upcoming Games</span>
+    <div class="team-pills" id="offSeasonPills"></div>
+  </section>
+
+  <div class="legend">
+    VS = home or neutral-site listing · AT = road game · Dates show the weekday for the 2026-27 season ·
+    Expand “Opponent scouting” on a card to see the next opponent’s upcoming schedule.
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <a href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
+      TAPbot - Developed by St. Thomas Athletics - Hosted on GitHub
+    </a>
+  </footer>
+
+</div>
+
+<script>
+  // ══ CONFIG ══════════════════════════════════════════════════════════════════
+  const RAW_BASE = 'https://raw.githubusercontent.com/TAPbot-Xpression/TAPbot/main/docs/schedulers/';
+  const BASES = ['', RAW_BASE];
+
+  const FILES = [
+    { campus: 'north', file: 'schedule_northcampus.json', short: 'North' },
+    { campus: 'south', file: 'schedule_southcampus.json', short: 'South' }
+  ];
+
+  const CAMPUSES = {
+    all:   { label: 'All Sports',   title: 'Game Schedules' },
+    north: { label: 'North Campus', title: 'North Campus Game Schedules' },
+    south: { label: 'South Campus', title: 'South Campus Game Schedules' }
+  };
+  const CAMPUS_NAMES = { north: 'North Campus', south: 'South Campus' };
+
+  const REFRESH_MS  = 5 * 60 * 1000;
+  const STALE_HOURS = 24;
+  const DAY_MS      = 86400000;
+
+  const SPORT_META = {
+    football:          { emoji: '🏈', color: '#f59e0b' },
+    volleyball:        { emoji: '🏐', color: '#ec4899' },
+    baseball:          { emoji: '⚾', color: '#ef4444' },
+    softball:          { emoji: '🥎', color: '#f97316' },
+    mens_basketball:   { emoji: '🏀', color: '#3b82f6' },
+    womens_basketball: { emoji: '🏀', color: '#a855f7' },
+    mens_hockey:       { emoji: '🏒', color: '#06b6d4' },
+    womens_hockey:     { emoji: '⛸️', color: '#22d3ee' },
+    mens_soccer:       { emoji: '⚽', color: '#10b981' },
+    womens_soccer:     { emoji: '⚽', color: '#34d399' }
+  };
+
+  const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+
+  // ══ STATE ═══════════════════════════════════════════════════════════════════
+  let SPORTS = [];
+  let RESULTS = [];
+  let campus = 'all';
+  let sportFilter = 'all';
+  const OPEN_SCOUT = new Set();
+  let loading = false;
+
+  // ══ HELPERS ═════════════════════════════════════════════════════════════════
+  function esc(str) {
+    return String(str === undefined || str === null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function safeId(str) { return String(str).replace(/[^\w:-]/g, '_'); }
+
+  function prettify(key) {
+    return String(key).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function sportMeta(key, name) {
+    if (SPORT_META[key]) return SPORT_META[key];
+    const n = (name || key || '').toLowerCase();
+    if (n.includes('basketball')) return { emoji: '🏀', color: '#3b82f6' };
+    if (n.includes('hockey'))     return { emoji: '🏒', color: '#06b6d4' };
+    if (n.includes('soccer'))     return { emoji: '⚽', color: '#10b981' };
+    if (n.includes('football'))   return { emoji: '🏈', color: '#f59e0b' };
+    if (n.includes('volleyball')) return { emoji: '🏐', color: '#ec4899' };
+    if (n.includes('baseball'))   return { emoji: '⚾', color: '#ef4444' };
+    if (n.includes('softball'))   return { emoji: '🥎', color: '#f97316' };
+    return { emoji: '🏅', color: '#94a3b8' };
+  }
+
+  function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+  function parseDate(text) {
+    const m = String(text || '').match(/([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{1,2})/);
+    if (!m) return null;
+    const mo = MONTHS[m[1].toLowerCase()];
+    if (mo === undefined) return null;
+    const day = parseInt(m[2], 10);
+    const today = startOfDay(new Date());
+    const cutoff = today.getTime() - 45 * DAY_MS;
+    const y0 = today.getFullYear();
+    for (const y of [y0 - 1, y0, y0 + 1]) {
+      const d = new Date(y, mo, day);
+      if (d.getTime() >= cutoff) return d;
+    }
+    return new Date(y0 + 1, mo, day);
+  }
+
+  function daysUntil(d) {
+    return Math.round((d.getTime() - startOfDay(new Date()).getTime()) / DAY_MS);
+  }
+
+  function parseOpp(raw) {
+    const s = String(raw === undefined || raw === null ? '' : raw);
+    const m = s.match(/^\{SUP\}\s*([^{}]*?)\s*\{\}\s*(.*)$/);
+    if (m) return { rank: m[1], name: m[2].replace(/\{SUP\}|\{\}/g, '').trim() };
+    return { rank: '', name: s.replace(/\{SUP\}|\{\}/g, '').trim() };
+  }
+
+  function normGame(g) {
+    return {
+      id: g.game_id,
+      dateText: g.date || '',
+      ha: String(g.home_away || '').toUpperCase(),
+      opp: parseOpp(g.opponent),
+      date: parseDate(g.date)
+    };
+  }
+
+  function nextGame(s) {
+    return s.games.find(g => g.date && daysUntil(g.date) >= 0) || null;
+  }
+
+  function countdownText(n) {
+    if (n === 0) return 'Today';
+    if (n === 1) return 'Tomorrow';
+    return `in ${n} days`;
+  }
+
+  function weekday(d) {
+    return d ? d.toLocaleDateString('en-US', { weekday: 'short' }) : '';
+  }
+
+  function fmtStamp(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return null;
+    return {
+      text: d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      ageHours: (Date.now() - d.getTime()) / 3600000
+    };
+  }
+
+  // ══ DATA LOADING ════════════════════════════════════════════════════════════
+  async function fetchJson(file) {
+    let lastErr = null;
+    for (const base of BASES) {
+      try {
+        const res = await fetch(`${base}${file}?t=${Date.now()}`);
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        return await res.json();
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error('Unable to load');
+  }
+
+  function buildSports(results) {
+    const out = [];
+    results.forEach(r => {
+      if (!r.ok) return;
+      const sports = (r.data && r.data.sports) || {};
+      Object.entries(sports).forEach(([key, s]) => {
+        const meta = sportMeta(key, s.name);
+        const opp = s.opponent_schedule || {};
+        out.push({
+          uid: safeId(`${r.campus}:${key}`),
+          key,
+          campus: r.campus,
+          name: s.name || prettify(key),
+          emoji: meta.emoji,
+          color: meta.color,
+          games: (s.games || []).map(normGame),
+          opp: {
+            team: opp.team || null,
+            games: (opp.games || []).map(normGame)
+          }
+        });
+      });
+    });
+    return out;
+  }
+
+  async function loadAll() {
+    if (loading) return;
+    loading = true;
+    const btn = document.getElementById('btnRefresh');
+    const lbl = document.getElementById('refreshLabel');
+    btn.disabled = true;
+    lbl.textContent = '⟳ Loading…';
+
+    RESULTS = await Promise.all(FILES.map(async f => {
+      try {
+        const data = await fetchJson(f.file);
+        return { ...f, ok: true, data };
+      } catch (e) {
+        return { ...f, ok: false, error: e.message };
+      }
+    }));
+
+    SPORTS = buildSports(RESULTS);
+
+    if (sportFilter !== 'all' && !SPORTS.some(s => s.uid === sportFilter)) sportFilter = 'all';
+
+    renderMeta();
+    render();
+
+    btn.disabled = false;
+    lbl.textContent = '⟳ Refresh';
+    loading = false;
+  }
+
+  // ══ RENDERING ═══════════════════════════════════════════════════════════════
+  function renderMeta() {
+    const meta = document.getElementById('metaBar');
+    const notice = document.getElementById('loadNotice');
+    const okCount = RESULTS.filter(r => r.ok).length;
+
+    const parts = RESULTS.map(r => {
+      if (!r.ok) return `<span class="meta-bad">${esc(r.short)}: failed to load</span>`;
+      const st = fmtStamp(r.data.updated_at);
+      if (!st) return `${esc(r.short)}: loaded`;
+      const stale = st.ageHours > STALE_HOURS;
+      return `<span class="${stale ? 'meta-stale' : ''}">${esc(r.short)}: ${stale ? '⚠ ' : ''}updated ${esc(st.text)}</span>`;
+    });
+
+    const teamName = (RESULTS.find(r => r.ok && r.data && r.data.team) || {}).data;
+    const prefix = teamName && teamName.team ? `<strong>${esc(teamName.team)}</strong> · ` : '';
+    meta.innerHTML = prefix + parts.join(' · ');
+
+    const failed = RESULTS.filter(r => !r.ok);
+    if (failed.length && okCount > 0) {
+      notice.style.display = 'block';
+      notice.textContent = `⚠ Could not load ${failed.map(f => f.file).join(', ')} — showing the data that did load.`;
+    } else {
+      notice.style.display = 'none';
+    }
+  }
+
+  function campusSports()  { return SPORTS.filter(s => campus === 'all' || s.campus === campus); }
+  function visibleSports() { return campusSports().filter(s => sportFilter === 'all' || s.uid === sportFilter); }
+
+  function render() {
+    renderCampusButtons();
+    renderPills();
+    renderNextUp();
+    renderCards();
+    renderOffSeason();
+  }
+
+  function renderCampusButtons() {
+    Object.keys(CAMPUSES).forEach(k => {
+      const btn = document.getElementById('btnCampus_' + k);
+      const count = SPORTS.filter(s => k === 'all' || s.campus === k)
+        .reduce((n, s) => n + s.games.length, 0);
+      btn.classList.toggle('active', k === campus);
+      btn.setAttribute('aria-selected', k === campus ? 'true' : 'false');
+      btn.querySelector('.div-count').textContent = count;
+    });
+    document.getElementById('pageTitle').textContent = CAMPUSES[campus].title;
+  }
+
+  function renderPills() {
+    const list = campusSports();
+    const total = list.reduce((n, s) => n + s.games.length, 0);
+    let html = `
+      <button class="team-pill ${sportFilter === 'all' ? 'active' : ''}" onclick="setSport('all')">
+        <span class="team-pill-dot" style="color:var(--team-accent)"></span>
+        <span>All ${campus === 'all' ? 'Sports' : esc(CAMPUS_NAMES[campus])}</span>
+        <span class="pill-count">${total}</span>
+      </button>`;
+
+    html += list.map(s => `
+      <button class="team-pill ${s.uid === sportFilter ? 'active' : ''} ${s.games.length ? '' : 'non-conf'}"
+              onclick="setSport('${s.uid}')" title="${esc(CAMPUS_NAMES[s.campus])}">
+        <span class="team-pill-dot" style="color:${s.color}"></span>
+        <span>${esc(s.name)}</span>
+        <span class="pill-count">${s.games.length}</span>
+      </button>`).join('');
+
+    document.getElementById('sportPills').innerHTML = html;
+  }
+
+  function renderNextUp() {
+    const card = document.getElementById('nextUpCard');
+    const nexts = visibleSports()
+      .map(s => ({ s, g: nextGame(s) }))
+      .filter(x => x.g)
+      .sort((a, b) => a.g.date - b.g.date);
+
+    if (!nexts.length) { card.style.display = 'none'; return; }
+
+    const top = nexts[0];
+    const n = daysUntil(top.g.date);
+    const oppLabel = (top.g.opp.rank ? `#${top.g.opp.rank} ` : '') + top.g.opp.name;
+
+    document.getElementById('nextBadge').textContent = top.s.emoji;
+    document.getElementById('nextTagHA').textContent = top.g.ha || '—';
+    document.getElementById('nextTagIn').textContent = countdownText(n);
+    document.getElementById('nextTitle').textContent = `${top.g.ha ? top.g.ha + ' ' : ''}${oppLabel}`;
+    document.getElementById('nextSub').textContent =
+      `${top.s.name} · ${weekday(top.g.date)} ${top.g.dateText} · ${CAMPUS_NAMES[top.s.campus] || ''}`;
+
+    document.getElementById('nextGrid').innerHTML = nexts.map((x, i) => {
+      const opp = (x.g.opp.rank ? `#${x.g.opp.rank} ` : '') + x.g.opp.name;
+      return `
+        <button class="stat-cell ${i === 0 ? 'rank-1' : ''}" onclick="scrollToCard('${x.s.uid}')" title="Jump to ${esc(x.s.name)}">
+          <span class="stat-key"><span>${x.s.emoji} ${esc(x.s.name)}</span>${i === 0 ? '<span class="rank-tag">NEXT</span>' : ''}</span>
+          <span class="stat-val">${esc(weekday(x.g.date))} ${esc(x.g.dateText)}</span>
+          <span class="stat-sub">${esc(x.g.ha)} ${esc(opp)}</span>
+        </button>`;
+    }).join('');
+
+    card.style.display = 'block';
+  }
+
+  function oppCell(g) {
+    const rank = g.opp.rank ? `<span class="rank-chip" title="Ranked #${esc(g.opp.rank)}">#${esc(g.opp.rank)}</span>` : '';
+    return `${rank}<span class="opp-name">${esc(g.opp.name || 'TBD')}</span>`;
+  }
+
+  function haBadge(ha) {
+    if (ha === 'VS') return `<span class="ha-badge ha-vs" title="VS – home or neutral site">VS</span>`;
+    if (ha === 'AT') return `<span class="ha-badge ha-at" title="AT – road game">AT</span>`;
+    return `<span class="ha-badge ha-na">${esc(ha || '—')}</span>`;
+  }
+
+  function inChip(g) {
+    if (!g.date) return '';
+    const n = daysUntil(g.date);
+    if (n < 0)  return `<span class="in-chip past">Past</span>`;
+    if (n === 0) return `<span class="in-chip today">Today</span>`;
+    if (n === 1) return `<span class="in-chip tomorrow">Tomorrow</span>`;
+    return `<span class="in-chip">${n} days</span>`;
+  }
+
+  function gamesTable(games) {
+    const nextIdx = games.findIndex(g => g.date && daysUntil(g.date) >= 0);
+    return `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th class="num">In</th>
+              <th class="num">H/A</th>
+              <th>Opponent</th>
+              <th class="col-id" style="text-align:right;">Game ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${games.map((g, i) => {
+              const past = g.date && daysUntil(g.date) < 0;
+              return `
+              <tr class="${i === nextIdx ? 'row-next' : ''} ${past ? 'row-past' : ''}">
+                <td class="col-date"><span class="dow">${esc(weekday(g.date))}</span>${esc(g.dateText)}</td>
+                <td class="col-in">${inChip(g)}</td>
+                <td class="col-ha">${haBadge(g.ha)}</td>
+                <td class="col-opp">${oppCell(g)}</td>
+                <td class="col-id">${esc(g.id || '')}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function scoutTable(games) {
+    return `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th class="num">H/A</th>
+              <th>Opponent</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${games.map(g => {
+              const isUST = /st\.?\s*thomas/i.test(g.opp.name);
+              return `
+              <tr class="${isUST ? 'row-next row-ust' : ''}">
+                <td class="col-date"><span class="dow">${esc(weekday(g.date))}</span>${esc(g.dateText)}</td>
+                <td class="col-ha">${haBadge(g.ha)}</td>
+                <td class="col-opp">${oppCell(g)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function cardHtml(s) {
+    const next = nextGame(s);
+    const badge = next
+      ? `<span class="badge badge-ok">Next · ${esc(countdownText(daysUntil(next.date)))}</span>`
+      : `<span class="badge badge-stale">Completed</span>`;
+
+    const scout = (s.opp.team && s.opp.games.length) ? `
+      <details class="scout" ${OPEN_SCOUT.has(s.uid) ? 'open' : ''} ontoggle="onScoutToggle('${s.uid}', this.open)">
+        <summary>
+          <span>🔎 Opponent scouting ·</span>
+          <span class="scout-team">${esc(s.opp.team)}</span>
+          <span class="scout-count">${s.opp.games.length} game${s.opp.games.length === 1 ? '' : 's'}</span>
+        </summary>
+        ${scoutTable(s.opp.games)}
+      </details>` : '';
+
+    return `
+      <article class="card" id="card-${s.uid}" style="--sport-color:${s.color}">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-league">${esc(CAMPUS_NAMES[s.campus] || '')} · ${s.games.length} game${s.games.length === 1 ? '' : 's'}</div>
+            <h2 class="card-title">${s.emoji} ${esc(s.name)}</h2>
+          </div>
+          <div class="card-header-right">${badge}</div>
+        </div>
+        ${gamesTable(s.games)}
+        ${scout}
+      </article>`;
+  }
+
+  function renderCards() {
+    const grid = document.getElementById('cardsGrid');
+
+    if (!SPORTS.length) {
+      const failed = RESULTS.length && RESULTS.every(r => !r.ok);
+      grid.innerHTML = `
+        <div class="card" style="grid-column: 1 / -1; --sport-color: var(--red);">
+          <div class="message">
+            <span class="message-icon">${failed ? '⚠️' : '📋'}</span>
+            ${failed
+              ? `Could not load schedule data.<br/><small style="color:var(--text-faint);display:block;margin-top:.5rem;">
+                 Make sure schedule_northcampus.json and schedule_southcampus.json sit next to this page,
+                 or that you are online so the GitHub fallback can be used.</small>`
+              : 'No schedule data found in the feeds.'}
+          </div>
+        </div>`;
+      return;
+    }
+
+    const active = visibleSports()
+      .filter(s => s.games.length > 0)
+      .sort((a, b) => {
+        const na = nextGame(a), nb = nextGame(b);
+        if (na && nb) return na.date - nb.date;
+        if (na) return -1;
+        if (nb) return 1;
+        return 0;
+      });
+
+    if (!active.length) {
+      grid.innerHTML = `
+        <div class="card" style="grid-column: 1 / -1; --sport-color: var(--text-faint);">
+          <div class="message"><span class="message-icon">🗓️</span>No upcoming games for the current selection.</div>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = active.map(cardHtml).join('');
+  }
+
+  function renderOffSeason() {
+    const block = document.getElementById('offSeasonBlock');
+    const off = visibleSports().filter(s => s.games.length === 0);
+    if (!off.length) { block.style.display = 'none'; return; }
+
+    document.getElementById('offSeasonPills').innerHTML = off.map(s => `
+      <span class="team-pill non-conf static" title="${esc(CAMPUS_NAMES[s.campus])}">
+        <span class="team-pill-dot" style="color:${s.color}"></span>
+        <span>${esc(s.name)}</span>
+        <span class="pill-count">Off Season</span>
+      </span>`).join('');
+    block.style.display = 'block';
+  }
+
+  // ══ INTERACTIONS ════════════════════════════════════════════════════════════
+  function setCampus(c) {
+    if (!CAMPUSES[c]) return;
+    campus = c;
+    sportFilter = 'all';
+    render();
+  }
+
+  function setSport(uid) {
+    sportFilter = uid;
+    render();
+  }
+
+  function onScoutToggle(uid, open) {
+    if (open) OPEN_SCOUT.add(uid); else OPEN_SCOUT.delete(uid);
+  }
+
+  function scrollToCard(uid) {
+    const el = document.getElementById('card-' + uid);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1400);
+  }
+
+  // ── Color Mode (Dark / Light) ────────────────────────────────────────────────
+  function toggleColorMode() {
+    const current = document.documentElement.getAttribute('data-color-mode') || 'dark';
+    applyColorMode(current === 'dark' ? 'light' : 'dark');
+  }
+
+  function applyColorMode(mode) {
+    document.documentElement.setAttribute('data-color-mode', mode);
+    const label = document.getElementById('themeToggleLabel');
+    if (label) label.textContent = mode === 'dark' ? '🌙 Dark' : '☀️ Light';
+    try { localStorage.setItem('tap_color_mode', mode); } catch (e) {}
+  }
+
+  // ══ INIT ════════════════════════════════════════════════════════════════════
+  try {
+    applyColorMode(localStorage.getItem('tap_color_mode') || 'dark');
+  } catch (e) {}
+
+  loadAll();
+  setInterval(loadAll, REFRESH_MS);
+</script>
+
+</body>
+</html>
