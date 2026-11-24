@@ -1,0 +1,7 @@
+# Leave blank for the automatic opponent
+mens_basketball = Southeast Mo. St.
+womens_basketball = Central Mich.
+mens_hockey = Bemidji St.
+softball = 
+mens_soccer = 
+womens_soccer = 
