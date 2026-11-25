@@ -4,7 +4,7 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-25T02:34:27Z",
+  "generated_at": "2026-11-25T03:08:51.043459+00:00",
   "source_stats_url": "https://ohiostatebuckeyes.com/sports/womens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://ohiostatebuckeyes.com/sports/womens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -375,51 +375,6 @@
       "shg": "0",
       "gwg": "0",
       "pn_pim": "1-2"
-    },
-    {
-      "number": "30",
-      "name": "Taylor Kressin",
-      "position": "G",
-      "year": "SO",
-      "is_goalie": "true",
-      "gp_gs": "8-4",
-      "ga": "5",
-      "gaa": "1.16",
-      "sv": "65",
-      "sv_pct": ".929",
-      "sho": "2",
-      "w_l_t": "5-0-0",
-      "min": "259:28"
-    },
-    {
-      "number": "1",
-      "name": "Genny Klein",
-      "position": "G",
-      "year": "JR",
-      "is_goalie": "true",
-      "gp_gs": "6-5",
-      "ga": "7",
-      "gaa": "1.50",
-      "sv": "78",
-      "sv_pct": ".918",
-      "sho": "1",
-      "w_l_t": "4-0-0",
-      "min": "280:39"
-    },
-    {
-      "number": "32",
-      "name": "Rowan Houweling",
-      "position": "G",
-      "year": "FR",
-      "is_goalie": "true",
-      "gp_gs": "9-7",
-      "ga": "17",
-      "gaa": "2.43",
-      "sv": "141",
-      "sv_pct": ".892",
-      "sho": "0",
-      "w_l_t": "6-1-0",
-      "min": "419:08"
     }
   ]
 }
