@@ -4,7 +4,7 @@
   "gender": "men",
   "sport": "hockey",
   "conference": "NCHC",
-  "generated_at": "2026-11-25T04:49:51.119907+00:00",
+  "generated_at": "2026-11-25T15:25:24.962917+00:00",
   "source_stats_url": "https://denverpioneers.com/sports/mens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://denverpioneers.com/sports/mens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -409,6 +409,51 @@
       "shg": "0",
       "gwg": "0",
       "pn_pim": "0-0"
+    },
+    {
+      "number": "30",
+      "name": "Paxton Geisel",
+      "position": "G",
+      "year": "SR",
+      "is_goalie": "true",
+      "gp_gs": "1-0",
+      "ga": "0",
+      "gaa": ".00",
+      "sv": "2",
+      "sv_pct": "1.000",
+      "sho": "0",
+      "w_l_t": "0-0-0",
+      "min": "06:23"
+    },
+    {
+      "number": "31",
+      "name": "Johnny Hicks",
+      "position": "G",
+      "year": "SO",
+      "is_goalie": "true",
+      "gp_gs": "7-7",
+      "ga": "13",
+      "gaa": "1.82",
+      "sv": "159",
+      "sv_pct": ".924",
+      "sho": "1",
+      "w_l_t": "5-1-1",
+      "min": "427:50"
+    },
+    {
+      "number": "35",
+      "name": "Tyler Krivtsov",
+      "position": "G",
+      "year": "JR",
+      "is_goalie": "true",
+      "gp_gs": "8-7",
+      "ga": "16",
+      "gaa": "2.32",
+      "sv": "155",
+      "sv_pct": ".906",
+      "sho": "0",
+      "w_l_t": "4-2-1",
+      "min": "413:48"
     }
   ]
 }
