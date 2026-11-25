@@ -2,7 +2,7 @@
   "team": "St. Thomas",
   "slug": "st_thomas_women",
   "gender": "women",
-  "generated_at": "2026-11-25T03:25:11.095751+00:00",
+  "generated_at": "2026-11-25T04:49:23.618060+00:00",
   "team_stats_status": "ok",
   "team_stats_missing": [],
   "team_stats": {
@@ -24,7 +24,7 @@
     "stl_per_game": "9.5",
     "blk_per_game": "5.0"
   },
-  "conference_team_stats_status": "selector_not_found",
+  "conference_team_stats_status": "no_games",
   "conference_team_stats_missing": [
     "ppg",
     "opp_ppg",
