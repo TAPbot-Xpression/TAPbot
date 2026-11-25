@@ -1,7 +1,5 @@
 # TAPbot
 
-**One repository. All TAPbots.**
-
 TAPbot is the data engine behind Tommie Athletic Productions (TAP) broadcast graphics at the University of St. Thomas. It scrapes season stats, standings, polls, and schedules from official athletics sites and saves them as clean JSON. A set of dashboards publishes the JSON on GitHub Pages, and broadcast graphics (Ross Xpression / Datalinq) read the JSON files directly.
 
 > Always check the `generated_at` timestamp in a JSON file before going to air. The Hub Site's tally lights show data freshness at a glance.
