@@ -15,27 +15,13 @@ Output (repo-relative, resolved from this script's location):
   docs/hockey/non_conf_mhockey.json
   docs/hockey/non_conf_whockey.json
 
-Non-conference opponents are read from non_conf_config.json in this script's folder:
-{
-  "men": {
-    "name": "Minnesota",
-    "style": "new",
-    "stats_url": "https://gophersports.com/sports/mens-ice-hockey/stats/2026-27",
-    "roster_url": "https://gophersports.com/sports/mens-ice-hockey/roster/print"
-  },
-  "women": {
-    "name": "Penn State",
-    "style": "new",
-    "stats_url": "https://gopsusports.com/sports/womens-ice-hockey/stats/2026-27",
-    "roster_url": "https://gopsusports.com/sports/womens-ice-hockey/roster/print"
-  }
-}
-
-Usage:
-  python scrapers/hockey/scrape_hockey.py                      # Scrape all (Men + Women)
-  python scrapers/hockey/scrape_hockey.py --gender women       # WCHA Women only
-  python scrapers/hockey/scrape_hockey.py --gender men         # NCHC Men only
-  python scrapers/hockey/scrape_hockey.py --only "St. Thomas,Minnesota"
+Optimizations applied:
+  1. Full async concurrency across teams bounded by asyncio.Semaphore(5).
+  2. Concurrent stats page loading & roster fetching per team via asyncio.create_task.
+  3. Playwright resource routing to abort heavy images, media, and fonts.
+  4. Selector-based DOM waits replacing sluggish networkidle timeouts.
+  5. Smart cache & git-diff preservation: avoids rewriting unchanged JSON (<18h old).
+  6. Empty-scrape safeguards: preserves previous player data and team stats if a live scrape fails.
 """
 
 from __future__ import annotations
@@ -47,7 +33,9 @@ import json
 import logging
 import os
 import re
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -56,6 +44,7 @@ from playwright.async_api import BrowserContext, Page, async_playwright
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("hockey_scraper")
+sys.setrecursionlimit(20000)
 
 # ── Dynamic Path Resolution ──────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -65,6 +54,7 @@ NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
 
 CONCURRENCY_LIMIT = 5
 MIN_ROSTER_ENTRIES = 8
+MAX_CACHE_HOURS = 18
 
 # ── Teams Registry ───────────────────────────────────────────────────────────
 TEAMS_CONFIG: List[Dict[str, Any]] = [
@@ -268,7 +258,7 @@ _CLASS_MAP = {
 
 # ── Cleaning & Formatting Helpers ────────────────────────────────────────────
 def now_iso() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    return datetime.now(timezone.utc).isoformat()
 
 def normalize_position(pos_str: str) -> str:
     if not pos_str:
@@ -403,7 +393,6 @@ def load_non_conf_config() -> List[Dict[str, Any]]:
             cfg = json.load(f)
         teams = []
         if isinstance(cfg, dict):
-            # Check for gendered blocks: "men" / "mhockey" and "women" / "whockey"
             gender_keys = [
                 ("men", "mhockey", ["men", "mhockey"]),
                 ("women", "whockey", ["women", "whockey"])
@@ -436,7 +425,7 @@ def load_non_conf_config() -> List[Dict[str, Any]]:
         logger.warning(f"Could not load {path}: {e}")
         return []
 
-# ── Output Helpers ────────────────────────────────────────────────────────────
+# ── Output Helpers & Safeguards ───────────────────────────────────────────────
 def read_existing_json(slug: str) -> Dict[str, Any]:
     try:
         with open(OUT_DIR / f"{slug}.json", encoding="utf-8") as f:
@@ -448,20 +437,43 @@ def read_existing_json(slug: str) -> Dict[str, Any]:
 def _has_team_stats(ts: Any) -> bool:
     return isinstance(ts, dict) and any(v not in ("-", "", None) for v in ts.values())
 
+def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
+
+def _age_in_hours(iso_str: str) -> float:
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+    except Exception:
+        return 999.0
+
 def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Writes docs/hockey/<slug>.json with empty scrape safeguards."""
+    """Writes docs/hockey/<slug>.json with empty scrape safeguards and smart caching."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     existing = read_existing_json(slug)
     same_source = existing.get("source_stats_url") == team_data.get("source_stats_url")
+    is_non_conf = slug.startswith("non_conf_")
+    same_team = (existing.get("slug") == team_data.get("slug")) and (not is_non_conf or same_source)
 
-    if not team_data.get("players") and existing.get("players") and same_source:
+    # 1. Safeguard against empty player scrape
+    if not team_data.get("players") and existing.get("players") and same_team:
         logger.warning(f"[{team_data.get('team', slug)}] No players scraped - keeping existing {slug}.json")
         return existing
 
+    # 2. Safeguard against missing team stats
     if (not _has_team_stats(team_data.get("team_stats"))
-            and _has_team_stats(existing.get("team_stats")) and same_source):
+            and _has_team_stats(existing.get("team_stats")) and same_team):
         team_data["team_stats"] = existing["team_stats"]
         logger.warning(f"[{team_data.get('team', slug)}] Team stats not found - keeping previous team_stats")
+
+    # 3. Smart cache: skip rewrite if payload content matches and is fresh (< MAX_CACHE_HOURS)
+    if existing and same_source:
+        old_clean = _strip_volatile(existing)
+        new_clean = _strip_volatile(team_data)
+        gen_at = existing.get("generated_at", "")
+        if old_clean == new_clean and gen_at and _age_in_hours(gen_at) < MAX_CACHE_HOURS:
+            logger.info(f"[{team_data.get('team', slug)}] Cache hit (<{MAX_CACHE_HOURS}h old, identical content) - skipping rewrite.")
+            return existing
 
     with open(OUT_DIR / f"{slug}.json", "w", encoding="utf-8") as f:
         json.dump(team_data, f, indent=2)
@@ -495,7 +507,7 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
         page = await context.new_page()
         await page.goto(roster_url, wait_until="domcontentloaded", timeout=25000)
         try:
-            await page.wait_for_load_state("networkidle", timeout=3000)
+            await page.wait_for_selector("table, [class*='roster-player'], [class*='s-person-card']", timeout=6000)
         except Exception:
             pass
 
@@ -510,18 +522,18 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
 
             num, pos, yr, name_cand = "", "", "", ""
             for col in cells:
+                norm_pos = normalize_position(col)
+                norm_yr = normalize_year(col)
                 if not num and re.match(r"^\d{1,2}$", col):
                     num = clean_number(col)
-                    continue
-                if not pos and normalize_position(col):
-                    pos = normalize_position(col)
-                    continue
-                if not yr and normalize_year(col):
-                    yr = normalize_year(col)
-                    continue
-                c_clean = clean_name(col)
-                if not name_cand and is_valid_player_candidate(c_clean):
-                    name_cand = c_clean
+                elif not pos and norm_pos:
+                    pos = norm_pos
+                elif not yr and norm_yr:
+                    yr = norm_yr
+                else:
+                    c_clean = clean_name(col)
+                    if not name_cand and is_valid_player_candidate(c_clean):
+                        name_cand = c_clean
 
             if name_cand:
                 _add_roster(roster_lookup, name_cand, num, pos, yr)
@@ -555,72 +567,49 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
     return roster_lookup
 
 # ── Header Normalization & Mappers ───────────────────────────────────────────
+SKATER_HEADER_DICT = {
+    "#": "number", "NO": "number", "NO.": "number", "JERSEY": "number", "NUM": "number", "NUMBER": "number", "UNIFORM": "number",
+    "PLAYER": "name", "NAME": "name", "PLAYERNAME": "name", "FULLNAME": "name", "ATHLETE": "name", "SKATER": "name",
+    "GP": "gp", "GAMES": "gp", "GAMESPLAYED": "gp",
+    "G": "g", "GOALS": "g",
+    "A": "a", "AST": "a", "ASSISTS": "a",
+    "PTS": "pts", "POINTS": "pts", "TP": "pts", "PT": "pts",
+    "SH": "sh", "SOG": "sh", "SHOTS": "sh", "SHOTSONGOAL": "sh",
+    "PPG": "ppg", "PP": "ppg", "PPGOALS": "ppg", "POWERPLAYGOALS": "ppg", "POWERPLAYG": "ppg", "POWERPLAYGOAL": "ppg",
+    "SHG": "shg", "SHGOALS": "shg", "SHORTHANDEDGOALS": "shg", "SHORTHANDGOALS": "shg", "SHORTHANDEDG": "shg", "SHORTHANDG": "shg",
+    "GWG": "gwg", "GW": "gwg", "GAMEWINNINGGOALS": "gwg", "GWGOALS": "gwg", "GAMEWINNINGG": "gwg",
+    "BLK": "blk", "BLKS": "blk", "BS": "blk", "BLOCKS": "blk", "BLOCKEDSHOTS": "blk", "BLKD": "blk", "SHOTSBLOCKED": "blk",
+    "PN-PIM": "pn_pim", "PEN-PIM": "pn_pim", "PEN-MIN": "pn_pim", "PN-MIN": "pn_pim", "PEN/PIM": "pn_pim", "PN/PIM": "pn_pim",
+    "PENALTIES-PIM": "pn_pim", "PENALTIES-MINUTES": "pn_pim", "PENALTIES/PIM": "pn_pim", "PN/MIN": "pn_pim",
+    "PEN": "pen", "PN": "pen", "PENALTIES": "pen",
+    "PIM": "pim", "PENALTYMINUTES": "pim", "PENMIN": "pim"
+}
+
+GOALIE_HEADER_DICT = {
+    "#": "number", "NO": "number", "NO.": "number", "JERSEY": "number", "NUM": "number", "NUMBER": "number", "UNIFORM": "number",
+    "PLAYER": "name", "NAME": "name", "PLAYERNAME": "name", "FULLNAME": "name", "ATHLETE": "name", "GOALTENDER": "name", "GOALIE": "name",
+    "GP-GS": "gp_gs", "GP/GS": "gp_gs", "GP_GS": "gp_gs", "GAMES-STARTED": "gp_gs", "GP/GS/MIN": "gp_gs",
+    "GP": "gp", "GAMES": "gp",
+    "GS": "gs", "STARTS": "gs",
+    "GA": "ga", "GOALSAGAINST": "ga", "GOALSALLOWED": "ga",
+    "GAA": "gaa", "GOALSAGAINSTAVERAGE": "gaa", "AVG": "gaa",
+    "SV": "sv", "SAVES": "sv", "SVS": "sv",
+    "SV%": "sv_pct", "SVPCT": "sv_pct", "SAVE%": "sv_pct", "SAVEPCT": "sv_pct", "SVP": "sv_pct",
+    "SHO": "sho", "SO": "sho", "SHUTOUTS": "sho",
+    "W": "w", "WIN": "w", "WINS": "w",
+    "L": "l", "LOSS": "l", "LOSSES": "l",
+    "T": "t", "TIE": "t", "TIES": "t",
+    "W-L-T": "w_l_t", "W-L-T-SHO": "w_l_t", "RECORD": "w_l_t", "WL": "w_l_t", "W-L": "w_l_t", "WLT": "w_l_t",
+    "MIN": "min", "MINUTES": "min", "TOI": "min", "TIME": "min"
+}
+
 def map_skater_header(header_text: str) -> Optional[str]:
     hk = re.sub(r"[^A-Z0-9%/+\-]", "", header_text.strip().upper())
-    if hk in ("#", "NO", "NO.", "JERSEY", "NUM", "NUMBER", "UNIFORM"):
-        return "number"
-    if hk in ("PLAYER", "NAME", "PLAYERNAME", "FULLNAME", "ATHLETE", "SKATER"):
-        return "name"
-    if hk in ("GP", "GAMES", "GAMESPLAYED"):
-        return "gp"
-    if hk in ("G", "GOALS"):
-        return "g"
-    if hk in ("A", "AST", "ASSISTS"):
-        return "a"
-    if hk in ("PTS", "POINTS", "TP", "PT"):
-        return "pts"
-    if hk in ("SH", "SOG", "SHOTS", "SHOTSONGOAL"):
-        return "sh"
-    if hk in ("PPG", "PP", "PPGOALS", "POWERPLAYGOALS", "POWERPLAYG", "POWERPLAYGOAL"):
-        return "ppg"
-    if hk in ("SHG", "SHGOALS", "SHORTHANDEDGOALS", "SHORTHANDGOALS", "SHORTHANDEDG", "SHORTHANDG"):
-        return "shg"
-    if hk in ("GWG", "GW", "GAMEWINNINGGOALS", "GWGOALS", "GAMEWINNINGG"):
-        return "gwg"
-    if hk in ("BLK", "BLKS", "BS", "BLOCKS", "BLOCKEDSHOTS", "BLKD", "SHOTSBLOCKED"):
-        return "blk"
-    if hk in ("PN-PIM", "PEN-PIM", "PEN-MIN", "PN-MIN", "PEN/PIM", "PN/PIM",
-              "PENALTIES-PIM", "PENALTIES-MINUTES", "PENALTIES/PIM", "PN/MIN"):
-        return "pn_pim"
-    if hk in ("PEN", "PN", "PENALTIES"):
-        return "pen"
-    if hk in ("PIM", "PENALTYMINUTES", "PENMIN"):
-        return "pim"
-    return None
+    return SKATER_HEADER_DICT.get(hk)
 
 def map_goalie_header(header_text: str) -> Optional[str]:
     hk = re.sub(r"[^A-Z0-9%/+\-]", "", header_text.strip().upper())
-    if hk in ("#", "NO", "NO.", "JERSEY", "NUM", "NUMBER", "UNIFORM"):
-        return "number"
-    if hk in ("PLAYER", "NAME", "PLAYERNAME", "FULLNAME", "ATHLETE", "GOALTENDER", "GOALIE"):
-        return "name"
-    if hk in ("GP-GS", "GP/GS", "GP_GS", "GAMES-STARTED", "GP/GS/MIN"):
-        return "gp_gs"
-    if hk in ("GP", "GAMES"):
-        return "gp"
-    if hk in ("GS", "STARTS"):
-        return "gs"
-    if hk in ("GA", "GOALSAGAINST", "GOALSALLOWED"):
-        return "ga"
-    if hk in ("GAA", "GOALSAGAINSTAVERAGE", "AVG"):
-        return "gaa"
-    if hk in ("SV", "SAVES", "SVS"):
-        return "sv"
-    if hk in ("SV%", "SVPCT", "SAVE%", "SAVEPCT", "SVP"):
-        return "sv_pct"
-    if hk in ("SHO", "SO", "SHUTOUTS"):
-        return "sho"
-    if hk in ("W", "WIN", "WINS"):
-        return "w"
-    if hk in ("L", "LOSS", "LOSSES"):
-        return "l"
-    if hk in ("T", "TIE", "TIES"):
-        return "t"
-    if hk in ("W-L-T", "W-L-T-SHO", "RECORD", "WL", "W-L", "WLT"):
-        return "w_l_t"
-    if hk in ("MIN", "MINUTES", "TOI", "TIME"):
-        return "min"
-    return None
+    return GOALIE_HEADER_DICT.get(hk)
 
 # ── New-Style Table Parsers ──────────────────────────────────────────────────
 def parse_skaters_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
@@ -1123,7 +1112,10 @@ async def _ensure_ui_tab(page: Page, panel_id: str) -> bool:
                 await link.click(timeout=3000)
             except Exception:
                 await link.evaluate("el => el.click()")
-            await page.wait_for_timeout(600)
+            try:
+                await page.wait_for_selector(f"#{panel_id}", state="attached", timeout=2000)
+            except Exception:
+                await page.wait_for_timeout(300)
         return (await tab.get_attribute("aria-selected")) == "true"
     except Exception as e:
         logger.debug(f"UI tab '{panel_id}' error: {e}")
@@ -1217,7 +1209,8 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
         gender_desc = "Women's" if team_cfg.get("gender") == "women" else "Men's"
         logger.info(f"Processing {label} ({gender_desc} Hockey, new style)...")
 
-        roster_lookup = await fetch_roster(context, team_cfg.get("roster_url", ""), label)
+        # Concurrently launch roster fetch while navigating stats page
+        roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
 
         raw_players: List[Dict[str, Any]] = []
         team_stats: Dict[str, str] = {k: "-" for k in TEAM_STAT_KEYS}
@@ -1226,9 +1219,9 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
         page: Optional[Page] = None
         try:
             page = await context.new_page()
-            await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=30000)
+            await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=35000)
             try:
-                await page.wait_for_load_state("networkidle", timeout=4000)
+                await page.wait_for_selector("table, button[data-test-id='s-select__box'], button[role='tab']", timeout=8000)
             except Exception:
                 pass
 
@@ -1243,12 +1236,14 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
                     has_text=re.compile(r"Skaters|Goaltenders", re.I)).first
                 if await select_box.count() > 0:
                     await select_box.click()
-                    await page.wait_for_timeout(400)
                     goalie_option = page.locator('li[role="option"]').filter(
                         has_text=re.compile(r"^Goaltenders", re.I)).first
                     if await goalie_option.count() > 0:
                         await goalie_option.click()
-                        await page.wait_for_timeout(1200)
+                        try:
+                            await page.wait_for_selector("table", timeout=4000)
+                        except Exception:
+                            await page.wait_for_timeout(500)
                         html_goalies = await page.content()
                         soup_goalies = BeautifulSoup(html_goalies, "html.parser")
                         raw_players.extend(parse_goalies_table(soup_goalies))
@@ -1264,7 +1259,10 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
                     has_text=re.compile(r"Team Stats", re.I)).first
                 if await team_stats_tab.count() > 0:
                     await team_stats_tab.click()
-                    await page.wait_for_timeout(1200)
+                    try:
+                        await page.wait_for_selector("table", timeout=4000)
+                    except Exception:
+                        await page.wait_for_timeout(500)
                     html_team = await page.content()
                     soup_team = BeautifulSoup(html_team, "html.parser")
                     parsed_ts = parse_team_stats(soup_team)
@@ -1282,6 +1280,7 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
             if page:
                 await page.close()
 
+        roster_lookup = await roster_task
         merged = merge_with_roster(raw_players, roster_lookup)
         logger.info(f"[{label}] {len(merged)} players, team stats found: "
                     f"{sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
@@ -1295,7 +1294,8 @@ async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[s
         gender_desc = "Women's" if team_cfg.get("gender") == "women" else "Men's"
         logger.info(f"Processing {label} ({gender_desc} Hockey, old style)...")
 
-        roster_lookup = await fetch_roster(context, team_cfg.get("roster_url", ""), label)
+        # Concurrently launch roster fetch while navigating stats page
+        roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
 
         raw_players: List[Dict[str, Any]] = []
         team_stats: Dict[str, str] = {k: "-" for k in TEAM_STAT_KEYS}
@@ -1303,9 +1303,9 @@ async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[s
         page: Optional[Page] = None
         try:
             page = await context.new_page()
-            await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=30000)
+            await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=35000)
             try:
-                await page.wait_for_load_state("networkidle", timeout=4000)
+                await page.wait_for_selector("table, li[role='tab']", timeout=8000)
             except Exception:
                 pass
 
@@ -1336,6 +1336,7 @@ async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[s
             if page:
                 await page.close()
 
+        roster_lookup = await roster_task
         merged = merge_with_roster(raw_players, roster_lookup)
         logger.info(f"[{label}] {len(merged)} players, team stats found: "
                     f"{sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
@@ -1384,8 +1385,8 @@ def parse_team_stats_asu_wmt(soup: BeautifulSoup) -> Dict[str, str]:
             v = _pct_str(val_home)
             if v:
                 found["shot_pct"] = v
-        elif ("power play percentage" in label_clean or "conversion percentage" in label_clean) and "pp_pct" not in found:
-            if val_home:
+        elif ("power play percentage" in label_clean or "pp pct" in label_clean or "power play %" in label_clean):
+            if val_home and "pp_pct" not in found:
                 v = _pct_str(val_home)
                 if v:
                     found["pp_pct"] = v
@@ -1402,7 +1403,7 @@ def parse_team_stats_asu_wmt(soup: BeautifulSoup) -> Dict[str, str]:
         elif ("penalty minutes per game" in label_clean or "minutes per game" in label_clean or "pim/g" in label_clean) \
                 and "pim_per_game" not in found and val_home:
             found["pim_per_game"] = val_home
-        elif ("percentage" in label_clean or "faceoff" in label_clean) and "faceoff_pct" not in found and val_home:
+        elif ("percentage" in label_clean or "faceoff %" in label_clean or "faceoff" in label_clean) and "faceoff_pct" not in found and val_home:
             v = _pct_str(val_home)
             if v:
                 found["faceoff_pct"] = v
@@ -1415,7 +1416,8 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
         slug, label = team_cfg["slug"], team_cfg["name"]
         logger.info(f"Processing {label} (Men's Hockey, ASU WMT Digital)...")
 
-        roster_lookup = await fetch_roster(context, team_cfg.get("roster_url", ""), label)
+        # Concurrently launch roster fetch while navigating stats page
+        roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
 
         raw_players: List[Dict[str, Any]] = []
         team_stats: Dict[str, str] = {k: "-" for k in TEAM_STAT_KEYS}
@@ -1423,11 +1425,9 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
         page: Optional[Page] = None
         try:
             page = await context.new_page()
-            await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=30000)
-
+            await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=35000)
             try:
                 await page.wait_for_selector(".stats-table__row, table", timeout=8000)
-                await page.wait_for_load_state("networkidle", timeout=3000)
             except Exception:
                 pass
 
@@ -1458,6 +1458,7 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
             if page:
                 await page.close()
 
+        roster_lookup = await roster_task
         merged = merge_with_roster(raw_players, roster_lookup)
         logger.info(f"[{label}] {len(merged)} players, team stats found: "
                     f"{sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
@@ -1493,11 +1494,23 @@ async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool
     logger.info(f"=== Starting Scraping for {len(teams)} Hockey Team(s) (Gender: {gender_filter}) -> {OUT_DIR} ===")
     start = time.time()
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled"]
+        )
         context = await browser.new_context(
             user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         )
+
+        # Block media/fonts/images to drastically speed up network transfers
+        await context.route(
+            "**/*",
+            lambda route: route.abort()
+            if route.request.resource_type in {"image", "media", "font"}
+            else route.continue_()
+        )
+
         results = await asyncio.gather(
             *[scrape_team(context, t, semaphore) for t in teams],
             return_exceptions=True,
