@@ -11,19 +11,14 @@ Site styles ("type" in TEAMS):
 Outputs (docs/diamondsports/):
   *_baseball.json, *_softball.json, non_conf_baseball.json, non_conf_softball.json
 
-Non-conference opponents are read from non_conf_config.json in this script's directory.
-If a sport has no non-conference link configured, a placeholder JSON is written so
-front-end fetches never 404.
-
-Safeguard:
-  If a scrape returns no player stats (site timeout/layout change), the existing
-  JSON for that school is preserved so downstream graphics and dashboard pages
-  never go blank.
-
-Usage:
-  python scrapers/diamondsports/scrape_diamond_sports.py                      # baseball + softball
-  python scrapers/diamondsports/scrape_diamond_sports.py --sport softball     # softball only
-  python scrapers/diamondsports/scrape_diamond_sports.py --school omaha       # Omaha baseball + softball
+Optimizations applied:
+  1. Full async concurrency across teams via asyncio.Semaphore + asyncio.gather.
+  2. Concurrent stats and roster page fetching per school.
+  3. Playwright resource blocking (aborts image, font, media downloads).
+  4. Smart JSON caching: preserves timestamp if data hasn't changed and is fresh (<18h),
+     preventing redundant GitHub Actions git-diff commits and deployments.
+  5. Dynamic academic year default fallback.
+  6. Robust safeguard: never overwrites existing good data with empty scrapes.
 """
 
 from __future__ import annotations
@@ -58,6 +53,7 @@ NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
 
 SPORTS = ["baseball", "softball"]
 CONCURRENCY_LIMIT = 4
+MAX_CACHE_HOURS = 18
 
 BATTING_FIELDS = ["AVG", "R", "H", "2B", "3B", "HR", "RBI", "OPS", "SLG%"]
 PITCHING_FIELDS = ["ERA", "WHIP", "W-L", "IP", "SO"]
@@ -268,13 +264,6 @@ FETCH_HEADERS = {
 }
 
 # ── Non-Conference Config Loader ──────────────────────────────────────────────
-# non_conf_config.json lives next to this script (scrapers/diamondsports/).
-# Format — one optional block per sport:
-# {
-#   "baseball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." },
-#   "softball": { "name": "...", "style": "new|old|ndsu", "stats_url": "...", "roster_url": "..." }
-# }
-# Output files: docs/diamondsports/non_conf_baseball.json / non_conf_softball.json
 _STYLE_TO_TYPE = {
     "new": "sidearm", "sidearm": "sidearm",
     "old": "old",
@@ -1010,9 +999,18 @@ def parse_statbroadcast(html: str, roster_by_num: Dict[str, Any], roster_list: L
                         return cols.index(n)
                 return None
 
-            c_p, c_avg, c_ab, c_r, c_h = col_b(["player", "name"]), col_b(["avg"]), col_b(["ab"]), col_b(["r"]), col_b(["h"])
-            c_2b, c_3b, c_hr, c_rbi = col_b(["2b"]), col_b(["3b"]), col_b(["hr"]), col_b(["rbi"])
-            c_slg, c_obp, c_ops = col_b(["slg%", "slg"]), col_b(["ob%", "obp"]), col_b(["ops"])
+            c_p = col_b(["player", "name"])
+            c_avg = col_b(["avg"])
+            c_ab = col_b(["ab"])
+            c_r = col_b(["r"])
+            c_h = col_b(["h"])
+            c_2b = col_b(["2b"])
+            c_3b = col_b(["3b"])
+            c_hr = col_b(["hr"])
+            c_rbi = col_b(["rbi"])
+            c_slg = col_b(["slg%", "slg"])
+            c_obp = col_b(["ob%", "obp"])
+            c_ops = col_b(["ops"])
 
             for r in rows[header_idx_bat + 1:]:
                 if len(r) <= 3:
@@ -1120,7 +1118,6 @@ def extract_stats(stats_html: str, roster_html: str, school_meta: Dict[str, Any]
     soup = BeautifulSoup(stats_html, "html.parser")
     style = school_meta.get("type", "sidearm")
 
-    # Parser order depends on the site style
     if style == "statbroadcast":
         attempts = [
             lambda: parse_statbroadcast(stats_html, roster_by_num, roster_list),
@@ -1191,7 +1188,7 @@ async def fetch_page_html(context: BrowserContext, url: str) -> Optional[str]:
         try:
             await page.wait_for_selector("script#__NUXT_DATA__, table, .sidearm-roster-player", state="attached", timeout=12000)
         except Exception:
-            await page.wait_for_timeout(2000)
+            await page.wait_for_timeout(1000)
         return await page.content()
     except Exception as e:
         logger.error("Failed to fetch %s: %s", url, e)
@@ -1228,21 +1225,44 @@ def read_existing_json(out_path: str) -> Dict[str, Any]:
     except Exception:
         return {}
 
+def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Strip dynamic timestamps and metadata for content equality check."""
+    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
+
+def _age_in_hours(iso_str: str) -> float:
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+    except Exception:
+        return 999.0
+
 def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
     """
-    Saves JSON safely. If the new scrape found no players but the existing file
-    (from the same source URL) has data, keep the existing file untouched.
-    Returns True if the file was written, False if the previous data was kept.
+    Saves JSON safely with two critical safeguards:
+    1. Empty-scrape safeguard: If new scrape has 0 players but old file has data, keep old.
+    2. Smart timestamp preservation: If payload is identical and previous timestamp is fresh (<18h),
+       keep previous file untouched so git diff stays clean and unnecessary CI builds are skipped.
     """
     existing = read_existing_json(out_path)
     has_new = bool(stats_payload.get("hitting") or stats_payload.get("pitching") or stats_payload.get("players"))
     has_old = bool(existing.get("hitting") or existing.get("pitching") or existing.get("players"))
     same_source = existing.get("source") == stats_payload.get("source")
 
+    # 1. Empty scrape safeguard
     if not has_new and has_old and same_source:
         logger.warning("  ⚠ [%s] New scrape found 0 players — keeping existing %s",
                        stats_payload.get("team"), os.path.basename(out_path))
         return False
+
+    # 2. Smart timestamp caching (avoid Git noise & redundant Page deployments)
+    if existing and same_source:
+        old_clean = _strip_volatile(existing)
+        new_clean = _strip_volatile(stats_payload)
+        gen_at = existing.get("generated_at", "")
+        if old_clean == new_clean and gen_at and _age_in_hours(gen_at) < MAX_CACHE_HOURS:
+            logger.info("  [Cache hit] %s has identical stats and is < %dh old — skipping rewrite.",
+                        os.path.basename(out_path), MAX_CACHE_HOURS)
+            return False
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(stats_payload, f, indent=2)
@@ -1251,8 +1271,7 @@ def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
 def write_empty_non_conf(docs_dir: str, sport: str, year: str) -> None:
     """
     Writes a placeholder non_conf_<sport>.json when no opponent is configured, so
-    front-end fetches never 404. Skips the write if a placeholder already exists
-    (avoids a new timestamp -> new commit -> new deploy on every run).
+    front-end fetches never 404. Skips the write if a placeholder already exists.
     """
     out_file = f"non_conf_{sport}.json"
     out_path = os.path.join(docs_dir, out_file)
@@ -1286,21 +1305,60 @@ def write_empty_non_conf(docs_dir: str, sport: str, year: str) -> None:
     logger.info("Non-Conf (%s) slot is empty - wrote placeholder %s", sport, out_file)
 
 
+# ── Concurrent Team Scraper ────────────────────────────────────────────────────
+async def scrape_single_school(
+    context: BrowserContext,
+    school: Dict[str, Any],
+    year: str,
+    docs_dir: str,
+    semaphore: asyncio.Semaphore
+) -> Tuple[str, bool]:
+    async with semaphore:
+        stats_url = school["stats_url"].format(year=year)
+        candidates = school.get("roster_candidates", [])
+        logger.info("Processing %s: %s...", school["sport"].title(), school["name"])
+
+        try:
+            # Fetch stats HTML and Roster concurrently for speed
+            async def _get_stats():
+                if school.get("type") == "statbroadcast":
+                    try:
+                        return await asyncio.to_thread(fetch_html_static, stats_url)
+                    except Exception:
+                        fb = school.get("fallback_stats_url", school["stats_url"]).format(year=year)
+                        return await fetch_page_html(context, fb)
+                return await fetch_page_html(context, stats_url)
+
+            stats_html, (roster_html, roster_used_url) = await asyncio.gather(
+                _get_stats(),
+                fetch_best_roster(context, candidates, year)
+            )
+
+            stats_payload = extract_stats(stats_html or "", roster_html or "", school, year, roster_used_url)
+            out_path = os.path.join(docs_dir, school["out_file"])
+            written = save_team_json_safely(out_path, stats_payload)
+            if written:
+                logger.info("  ✓ Saved %d batters and %d pitchers -> %s",
+                            len(stats_payload["hitting"]), len(stats_payload["pitching"]), school["out_file"])
+            return school["id"], written
+        except Exception as e:
+            logger.exception("  ✗ Error processing %s: %s", school["name"], e)
+            return school["id"], False
+
+
 # ── Main Async Runner ──────────────────────────────────────────────────────────
 async def run(args: argparse.Namespace) -> None:
-    year = str(args.year or "2026")
+    current_year = datetime.now().year
+    year = str(args.year or (current_year if datetime.now().month <= 6 else current_year + 1))
     docs_dir = args.docs_dir
     os.makedirs(docs_dir, exist_ok=True)
 
     sports = SPORTS if args.sport == "all" else [args.sport]
 
-    # Conference teams for the selected sport(s) + non-conference opponents from config
     schools_to_scrape = [t for t in TEAMS if t["sport"] in sports]
     non_conf_teams = load_non_conf_teams(sports)
     schools_to_scrape += non_conf_teams
 
-    # Placeholder for any sport that has no non-conference opponent configured
-    # (skipped when scraping a single school, so --school never touches other files)
     if not args.school:
         loaded_sports = {t["sport"] for t in non_conf_teams}
         for sport in sports:
@@ -1317,49 +1375,50 @@ async def run(args: argparse.Namespace) -> None:
     logger.info("=== Summit League Diamond Sports Scraper [%d team(s), sport: %s, season: %s] -> %s ===",
                 len(schools_to_scrape), args.sport, year, docs_dir)
 
+    semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(user_agent=FETCH_HEADERS["User-Agent"], viewport={"width": 1280, "height": 800})
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled"]
+        )
+        context = await browser.new_context(
+            user_agent=FETCH_HEADERS["User-Agent"],
+            viewport={"width": 1280, "height": 800}
+        )
 
-        for school in schools_to_scrape:
-            stats_url = school["stats_url"].format(year=year)
-            candidates = school.get("roster_candidates", [])
+        # Block media/fonts/images to drastically speed up network transfers
+        await context.route(
+            "**/*",
+            lambda route: route.abort()
+            if route.request.resource_type in {"image", "media", "font"}
+            else route.continue_()
+        )
 
-            logger.info("Processing %s: %s...", school["sport"].title(), school["name"])
-            try:
-                # 1. Fetch Stats
-                if school.get("type") == "statbroadcast":
-                    try:
-                        stats_html = await asyncio.to_thread(fetch_html_static, stats_url)
-                    except Exception:
-                        fallback = school.get("fallback_stats_url", school["stats_url"]).format(year=year)
-                        stats_html = await fetch_page_html(context, fallback)
-                else:
-                    stats_html = await fetch_page_html(context, stats_url)
+        tasks = [
+            scrape_single_school(context, school, year, docs_dir, semaphore)
+            for school in schools_to_scrape
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                # 2. Fetch Roster with fallback candidates
-                roster_html, roster_used_url = await fetch_best_roster(context, candidates, year)
-
-                # 3. Extract & Save Safely
-                stats_payload = extract_stats(stats_html or "", roster_html or "", school, year, roster_used_url)
-                out_path = os.path.join(docs_dir, school["out_file"])
-                written = save_team_json_safely(out_path, stats_payload)
-
-                if written:
-                    logger.info("  ✓ Saved %d batters and %d pitchers -> %s",
-                                len(stats_payload["hitting"]), len(stats_payload["pitching"]), school["out_file"])
-            except Exception as e:
-                logger.exception("  ✗ Error processing %s: %s", school["name"], e)
+        for res in results:
+            if isinstance(res, Exception):
+                logger.error("Scrape subtask raised exception: %r", res)
 
         await browser.close()
 
+
 def main() -> None:
+    current_year = datetime.now().year
+    default_year = str(current_year if datetime.now().month <= 6 else current_year + 1)
+
     parser = argparse.ArgumentParser(description="Summit League Baseball & Softball Stats Scraper")
-    parser.add_argument("--year", default="2026", help="Season year")
+    parser.add_argument("--year", default=default_year, help=f"Season year (default: {default_year})")
     parser.add_argument("--sport", default="all", choices=["all", "baseball", "softball"], help="Which sport(s) to scrape")
     parser.add_argument("--docs-dir", default=DEFAULT_DOCS_DIR, help="Output destination folder")
     parser.add_argument("--school", default=None, help="Scrape one school by ID (e.g. omaha_softball) or short name (e.g. omaha)")
     asyncio.run(run(parser.parse_args()))
+
 
 if __name__ == "__main__":
     main()
