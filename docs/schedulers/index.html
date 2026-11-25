@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TAPbot - Game Schedules</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
 
   <style>
@@ -136,7 +136,6 @@
       justify-content: space-between;
       align-items: center;
       gap: 1.25rem;
-      flex-wrap: wrap;
     }
 
     .wordmark {
@@ -174,19 +173,14 @@
     .meta .meta-stale { color: var(--amber); }
     .meta .meta-bad   { color: var(--red); }
 
-    /* ── Header Right Controls ───────────────────────────────────────────────── */
+    /* ── Header Right Controls (Explicitly Right-Aligned) ─────────────────────── */
     .header-right-controls {
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.65rem;
-      flex-shrink: 0;
-    }
-
-    .top-toolbar {
-      display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 0.5rem;
+      flex-shrink: 0;
+      margin-left: auto;
     }
 
     .control-pill-group {
@@ -202,10 +196,10 @@
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 0.4rem 0.8rem;
+      padding: 0.45rem 0.85rem;
       border-radius: 7px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
@@ -223,118 +217,41 @@
       cursor: progress;
     }
 
-    /* ── Primary Campus Switcher ─────────────────────────────────────────────── */
-    .division-control-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.35rem;
+    /* ── Sport Selector Ribbon (Prominent Pill Styling) ──────────────────────── */
+    .selector-block {
+      margin-bottom: 2rem;
     }
 
-    .division-caption {
-      font-size: 0.72rem;
+    .section-caption {
+      font-size: 0.82rem;
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .division-switcher {
-      display: inline-flex;
-      background: var(--surface);
-      border: 2px solid var(--border-light);
-      padding: 5px;
-      border-radius: 14px;
-      gap: 6px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-    }
-
-    .div-btn {
-      background: transparent;
-      border: 1.5px solid transparent;
-      color: var(--text-muted);
-      padding: 0.75rem 1.2rem;
-      border-radius: 10px;
-      font-family: 'Inter', sans-serif;
-      font-size: 1.05rem;
-      font-weight: 800;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      white-space: nowrap;
-    }
-
-    .div-btn .div-icon { font-size: 1.25rem; line-height: 1; }
-
-    .div-count {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      font-weight: 800;
-      padding: 0.1rem 0.45rem;
-      border-radius: 999px;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid var(--border-light);
-      color: var(--text-muted);
-    }
-
-    .div-btn:hover:not(.active) {
-      color: var(--text);
-      background: var(--surface-2);
-      border-color: var(--border);
-    }
-
-    .div-btn.active {
-      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-3) 100%);
-      border-color: var(--team-accent);
-      color: var(--team-btn-text, #ffffff);
-      box-shadow: 0 0 18px var(--team-glow), inset 0 1px 1px rgba(255,255,255,0.2);
-      transform: scale(1.02);
-    }
-    .div-btn.active .div-count {
-      color: #ffffff;
-      border-color: rgba(255,255,255,0.35);
-    }
-
-    @media (max-width: 1100px) {
-      .div-btn { padding: 0.6rem 0.9rem; font-size: 0.95rem; }
-    }
-
-    /* ── Sport Selector Ribbon ───────────────────────────────────────────────── */
-    .selector-block { margin-bottom: 2rem; }
-
-    .section-caption {
-      font-size: 0.8rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 0.65rem;
+      margin-bottom: 0.75rem;
       display: block;
       font-family: 'JetBrains Mono', monospace;
     }
 
     .team-pills {
       display: flex;
-      gap: 0.55rem;
+      gap: 0.65rem;
       flex-wrap: wrap;
     }
 
     .team-pill {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       color: var(--text-muted);
-      padding: 0.55rem 1.05rem;
+      padding: 0.7rem 1.25rem;
       border-radius: 9999px;
-      font-size: 0.88rem;
-      font-weight: 700;
+      font-size: 0.98rem;
+      font-weight: 800;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      transition: all 0.15s ease;
+      gap: 0.6rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
     }
 
@@ -346,18 +263,19 @@
     }
 
     .team-pill.active {
-      background: var(--surface-2);
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-2) 100%);
       border-color: var(--team-accent);
-      color: var(--text);
-      box-shadow: 0 0 16px var(--team-glow);
+      color: var(--team-btn-text, #ffffff);
+      box-shadow: 0 0 18px var(--team-glow);
     }
 
     .team-pill-dot {
-      width: 10px;
-      height: 10px;
+      width: 11px;
+      height: 11px;
       border-radius: 50%;
       background: currentColor;
       display: inline-block;
+      flex-shrink: 0;
     }
 
     .team-pill.non-conf {
@@ -374,11 +292,19 @@
 
     .pill-count {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
+      font-size: 0.78rem;
       font-weight: 800;
-      color: var(--text-faint);
+      padding: 0.12rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
     }
-    .team-pill.active .pill-count { color: var(--team-accent); }
+    .team-pill.active .pill-count {
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(0, 0, 0, 0.35);
+    }
 
     /* ── Notice Banner ───────────────────────────────────────────────────────── */
     .notice {
@@ -859,17 +785,7 @@
 
     @media (max-width: 720px) {
       header { flex-wrap: wrap; }
-      .header-right-controls { width: 100%; align-items: flex-start; }
-      .division-control-wrap { align-items: flex-start; width: 100%; }
-      .division-switcher { width: 100%; justify-content: center; }
-      .div-btn {
-        flex: 1;
-        justify-content: center;
-        flex-direction: column;
-        gap: 0.25rem;
-        padding: 0.6rem 0.4rem;
-        font-size: 0.85rem;
-      }
+      .header-right-controls { width: 100%; justify-content: flex-start; margin-left: 0; }
       .col-id, th.col-id { display: none; }
       .spotlight-header { flex-wrap: wrap; }
     }
@@ -896,40 +812,17 @@
       <div class="meta" id="metaBar">Loading schedules…</div>
     </div>
 
-    <!-- Right Controls: Standardized Pill Switcher + 3-Way Campus Selector -->
+    <!-- Right Controls: Standardized Pill Group (Refresh & Theme Toggle) -->
     <div class="header-right-controls">
-      <div class="top-toolbar">
-        <div class="control-pill-group" role="group" aria-label="Refresh">
-          <button id="btnRefresh" class="control-pill-btn" onclick="loadAll()" title="Reload both schedule files">
-            <span id="refreshLabel">⟳ Refresh</span>
-          </button>
-        </div>
-        <div class="control-pill-group" role="group" aria-label="Theme Selection">
-          <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
-            <span id="themeToggleLabel">🌙 Dark</span>
-          </button>
-        </div>
+      <div class="control-pill-group" role="group" aria-label="Refresh">
+        <button id="btnRefresh" class="control-pill-btn" onclick="loadAll()" title="Reload schedule feed">
+          <span id="refreshLabel">⟳ Refresh</span>
+        </button>
       </div>
-
-      <div class="division-control-wrap">
-        <span class="division-caption">Select Campus</span>
-        <div class="division-switcher" role="tablist" aria-label="Campus Switcher">
-          <button id="btnCampus_all" class="div-btn active" role="tab" aria-selected="true" onclick="setCampus('all')">
-            <span class="div-icon">🏟️</span>
-            <span>All Sports</span>
-            <span class="div-count" title="Upcoming games">0</span>
-          </button>
-          <button id="btnCampus_north" class="div-btn" role="tab" aria-selected="false" onclick="setCampus('north')">
-            <span class="div-icon">🏈</span>
-            <span>North Campus</span>
-            <span class="div-count" title="Upcoming games">0</span>
-          </button>
-          <button id="btnCampus_south" class="div-btn" role="tab" aria-selected="false" onclick="setCampus('south')">
-            <span class="div-icon">🏀</span>
-            <span>South Campus</span>
-            <span class="div-count" title="Upcoming games">0</span>
-          </button>
-        </div>
+      <div class="control-pill-group" role="group" aria-label="Theme Selection">
+        <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
+          <span id="themeToggleLabel">🌙 Dark</span>
+        </button>
       </div>
     </div>
   </header>
@@ -990,44 +883,44 @@
 
 <script>
   // ══ CONFIG ══════════════════════════════════════════════════════════════════
-  const RAW_BASE = 'https://raw.githubusercontent.com/TAPbot-Xpression/TAPbot/main/docs/schedulers/';
-  const BASES = ['', RAW_BASE];
-
-  const FILES = [
-    { campus: 'north', file: 'schedule_northcampus.json', short: 'North' },
-    { campus: 'south', file: 'schedule_southcampus.json', short: 'South' }
-  ];
-
-  const CAMPUSES = {
-    all:   { label: 'All Sports',   title: 'Game Schedules' },
-    north: { label: 'North Campus', title: 'North Campus Game Schedules' },
-    south: { label: 'South Campus', title: 'South Campus Game Schedules' }
-  };
-  const CAMPUS_NAMES = { north: 'North Campus', south: 'South Campus' };
+  const SCHEDULE_FILE = 'all_schedules.json';
+  const RAW_FALLBACK  = 'https://raw.githubusercontent.com/TAPbot-Xpression/TAPbot/main/docs/schedulers/all_schedules.json';
 
   const REFRESH_MS  = 5 * 60 * 1000;
   const STALE_HOURS = 24;
   const DAY_MS      = 86400000;
 
+  const SPORT_ORDER = [
+    'football',
+    'volleyball',
+    'mens_soccer',
+    'womens_soccer',
+    'mens_hockey',
+    'womens_hockey',
+    'mens_basketball',
+    'womens_basketball',
+    'baseball',
+    'softball'
+  ];
+
   const SPORT_META = {
     football:          { emoji: '🏈', color: '#f59e0b' },
     volleyball:        { emoji: '🏐', color: '#ec4899' },
-    baseball:          { emoji: '⚾', color: '#ef4444' },
-    softball:          { emoji: '🥎', color: '#f97316' },
+    mens_soccer:       { emoji: '⚽', color: '#10b981' },
+    womens_soccer:     { emoji: '⚽', color: '#34d399' },
+    mens_hockey:       { emoji: '🏒', color: '#06b6d4' },
+    womens_hockey:     { emoji: '🏒', color: '#22d3ee' },
     mens_basketball:   { emoji: '🏀', color: '#3b82f6' },
     womens_basketball: { emoji: '🏀', color: '#a855f7' },
-    mens_hockey:       { emoji: '🏒', color: '#06b6d4' },
-    womens_hockey:     { emoji: '⛸️', color: '#22d3ee' },
-    mens_soccer:       { emoji: '⚽', color: '#10b981' },
-    womens_soccer:     { emoji: '⚽', color: '#34d399' }
+    baseball:          { emoji: '⚾', color: '#ef4444' },
+    softball:          { emoji: '🥎', color: '#f97316' }
   };
 
   const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
 
   // ══ STATE ═══════════════════════════════════════════════════════════════════
   let SPORTS = [];
-  let RESULTS = [];
-  let campus = 'all';
+  let FEED_DATA = null;
   let sportFilter = 'all';
   const OPEN_SCOUT = new Set();
   let loading = false;
@@ -1120,39 +1013,47 @@
   }
 
   // ══ DATA LOADING ════════════════════════════════════════════════════════════
-  async function fetchJson(file) {
-    let lastErr = null;
-    for (const base of BASES) {
-      try {
-        const res = await fetch(`${base}${file}?t=${Date.now()}`);
-        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
-        return await res.json();
-      } catch (e) { lastErr = e; }
+  async function fetchScheduleData() {
+    try {
+      const res = await fetch(`${SCHEDULE_FILE}?t=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (localErr) {
+      const resFallback = await fetch(`${RAW_FALLBACK}?t=${Date.now()}`);
+      if (!resFallback.ok) throw new Error(`Fallback HTTP ${resFallback.status}`);
+      return await resFallback.json();
     }
-    throw lastErr || new Error('Unable to load');
   }
 
-  function buildSports(results) {
+  function parseSports(data) {
     const out = [];
-    results.forEach(r => {
-      if (!r.ok) return;
-      const sports = (r.data && r.data.sports) || {};
-      Object.entries(sports).forEach(([key, s]) => {
-        const meta = sportMeta(key, s.name);
-        const opp = s.opponent_schedule || {};
-        out.push({
-          uid: safeId(`${r.campus}:${key}`),
-          key,
-          campus: r.campus,
-          name: s.name || prettify(key),
-          emoji: meta.emoji,
-          color: meta.color,
-          games: (s.games || []).map(normGame),
-          opp: {
-            team: opp.team || null,
-            games: (opp.games || []).map(normGame)
-          }
-        });
+    const sportsObj = (data && data.sports) || {};
+    
+    // Sort according to defined SPORT_ORDER, then append any remaining
+    const keys = Object.keys(sportsObj).sort((a, b) => {
+      const ia = SPORT_ORDER.indexOf(a);
+      const ib = SPORT_ORDER.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    keys.forEach(key => {
+      const s = sportsObj[key];
+      const meta = sportMeta(key, s.name);
+      const opp = s.opponent_schedule || {};
+      out.push({
+        uid: safeId(key),
+        key,
+        name: s.name || prettify(key),
+        emoji: meta.emoji,
+        color: meta.color,
+        games: (s.games || []).map(normGame),
+        opp: {
+          team: opp.team || null,
+          games: (opp.games || []).map(normGame)
+        }
       });
     });
     return out;
@@ -1166,21 +1067,16 @@
     btn.disabled = true;
     lbl.textContent = '⟳ Loading…';
 
-    RESULTS = await Promise.all(FILES.map(async f => {
-      try {
-        const data = await fetchJson(f.file);
-        return { ...f, ok: true, data };
-      } catch (e) {
-        return { ...f, ok: false, error: e.message };
-      }
-    }));
-
-    SPORTS = buildSports(RESULTS);
-
-    if (sportFilter !== 'all' && !SPORTS.some(s => s.uid === sportFilter)) sportFilter = 'all';
-
-    renderMeta();
-    render();
+    try {
+      FEED_DATA = await fetchScheduleData();
+      SPORTS = parseSports(FEED_DATA);
+      renderMeta();
+      render();
+    } catch (err) {
+      SPORTS = [];
+      document.getElementById('metaBar').innerHTML = `<span class="meta-bad">Failed to load schedule feed: ${esc(err.message)}</span>`;
+      render();
+    }
 
     btn.disabled = false;
     lbl.textContent = '⟳ Refresh';
@@ -1190,66 +1086,42 @@
   // ══ RENDERING ═══════════════════════════════════════════════════════════════
   function renderMeta() {
     const meta = document.getElementById('metaBar');
-    const notice = document.getElementById('loadNotice');
-    const okCount = RESULTS.filter(r => r.ok).length;
+    if (!FEED_DATA) return;
 
-    const parts = RESULTS.map(r => {
-      if (!r.ok) return `<span class="meta-bad">${esc(r.short)}: failed to load</span>`;
-      const st = fmtStamp(r.data.updated_at);
-      if (!st) return `${esc(r.short)}: loaded`;
+    const team = FEED_DATA.team || 'St. Thomas (MN)';
+    const st = fmtStamp(FEED_DATA.updated_at);
+    
+    if (st) {
       const stale = st.ageHours > STALE_HOURS;
-      return `<span class="${stale ? 'meta-stale' : ''}">${esc(r.short)}: ${stale ? '⚠ ' : ''}updated ${esc(st.text)}</span>`;
-    });
-
-    const teamName = (RESULTS.find(r => r.ok && r.data && r.data.team) || {}).data;
-    const prefix = teamName && teamName.team ? `<strong>${esc(teamName.team)}</strong> · ` : '';
-    meta.innerHTML = prefix + parts.join(' · ');
-
-    const failed = RESULTS.filter(r => !r.ok);
-    if (failed.length && okCount > 0) {
-      notice.style.display = 'block';
-      notice.textContent = `⚠ Could not load ${failed.map(f => f.file).join(', ')} — showing the data that did load.`;
+      meta.innerHTML = `<strong>${esc(team)}</strong> · <span class="${stale ? 'meta-stale' : ''}">${stale ? '⚠ ' : ''}Feed updated: ${esc(st.text)}</span>`;
     } else {
-      notice.style.display = 'none';
+      meta.innerHTML = `<strong>${esc(team)}</strong> · Feed loaded`;
     }
   }
 
-  function campusSports()  { return SPORTS.filter(s => campus === 'all' || s.campus === campus); }
-  function visibleSports() { return campusSports().filter(s => sportFilter === 'all' || s.uid === sportFilter); }
+  function visibleSports() {
+    return SPORTS.filter(s => sportFilter === 'all' || s.uid === sportFilter);
+  }
 
   function render() {
-    renderCampusButtons();
     renderPills();
     renderNextUp();
     renderCards();
     renderOffSeason();
   }
 
-  function renderCampusButtons() {
-    Object.keys(CAMPUSES).forEach(k => {
-      const btn = document.getElementById('btnCampus_' + k);
-      const count = SPORTS.filter(s => k === 'all' || s.campus === k)
-        .reduce((n, s) => n + s.games.length, 0);
-      btn.classList.toggle('active', k === campus);
-      btn.setAttribute('aria-selected', k === campus ? 'true' : 'false');
-      btn.querySelector('.div-count').textContent = count;
-    });
-    document.getElementById('pageTitle').textContent = CAMPUSES[campus].title;
-  }
-
   function renderPills() {
-    const list = campusSports();
-    const total = list.reduce((n, s) => n + s.games.length, 0);
+    const total = SPORTS.reduce((n, s) => n + s.games.length, 0);
     let html = `
       <button class="team-pill ${sportFilter === 'all' ? 'active' : ''}" onclick="setSport('all')">
         <span class="team-pill-dot" style="color:var(--team-accent)"></span>
-        <span>All ${campus === 'all' ? 'Sports' : esc(CAMPUS_NAMES[campus])}</span>
+        <span>All Sports</span>
         <span class="pill-count">${total}</span>
       </button>`;
 
-    html += list.map(s => `
+    html += SPORTS.map(s => `
       <button class="team-pill ${s.uid === sportFilter ? 'active' : ''} ${s.games.length ? '' : 'non-conf'}"
-              onclick="setSport('${s.uid}')" title="${esc(CAMPUS_NAMES[s.campus])}">
+              onclick="setSport('${s.uid}')" title="${esc(s.name)}">
         <span class="team-pill-dot" style="color:${s.color}"></span>
         <span>${esc(s.name)}</span>
         <span class="pill-count">${s.games.length}</span>
@@ -1276,7 +1148,7 @@
     document.getElementById('nextTagIn').textContent = countdownText(n);
     document.getElementById('nextTitle').textContent = `${top.g.ha ? top.g.ha + ' ' : ''}${oppLabel}`;
     document.getElementById('nextSub').textContent =
-      `${top.s.name} · ${weekday(top.g.date)} ${top.g.dateText} · ${CAMPUS_NAMES[top.s.campus] || ''}`;
+      `${top.s.name} · ${weekday(top.g.date)} ${top.g.dateText}`;
 
     document.getElementById('nextGrid').innerHTML = nexts.map((x, i) => {
       const opp = (x.g.opp.rank ? `#${x.g.opp.rank} ` : '') + x.g.opp.name;
@@ -1388,7 +1260,7 @@
       <article class="card" id="card-${s.uid}" style="--sport-color:${s.color}">
         <div class="card-header">
           <div class="card-title-group">
-            <div class="card-league">${esc(CAMPUS_NAMES[s.campus] || '')} · ${s.games.length} game${s.games.length === 1 ? '' : 's'}</div>
+            <div class="card-league">${s.games.length} upcoming game${s.games.length === 1 ? '' : 's'}</div>
             <h2 class="card-title">${s.emoji} ${esc(s.name)}</h2>
           </div>
           <div class="card-header-right">${badge}</div>
@@ -1402,16 +1274,12 @@
     const grid = document.getElementById('cardsGrid');
 
     if (!SPORTS.length) {
-      const failed = RESULTS.length && RESULTS.every(r => !r.ok);
       grid.innerHTML = `
         <div class="card" style="grid-column: 1 / -1; --sport-color: var(--red);">
           <div class="message">
-            <span class="message-icon">${failed ? '⚠️' : '📋'}</span>
-            ${failed
-              ? `Could not load schedule data.<br/><small style="color:var(--text-faint);display:block;margin-top:.5rem;">
-                 Make sure schedule_northcampus.json and schedule_southcampus.json sit next to this page,
-                 or that you are online so the GitHub fallback can be used.</small>`
-              : 'No schedule data found in the feeds.'}
+            <span class="message-icon">⚠️</span>
+            Could not load schedule data.<br/><small style="color:var(--text-faint);display:block;margin-top:.5rem;">
+            Make sure all_schedules.json is in docs/schedulers/ or verify your internet connection for GitHub raw fallback.</small>
           </div>
         </div>`;
       return;
@@ -1430,7 +1298,7 @@
     if (!active.length) {
       grid.innerHTML = `
         <div class="card" style="grid-column: 1 / -1; --sport-color: var(--text-faint);">
-          <div class="message"><span class="message-icon">🗓️</span>No upcoming games for the current selection.</div>
+          <div class="message"><span class="message-icon">🗓️</span>No upcoming games for the selected sport.</div>
         </div>`;
       return;
     }
@@ -1444,7 +1312,7 @@
     if (!off.length) { block.style.display = 'none'; return; }
 
     document.getElementById('offSeasonPills').innerHTML = off.map(s => `
-      <span class="team-pill non-conf static" title="${esc(CAMPUS_NAMES[s.campus])}">
+      <span class="team-pill non-conf static" title="${esc(s.name)}">
         <span class="team-pill-dot" style="color:${s.color}"></span>
         <span>${esc(s.name)}</span>
         <span class="pill-count">Off Season</span>
@@ -1453,13 +1321,6 @@
   }
 
   // ══ INTERACTIONS ════════════════════════════════════════════════════════════
-  function setCampus(c) {
-    if (!CAMPUSES[c]) return;
-    campus = c;
-    sportFilter = 'all';
-    render();
-  }
-
   function setSport(uid) {
     sportFilter = uid;
     render();
