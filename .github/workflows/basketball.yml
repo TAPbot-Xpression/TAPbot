@@ -2,12 +2,17 @@ name: Scrape Basketball
 
 # Place this file at: .github/workflows/basketball.yml
 # Scrapes Summit League men's and women's basketball and commits JSON to docs/basketball/
+# Runs every morning at 3:30 AM Central (CST or CDT, depending on daylight saving).
 
 on:
   schedule:
-    # GitHub cron runs in UTC. 14:45 UTC = 8:45 AM CST / 9:45 AM CDT in St. Paul.
-    # Hockey runs at 14:15 and diamond sports at 14:30, so the pushes never collide.
-    - cron: "45 14 * * *"
+    # GitHub cron is UTC only and has no daylight saving support.
+    # Both times are scheduled; the "Check Central time" step lets only the
+    # one that lands on 3:30 AM Central through.
+    # Diamond sports runs at 3:45 AM Central and schedules at 4:15 AM Central,
+    # so the pushes never collide.
+    - cron: "30 9 * * *"    # 3:30 AM CST (winter, UTC-6)
+    - cron: "30 8 * * *"    # 3:30 AM CDT (summer, UTC-5)
   workflow_dispatch:
   push:
     branches: [main]
@@ -30,10 +35,29 @@ jobs:
       changed: ${{ steps.commit.outputs.changed }}
 
     steps:
+      - name: Check Central time
+        id: tz
+        run: |
+          # Manual runs and push runs always go. Scheduled runs only go in the 3 AM Central hour.
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=America/Chicago date +%H)
+          echo "Central hour is $HOUR"
+          if [ "$HOUR" = "03" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Not the 3 AM Central hour. Skipping this run."
+          fi
+
       - name: Checkout repository
+        if: steps.tz.outputs.go == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
+        if: steps.tz.outputs.go == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -41,16 +65,20 @@ jobs:
           cache-dependency-path: scrapers/basketball/requirements.txt
 
       - name: Install dependencies
+        if: steps.tz.outputs.go == 'true'
         run: pip install -r scrapers/basketball/requirements.txt
 
       - name: Install Playwright browser
+        if: steps.tz.outputs.go == 'true'
         run: playwright install --with-deps chromium
 
       - name: Run basketball scraper
+        if: steps.tz.outputs.go == 'true'
         run: python scrapers/basketball/scrape_basketball.py
 
       - name: Commit JSON
         id: commit
+        if: steps.tz.outputs.go == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -61,7 +89,6 @@ jobs:
             exit 0
           fi
           git commit -m "chore(basketball): update stats [$(date -u '+%Y-%m-%d %H:%M UTC')]"
-
           # Other sport workflows may push at the same time, so retry with a rebase.
           for i in 1 2 3; do
             if git pull --rebase origin main && git push origin HEAD:main; then
