@@ -157,30 +157,3 @@ python fetch_scores.py
 ```
 
 Press `Ctrl+C` to stop.
-
-## Setup (fresh fork or new repo)
-
-1. Go to **Settings → Pages → Source** and choose **GitHub Actions**.
-2. Go to **Settings → Actions → General → Workflow permissions** and select **Read and write permissions**.
-3. Make sure each `scrapers/<sport>/requirements.txt` is present.
-4. Run each workflow once from the Actions tab.
-5. Open the Hub Site and confirm each in-season source shows a green tally light.
-
-## Adding a sport
-
-1. Create `scrapers/<sport>/` with the scraper and a `requirements.txt`.
-2. Have the scraper write to `docs/<sport>/`, resolving the path from `__file__` rather than the working directory.
-3. Copy an existing workflow and change its name, cron time and paths.
-4. Put the dashboard at `docs/<sport>/index.html`.
-5. Add a block to the `SPORTS` array in `docs/index.html`, setting `statusFile` and `seasonMonths`.
-
-## Troubleshooting
-
-| Symptom | Likely cause |
-|---|---|
-| Workflow succeeds but the site doesn't update | The scraper wrote outside `docs/<sport>/`, or the data was unchanged. |
-| A team's JSON has empty `players` or all `-` stats | The site changed its layout or blocked the scraper. Previous data is kept where possible. Check the workflow log. |
-| Hub shows **NO DATA FILE** | The `statusFile` in `docs/index.html` doesn't match a real filename. |
-| Hub shows **OFF-SEASON** for an active sport | The current month isn't in that sport's `seasonMonths` in `docs/index.html`. |
-| Workflow fails on `git push` | Another workflow pushed first. Re-run it. |
-| A scheduled run shows "skipped" | Expected. The time check skipped the cron entry that wasn't the right local time. |
