@@ -1,14 +1,25 @@
 name: Scrape Diamond Sports
 
 # Place this file at: .github/workflows/diamondsports.yml
-# Scrapes Summit League baseball + softball and commits JSON to docs/diamondsports/
-# Runs every morning at 3:45 AM Central (CST or CDT, depending on daylight saving).
+#
+# Scrapes Summit League baseball + softball, commits JSON to docs/diamondsports/,
+# then calls the shared deploy.yml.
+#
+# Runs every morning at about 3:45 AM Central (CST or CDT, depending on daylight saving).
+#
+# GitHub cron is UTC only and has no daylight saving support, so the run is
+# scheduled twice. The "gate" job lets only the run that lands in the 3:40 to
+# 4:30 AM Central window continue. The other one shows as skipped (this is normal).
+#
+#   Cron (UTC)   In winter (CST, UTC-6)   In summer (CDT, UTC-5)
+#   09:45        3:45 AM  -> runs         4:45 AM  -> skipped
+#   08:45        2:45 AM  -> skipped      3:45 AM  -> runs
+#
+# The window is 50 minutes wide, so it tolerates a late start of up to 45 minutes
+# but can never match the wrong cron (those land exactly one hour away).
 
 on:
   schedule:
-    # GitHub cron is UTC only and has no daylight saving support.
-    # Both times are scheduled; the "Check Central time" step lets only the
-    # one that lands on 3:45 AM Central through.
     - cron: "45 9 * * *"    # 3:45 AM CST (winter, UTC-6)
     - cron: "45 8 * * *"    # 3:45 AM CDT (summer, UTC-5)
   workflow_dispatch:
@@ -46,35 +57,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  scrape:
+  gate:
+    # Scheduled runs only continue if the St. Paul clock reads 3:40 to 4:30 AM.
+    # Manual runs and pushes always continue.
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     outputs:
-      changed: ${{ steps.commit.outputs.changed }}
-
+      run: ${{ steps.check.outputs.run }}
     steps:
       - name: Check Central time
-        id: tz
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
-          # Manual runs and push runs always go. Scheduled runs only go in the 3 AM Central hour.
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "go=true" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" != "schedule" ]; then
+            echo "Not a scheduled run - continuing."
+            echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          HOUR=$(TZ=America/Chicago date +%H)
-          echo "Central hour is $HOUR"
-          if [ "$HOUR" = "03" ]; then
-            echo "go=true" >> "$GITHUB_OUTPUT"
+
+          H=$(TZ=America/Chicago date +%-H)
+          M=$(TZ=America/Chicago date +%-M)
+          MINS=$((H * 60 + M))
+          echo "St. Paul local time: $(TZ=America/Chicago date '+%H:%M %Z')"
+
+          # 220 = 3:40 AM, 270 = 4:30 AM local. Tolerates GitHub start delays.
+          if [ "$MINS" -ge 220 ] && [ "$MINS" -le 270 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "go=false" >> "$GITHUB_OUTPUT"
-            echo "Not the 3 AM Central hour. Skipping this run."
+            echo "Outside the 3:45 AM St. Paul window - skipping this cron."
+            echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
+  scrape:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
       - name: Checkout repository
-        if: steps.tz.outputs.go == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
-        if: steps.tz.outputs.go == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -82,15 +108,30 @@ jobs:
           cache-dependency-path: scrapers/diamondsports/requirements.txt
 
       - name: Install dependencies
-        if: steps.tz.outputs.go == 'true'
         run: pip install -r scrapers/diamondsports/requirements.txt
 
-      - name: Install Playwright browser
-        if: steps.tz.outputs.go == 'true'
+      # Cache the Chromium download, keyed on the installed Playwright version.
+      - name: Get Playwright version
+        id: pw
+        run: echo "version=$(python -m pip show playwright | awk '/^Version:/{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright browser (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: playwright install --with-deps chromium
 
+      # The browser is cached, but the Ubuntu system libraries are not.
+      - name: Install Playwright system dependencies (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
+
       - name: Run diamond sports scraper
-        if: steps.tz.outputs.go == 'true'
         env:
           SPORT: ${{ inputs.sport }}
           SCHOOL: ${{ inputs.school }}
@@ -105,20 +146,29 @@ jobs:
 
       - name: Commit JSON
         id: commit
-        if: steps.tz.outputs.go == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A docs/diamondsports
           if git diff --cached --quiet; then
+            echo "No changes to commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git commit -m "chore(diamondsports): update stats"
+          git commit -m "chore(diamondsports): update stats [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+
+          # Other sport workflows may push at the same time, so retry with a rebase.
+          # changed=true is only set when the push actually succeeds.
           for i in 1 2 3; do
-            git pull --rebase origin main && git push && break || sleep 5
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push attempt $i failed, retrying..."
+            sleep 5
           done
-          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "Could not push after 3 attempts."
+          exit 1
 
   deploy:
     needs: scrape
