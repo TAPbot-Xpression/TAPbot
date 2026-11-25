@@ -1,16 +1,27 @@
 name: Scrape Hockey
 
 # Place this file at: .github/workflows/hockey.yml
+#
+# Scrapes NCHC men's + WCHA women's hockey stats, commits JSON to docs/hockey/,
+# then calls the shared deploy.yml.
+#
+# Runs every morning at about 4:30 AM Central (CST or CDT, depending on daylight saving).
+#
+# GitHub cron is UTC only and has no daylight saving support, so the run is
+# scheduled twice. The "gate" job lets only the run that lands in the
+# 4:25 to 5:15 AM Central window continue. The other one shows as skipped (this is normal).
+#
+#   Cron (UTC)   In winter (CST, UTC-6)   In summer (CDT, UTC-5)
+#   09:30        3:30 AM  -> skipped      4:30 AM  -> runs
+#   10:30        4:30 AM  -> runs         5:30 AM  -> skipped
+#
+# The two crons are exactly one hour apart, so the window can tolerate a start
+# delay of up to 45 minutes and still never match the wrong cron.
 
 on:
   schedule:
-    # GitHub cron is UTC-only and cannot follow daylight saving time.
-    # Two entries cover both seasons. The "gate" job below only lets the run
-    # that lands around 4:00 AM in St. Paul (America/Chicago) continue.
-    #   9:00 UTC = 4:00 AM CDT (mid-March to early November)
-    #   10:00 UTC = 4:00 AM CST (early November to mid-March)
-    - cron: "0 9 * * *"
-    - cron: "0 10 * * *"
+    - cron: "30 9 * * *"     # 4:30 AM CDT (summer, UTC-5)
+    - cron: "30 10 * * *"    # 4:30 AM CST (winter, UTC-6)
   workflow_dispatch:
     inputs:
       only_teams:
@@ -38,13 +49,14 @@ concurrency:
 
 jobs:
   gate:
-    # Scheduled runs only continue if the St. Paul clock reads about 4:30 AM.
+    # Scheduled runs only continue if the Central clock reads 4:25 to 5:15 AM.
     # Manual runs and pushes always continue.
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     outputs:
       run: ${{ steps.check.outputs.run }}
     steps:
-      - name: Check St. Paul local time
+      - name: Check Central time
         id: check
         env:
           EVENT: ${{ github.event_name }}
@@ -58,13 +70,13 @@ jobs:
           H=$(TZ=America/Chicago date +%-H)
           M=$(TZ=America/Chicago date +%-M)
           MINS=$((H * 60 + M))
-          echo "St. Paul local time: $(TZ=America/Chicago date '+%H:%M %Z')"
+          echo "Central time: $(TZ=America/Chicago date '+%H:%M %Z')"
 
-          # Accept 4:20 AM to 5:15 AM local, which tolerates GitHub start delays.
-          if [ "$MINS" -ge 260 ] && [ "$MINS" -le 315 ]; then
+          # 265 = 4:25 AM, 315 = 5:15 AM local. Tolerates GitHub start delays.
+          if [ "$MINS" -ge 265 ] && [ "$MINS" -le 315 ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Outside the 4:30 AM St. Paul window - skipping this cron."
+            echo "Outside the 4:30 AM Central window - skipping this cron."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -89,8 +101,27 @@ jobs:
       - name: Install dependencies
         run: pip install -r scrapers/hockey/requirements.txt
 
-      - name: Install Playwright browser
+      # Cache the Chromium download, keyed on the installed Playwright version.
+      # Keep this key identical in the diamondsports workflow so both share one cache.
+      - name: Get Playwright version
+        id: pw
+        run: echo "version=$(python -m pip show playwright | awk '/^Version:/{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright browser (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: playwright install --with-deps chromium
+
+      # The browser is cached, but the Ubuntu system libraries are not.
+      - name: Install Playwright system dependencies (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
 
       - name: Run hockey scraper
         env:
@@ -120,7 +151,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/hockey
+          git add -A docs/hockey
           if git diff --cached --quiet; then
             echo "No changes to commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -129,6 +160,7 @@ jobs:
           git commit -m "chore(hockey): update stats [$(date -u '+%Y-%m-%d %H:%M UTC')]"
 
           # Other sport workflows may push at the same time, so retry with a rebase.
+          # changed=true is only set when the push actually succeeds.
           for i in 1 2 3; do
             if git pull --rebase origin main && git push origin HEAD:main; then
               echo "changed=true" >> "$GITHUB_OUTPUT"
