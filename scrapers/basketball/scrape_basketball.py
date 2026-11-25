@@ -24,25 +24,28 @@ JSON layout (identical for every team file, so Datalinq graphics can use one pat
       ]
     }
 
-Updates applied:
-  - Resolves repository root dynamically from script path.
-  - Exclusively outputs to and reads fallback JSON from `docs/basketball/`.
-  - Resolves non_conf_config.json relative to script directory.
-  - Suffix formatting fix (handles 'Williams, Jr., Fontaine' -> 'Fontaine Williams, Jr.').
-  - All Men's team output JSON files now end with '_men.json'.
-  - Winger (W), Guard (G), Forward (F) normalization.
-  - Ordinal academic year normalization (1st, 2nd, 3rd, 4th, 5th -> FR, SO, JR, SR, GR).
+Optimizations & safeguards applied:
+  1. Full async concurrency across teams via asyncio.Semaphore(5) + asyncio.gather.
+  2. Concurrent stats and roster page fetching per team via asyncio.gather.
+  3. Playwright resource routing (aborts image, media, and font downloads).
+  4. Explicit selector-based waits replacing sluggish networkidle timeouts.
+  5. Smart cache & git-diff preservation: avoids rewriting unchanged JSON (<18h old).
+  6. Empty-scrape & partial-failure safeguards: keeps existing player and team stats.
+  7. Clean stat calculation deduplication across Nuxt & HTML parsers.
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import difflib
 import json
 import logging
 import os
 import re
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -54,7 +57,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("basketball_scraper")
+sys.setrecursionlimit(20000)
 
 # ── Dynamic Path Resolution ──────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -64,6 +68,7 @@ NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
 
 CONCURRENCY_LIMIT = 5
 MIN_ROSTER_ENTRIES = 8
+MAX_CACHE_HOURS = 18
 NON_CONF_SLUGS = {"men": "non_conf_men", "women": "non_conf_women"}
 
 CONF_OPTION_RE = re.compile(r"^\s*conference(\s+only)?\s*$", re.I)
@@ -74,7 +79,7 @@ CONF_KEEP_PREVIOUS_ON = {
 }
 
 # ── Summit League Men's Basketball Configuration (_men slugs) ─────────────────
-MENS_TEAMS_CONFIG = [
+MENS_TEAMS_CONFIG: List[Dict[str, Any]] = [
     {
         "name": "Kansas City",
         "slug": "kansas_city_men",
@@ -126,7 +131,7 @@ MENS_TEAMS_CONFIG = [
 ]
 
 # ── Summit League Women's Basketball Configuration ────────────────────────────
-WOMENS_TEAMS_CONFIG = [
+WOMENS_TEAMS_CONFIG: List[Dict[str, Any]] = [
     {
         "name": "Kansas City",
         "slug": "kansas_city_women",
@@ -197,7 +202,7 @@ STAFF_KEYWORDS = [
 
 _SUFFIX_SET = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"}
 
-# ── Team Stats Definition ─────────────────────────────────────────────────────
+# ── Team Stats Definition ────────────────────────────────────────────────────
 TEAM_STAT_SPECS: List[Tuple[str, str, List[str]]] = [
     ("ppg", "avg", [
         "Points Per Game", "Pts Per Game", "Points/Game", "PPG", "Scoring Offense", "Points per game"]),
@@ -329,12 +334,10 @@ async def fetch_page_html(context: BrowserContext, url: str) -> Optional[str]:
         page = await context.new_page()
         logger.info(f"Navigating to {url}")
         await page.goto(url, wait_until="domcontentloaded", timeout=25000)
-
         try:
-            await page.wait_for_load_state("networkidle", timeout=3000)
+            await page.wait_for_selector("table, script#__NUXT_DATA__, .sidearm-roster-player", state="attached", timeout=6000)
         except Exception:
-            pass
-
+            await page.wait_for_timeout(500)
         return await page.content()
     except Exception as e:
         logger.error(f"Failed to fetch {url}: {e}")
@@ -359,7 +362,7 @@ async def fetch_conference_html(context: BrowserContext, url: str) -> Tuple[Opti
         logger.info(f"Navigating to {url} (Conference view)")
         await page.goto(url, wait_until="domcontentloaded", timeout=25000)
         try:
-            await page.wait_for_load_state("networkidle", timeout=4000)
+            await page.wait_for_selector('button[role="combobox"][data-test-id="s-select__box"], table', timeout=6000)
         except Exception:
             pass
 
@@ -398,11 +401,10 @@ async def fetch_conference_html(context: BrowserContext, url: str) -> Tuple[Opti
 
                 await target.click(timeout=3000)
                 tried_click = True
-                await page.wait_for_timeout(1500)
                 try:
-                    await page.wait_for_load_state("networkidle", timeout=3000)
+                    await page.wait_for_selector("table", timeout=4000)
                 except Exception:
-                    pass
+                    await page.wait_for_timeout(800)
 
                 if CONF_OPTION_RE.match(await _combo_text(box)):
                     return await page.content(), "selected"
@@ -1426,10 +1428,8 @@ def parse_old_style_html_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     return result_list
 
 # ── Output Helpers ────────────────────────────────────────────────────────────
-def write_team_json(slug: str, team_data: Dict[str, Any]) -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    with open(OUT_DIR / f"{slug}.json", "w", encoding="utf-8") as f:
-        json.dump(team_data, f, indent=2)
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 def read_existing_json(slug: str) -> Dict[str, Any]:
     try:
@@ -1439,12 +1439,43 @@ def read_existing_json(slug: str) -> Dict[str, Any]:
     except Exception:
         return {}
 
-def now_iso() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
+
+def _age_in_hours(iso_str: str) -> float:
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+    except Exception:
+        return 999.0
+
+def write_team_json(slug: str, team_data: Dict[str, Any]) -> bool:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = OUT_DIR / f"{slug}.json"
+    existing = read_existing_json(slug)
+    same_source = existing.get("source_stats_url") == team_data.get("source_stats_url")
+
+    # Smart cache hit check: skip rewrite if identical content and < 18h old
+    if existing and same_source:
+        old_clean = _strip_volatile(existing)
+        new_clean = _strip_volatile(team_data)
+        gen_at = existing.get("generated_at", "")
+        if old_clean == new_clean and gen_at and _age_in_hours(gen_at) < MAX_CACHE_HOURS:
+            logger.info(f"  [{team_data.get('team', slug)}] Cache hit (<{MAX_CACHE_HOURS}h old, identical data) - skipping write.")
+            return False
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(team_data, f, indent=2)
+    return True
 
 def write_empty_non_conf(gender: str) -> None:
     slug = NON_CONF_SLUGS[gender]
-    write_team_json(slug, {
+    out_path = OUT_DIR / f"{slug}.json"
+    existing = read_existing_json(slug)
+    if existing.get("status") == "empty" and not existing.get("source_stats_url"):
+        return
+
+    payload = {
         "team": "Non-Conf",
         "display_name": "Non-Conf",
         "slug": slug,
@@ -1462,7 +1493,10 @@ def write_empty_non_conf(gender: str) -> None:
         "conference_team_stats_missing": list(TEAM_STAT_KEYS),
         "conference_team_stats": empty_team_stats(),
         "players": [],
-    })
+    }
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
     logger.info(f"Non-Conf ({gender}) slot is empty - wrote placeholder {slug}.json")
 
 # ── Execution Logic ───────────────────────────────────────────────────────────
@@ -1691,7 +1725,7 @@ def build_non_conf_tasks(
 
     return tasks
 
-async def run_scraper():
+async def run_scraper(gender_filter: str = "all", only: Optional[List[str]] = None) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
@@ -1711,17 +1745,36 @@ async def run_scraper():
             locale="en-US"
         )
 
+        # Block media/fonts/images to drastically speed up network transfers
+        await context.route(
+            "**/*",
+            lambda route: route.abort()
+            if route.request.resource_type in {"image", "media", "font"}
+            else route.continue_()
+        )
+
         logger.info("=== Starting Concurrent Basketball Scraping (Conference + Non-Conf) ===")
         tasks = []
 
-        for gender, teams in (("men", MENS_TEAMS_CONFIG), ("women", WOMENS_TEAMS_CONFIG)):
+        team_groups = []
+        if gender_filter in ("all", "men"):
+            team_groups.append(("men", MENS_TEAMS_CONFIG))
+        if gender_filter in ("all", "women"):
+            team_groups.append(("women", WOMENS_TEAMS_CONFIG))
+
+        for gender, teams in team_groups:
             for team_cfg in teams:
+                if only:
+                    wanted = [o.strip().lower() for o in only if o.strip()]
+                    if not any(w in team_cfg["name"].lower() or w in team_cfg["slug"].lower() for w in wanted):
+                        continue
                 cfg = dict(team_cfg)
                 cfg["roster_candidates"] = [team_cfg["roster_url"]]
                 cfg["is_non_conf"] = False
                 tasks.append(scrape_single_team(context, cfg, gender, semaphore))
 
-        tasks.extend(build_non_conf_tasks(context, semaphore))
+        if not only:
+            tasks.extend(build_non_conf_tasks(context, semaphore))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         failures = [r for r in results if isinstance(r, Exception)]
@@ -1734,8 +1787,16 @@ async def run_scraper():
     ok = len(results) - len(failures)
     logger.info(f"Done — {ok} of {len(results)} team scrapes completed in {elapsed:.1f} seconds!")
 
-def main():
-    asyncio.run(run_scraper())
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Summit League Basketball Player & Team Stats Scraper")
+    parser.add_argument("--gender", choices=["all", "men", "women"], default="all", help="Filter by gender")
+    parser.add_argument("--only", help="Comma-separated team names/slugs to scrape")
+    args = parser.parse_args()
+
+    asyncio.run(run_scraper(
+        gender_filter=args.gender,
+        only=args.only.split(",") if args.only else None
+    ))
 
 if __name__ == "__main__":
     main()
