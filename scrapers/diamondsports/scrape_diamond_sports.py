@@ -11,14 +11,16 @@ Site styles ("type" in TEAMS):
 Outputs (docs/diamondsports/):
   *_baseball.json, *_softball.json, non_conf_baseball.json, non_conf_softball.json
 
-Optimizations applied:
+Optimizations & safeguards applied:
   1. Full async concurrency across teams via asyncio.Semaphore + asyncio.gather.
   2. Concurrent stats and roster page fetching per school.
   3. Playwright resource blocking (aborts image, font, media downloads).
-  4. Smart JSON caching: preserves timestamp if data hasn't changed and is fresh (<18h),
-     preventing redundant GitHub Actions git-diff commits and deployments.
-  5. Dynamic academic year default fallback.
-  6. Robust safeguard: never overwrites existing good data with empty scrapes.
+  4. Automatic Year Fallback: Tries the current season first; if empty and no
+     explicit --year was provided, automatically falls back to the previous season.
+  5. Tightened Safeguards:
+     - Never overwrites existing valid stats if a new scrape returns empty data.
+     - Preserves data even if the source URL changed (e.g. across seasons).
+  6. Smart JSON caching: skips rewriting if payload is identical and <18h old.
 """
 
 from __future__ import annotations
@@ -999,18 +1001,9 @@ def parse_statbroadcast(html: str, roster_by_num: Dict[str, Any], roster_list: L
                         return cols.index(n)
                 return None
 
-            c_p = col_b(["player", "name"])
-            c_avg = col_b(["avg"])
-            c_ab = col_b(["ab"])
-            c_r = col_b(["r"])
-            c_h = col_b(["h"])
-            c_2b = col_b(["2b"])
-            c_3b = col_b(["3b"])
-            c_hr = col_b(["hr"])
-            c_rbi = col_b(["rbi"])
-            c_slg = col_b(["slg%", "slg"])
-            c_obp = col_b(["ob%", "obp"])
-            c_ops = col_b(["ops"])
+            c_p, c_avg, c_ab, c_r, c_h = col_b(["player", "name"]), col_b(["avg"]), col_b(["ab"]), col_b(["r"]), col_b(["h"])
+            c_2b, c_3b, c_hr, c_rbi = col_b(["2b"]), col_b(["3b"]), col_b(["hr"]), col_b(["rbi"])
+            c_slg, c_obp, c_ops = col_b(["slg%", "slg"]), col_b(["ob%", "obp"]), col_b(["ops"])
 
             for r in rows[header_idx_bat + 1:]:
                 if len(r) <= 3:
@@ -1238,8 +1231,9 @@ def _age_in_hours(iso_str: str) -> float:
 
 def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
     """
-    Saves JSON safely with two critical safeguards:
-    1. Empty-scrape safeguard: If new scrape has 0 players but old file has data, keep old.
+    Saves JSON safely with safeguards:
+    1. Empty-scrape safeguard: If new scrape has 0 players but old file has data for
+       this school/opponent, keep old data even if the source URL changed across seasons.
     2. Smart timestamp preservation: If payload is identical and previous timestamp is fresh (<18h),
        keep previous file untouched so git diff stays clean and unnecessary CI builds are skipped.
     """
@@ -1248,8 +1242,11 @@ def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
     has_old = bool(existing.get("hitting") or existing.get("pitching") or existing.get("players"))
     same_source = existing.get("source") == stats_payload.get("source")
 
+    is_non_conf = str(stats_payload.get("team_id", "")).startswith("non_conf_")
+    same_team = (existing.get("team_id") == stats_payload.get("team_id")) and (not is_non_conf or same_source)
+
     # 1. Empty scrape safeguard
-    if not has_new and has_old and same_source:
+    if not has_new and has_old and same_team:
         logger.warning("  ⚠ [%s] New scrape found 0 players — keeping existing %s",
                        stats_payload.get("team"), os.path.basename(out_path))
         return False
@@ -1306,40 +1303,59 @@ def write_empty_non_conf(docs_dir: str, sport: str, year: str) -> None:
 
 
 # ── Concurrent Team Scraper ────────────────────────────────────────────────────
+async def _fetch_and_extract(
+    context: BrowserContext,
+    school: Dict[str, Any],
+    year: str
+) -> Dict[str, Any]:
+    stats_url = school["stats_url"].format(year=year)
+    candidates = school.get("roster_candidates", [])
+
+    async def _get_stats():
+        if school.get("type") == "statbroadcast":
+            try:
+                return await asyncio.to_thread(fetch_html_static, stats_url)
+            except Exception:
+                fb = school.get("fallback_stats_url", school["stats_url"]).format(year=year)
+                return await fetch_page_html(context, fb)
+        return await fetch_page_html(context, stats_url)
+
+    stats_html, (roster_html, roster_used_url) = await asyncio.gather(
+        _get_stats(),
+        fetch_best_roster(context, candidates, year)
+    )
+    return extract_stats(stats_html or "", roster_html or "", school, year, roster_used_url)
+
+
 async def scrape_single_school(
     context: BrowserContext,
     school: Dict[str, Any],
     year: str,
     docs_dir: str,
-    semaphore: asyncio.Semaphore
+    semaphore: asyncio.Semaphore,
+    allow_year_fallback: bool = True
 ) -> Tuple[str, bool]:
     async with semaphore:
-        stats_url = school["stats_url"].format(year=year)
-        candidates = school.get("roster_candidates", [])
-        logger.info("Processing %s: %s...", school["sport"].title(), school["name"])
+        logger.info("Processing %s: %s (season %s)...", school["sport"].title(), school["name"], year)
 
         try:
-            # Fetch stats HTML and Roster concurrently for speed
-            async def _get_stats():
-                if school.get("type") == "statbroadcast":
-                    try:
-                        return await asyncio.to_thread(fetch_html_static, stats_url)
-                    except Exception:
-                        fb = school.get("fallback_stats_url", school["stats_url"]).format(year=year)
-                        return await fetch_page_html(context, fb)
-                return await fetch_page_html(context, stats_url)
+            payload = await _fetch_and_extract(context, school, year)
 
-            stats_html, (roster_html, roster_used_url) = await asyncio.gather(
-                _get_stats(),
-                fetch_best_roster(context, candidates, year)
-            )
+            # Fall back one season if this year's pages have no stats yet.
+            # Skipped when --year was explicitly given, or when the URL has no {year} placeholder.
+            if (payload["status"] == "empty" and allow_year_fallback
+                    and year.isdigit() and "{year}" in school["stats_url"]):
+                prev = str(int(year) - 1)
+                logger.warning("  [%s %s] No %s stats yet - trying %s fallback...", school["name"], school["sport"], year, prev)
+                prev_payload = await _fetch_and_extract(context, school, prev)
+                if prev_payload["status"] == "ok":
+                    payload = prev_payload
 
-            stats_payload = extract_stats(stats_html or "", roster_html or "", school, year, roster_used_url)
             out_path = os.path.join(docs_dir, school["out_file"])
-            written = save_team_json_safely(out_path, stats_payload)
+            written = save_team_json_safely(out_path, payload)
             if written:
                 logger.info("  ✓ Saved %d batters and %d pitchers -> %s",
-                            len(stats_payload["hitting"]), len(stats_payload["pitching"]), school["out_file"])
+                            len(payload["hitting"]), len(payload["pitching"]), school["out_file"])
             return school["id"], written
         except Exception as e:
             logger.exception("  ✗ Error processing %s: %s", school["name"], e)
@@ -1349,7 +1365,8 @@ async def scrape_single_school(
 # ── Main Async Runner ──────────────────────────────────────────────────────────
 async def run(args: argparse.Namespace) -> None:
     current_year = datetime.now().year
-    year = str(args.year or (current_year if datetime.now().month <= 6 else current_year + 1))
+    explicit_year = bool(args.year)
+    year = str(args.year or current_year)
     docs_dir = args.docs_dir
     os.makedirs(docs_dir, exist_ok=True)
 
@@ -1396,7 +1413,10 @@ async def run(args: argparse.Namespace) -> None:
         )
 
         tasks = [
-            scrape_single_school(context, school, year, docs_dir, semaphore)
+            scrape_single_school(
+                context, school, year, docs_dir, semaphore,
+                allow_year_fallback=not explicit_year
+            )
             for school in schools_to_scrape
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -1409,11 +1429,8 @@ async def run(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    current_year = datetime.now().year
-    default_year = str(current_year if datetime.now().month <= 6 else current_year + 1)
-
     parser = argparse.ArgumentParser(description="Summit League Baseball & Softball Stats Scraper")
-    parser.add_argument("--year", default=default_year, help=f"Season year (default: {default_year})")
+    parser.add_argument("--year", default=None, help="Season year (default: current year, automatically falls back to previous year if empty)")
     parser.add_argument("--sport", default="all", choices=["all", "baseball", "softball"], help="Which sport(s) to scrape")
     parser.add_argument("--docs-dir", default=DEFAULT_DOCS_DIR, help="Output destination folder")
     parser.add_argument("--school", default=None, help="Scrape one school by ID (e.g. omaha_softball) or short name (e.g. omaha)")
