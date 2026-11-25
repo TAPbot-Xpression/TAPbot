@@ -11,31 +11,57 @@ Extracts:
 Output (repo-relative, resolved from this script's location):
   docs/standings/data.json
 
-Safe by design:
-  If any individual source fails, the last good data for that sport/poll stays
-  in the file marked "stale", so the website never goes blank.
+Optimizations & safeguards applied:
+  1. Full async concurrency across feeds via asyncio.Semaphore(4) + asyncio.gather.
+  2. Static HTTP fast-path via urllib.request before launching browser rendering.
+  3. Playwright resource routing (aborts image, media, font downloads).
+  4. Selector-driven DOM waits replacing long static timeouts.
+  5. Last-good-data preservation: individual feed failures keep stale data so the site never empties.
+  6. Smart cache & git-diff preservation: avoids rewriting identical JSON (<18h old).
 
 Usage:
   python scrapers/standings/scrape_standings.py
   python scrapers/standings/scrape_standings.py --out docs/standings/data.json
 """
 
+from __future__ import annotations
+
 import argparse
+import asyncio
 import datetime as dt
 import json
+import logging
+import os
 import re
 import sys
+import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
+from playwright.async_api import BrowserContext, Page, async_playwright
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("standings")
 
 # ── Dynamic Path Resolution ──────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
 DEFAULT_OUT = REPO_ROOT / "docs" / "standings" / "data.json"
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+CONCURRENCY_LIMIT = 4
+MAX_CACHE_HOURS = 18
+
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+FETCH_HEADERS = {
+    "User-Agent": UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 # ── Team Acronym Translation Map (for Standings & Polls) ──────────────────────
 TEAM_ACRONYMS = {
@@ -102,7 +128,7 @@ WCHA_TEAM_ACRONYMS = {
 }
 
 # ── Target Configuration ──────────────────────────────────────────────────────
-FEEDS_CONFIG = [
+FEEDS_CONFIG: List[Dict[str, Any]] = [
     # ── Fall Sports ───────────────────────────────────────────────────────────
     {
         "id": "wsoc",
@@ -203,15 +229,11 @@ FEEDS_CONFIG = [
     },
 ]
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
 def clean(text: Any) -> str:
     return re.sub(r"\s+", " ", str(text) if text is not None else "").strip()
 
-
 def get_team_acronym(team_name: str, overrides: Optional[Dict[str, str]] = None) -> str:
-    """Translate raw team name into standard acronym with optional feed overrides."""
     cleaned = clean(team_name)
     active_map = {**TEAM_ACRONYMS, **(overrides or {})}
 
@@ -232,24 +254,19 @@ def get_team_acronym(team_name: str, overrides: Optional[Dict[str, str]] = None)
         return "".join(w[0] for w in words).upper()
     return cleaned[:4].upper()
 
-
 def header_cells(table: Any) -> List[str]:
     row = table.select_one("thead tr:last-of-type") or table.find("tr")
     return [clean(c.get_text()) for c in row.find_all(["th", "td"])] if row else []
-
 
 def body_rows(table: Any) -> List[Any]:
     rows = table.select("tbody tr") or table.find_all("tr")[1:]
     return [r for r in rows if r.find_all(["td", "th"])]
 
-
 def team_text(cell: Any) -> str:
     link = cell.find("a")
     return clean((link or cell).get_text())
 
-
 def is_pods_table(table: Any) -> bool:
-    """Returns True if this table is a Pods/group sub-table rather than full standings."""
     hdrs = [h.lower() for h in header_cells(table)]
     if any("pod" in h or "group" in h for h in hdrs):
         return True
@@ -260,9 +277,7 @@ def is_pods_table(table: Any) -> bool:
         return True
     return False
 
-
 # ── Sidearm Standings Table Parser ────────────────────────────────────────────
-
 def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
     soup = BeautifulSoup(html, "html.parser")
     point_col_type = meta.get("point_col")
@@ -273,12 +288,10 @@ def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
 
     target = None
 
-    # Priority 1: Direct Sidearm divisionless/overall table check
     divisionless = soup.select_one("table.table-divisionless, .table-divisionless table")
     if divisionless:
         target = divisionless
 
-    # Priority 2: Fallback candidate search
     if target is None:
         candidate_tables = [
             t for t in soup.find_all("table")
@@ -334,14 +347,12 @@ def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
     ovr_w_idx = idx("overall w", "ow", "ovr w") if ovr_combined is None else None
     ovr_l_idx = idx("overall l", "ol", "ovr l") if ovr_combined is None else None
 
-    # Points column
     pts_idx = None
     if point_col_type == "cpts":
         pts_idx = exact_idx("cpts", "conf pts", "pts", "points") or idx("cpts", "conf pts")
     elif point_col_type == "pts":
         pts_idx = exact_idx("pts", "points", "total pts", "tp", "wcha pts", "nchc pts") or idx("pts", "point")
 
-    # NCHC specific indices for Conference GP, OW-OL, and SW
     gp_idx = None
     if include_gp:
         gp_idx = exact_idx("conf. gp", "conf gp", "cgp") or idx("conf. gp", "conf gp") or exact_idx("gp")
@@ -363,7 +374,6 @@ def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
 
         team = team_text(cells[team_idx]) if team_idx is not None else ""
 
-        # Skip empty names, header titles, and Pod headers (e.g. "Pod A", "Pod B")
         if not team or team.lower() in ("team", "school", "member", "institution") or team.lower().startswith("pod"):
             continue
 
@@ -391,17 +401,14 @@ def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
             "ovr": ovr,
         }
 
-        # Include Conference GP if configured
         if include_gp and gp_idx is not None:
             row_data["gp"] = cell_text(gp_idx) or "0"
 
-        # Points column
         if point_col_type == "cpts" and pts_idx is not None:
             row_data["cpts"] = cell_text(pts_idx) or "0"
         elif point_col_type == "pts" and pts_idx is not None:
             row_data["pts"] = cell_text(pts_idx) or "0"
 
-        # Combine OW-OL and SW into "OW-OL-SW" (e.g., "0-0" and "0" -> "0-0-0")
         if include_ow_ol_sw:
             ow_ol_val = cell_text(ow_ol_idx).replace("–", "-") if ow_ol_idx is not None else "0-0"
             sw_val = cell_text(sw_idx) if sw_idx is not None else "0"
@@ -411,7 +418,6 @@ def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
 
         rows.append(row_data)
 
-    # Sort descending by points if sport tracks them
     if point_col_type == "cpts":
         rows.sort(key=lambda r: int(r.get("cpts", 0) or 0), reverse=True)
         for i, row in enumerate(rows, 1):
@@ -431,13 +437,10 @@ def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
         "rows": rows,
     }
 
-
 # ── USCHO Poll Table Parser (Targets Bootstrap-Vue #btable) ───────────────────
-
 def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
     soup = BeautifulSoup(html, "html.parser")
 
-    # 1. Extract Poll Date from header (e.g., "USCHO Division I Men's Poll - October 19, 2026")
     poll_date = ""
     for heading in soup.find_all(["h1", "h2", "h3", ".page-title", ".poll-title"]):
         text = clean(heading.get_text())
@@ -446,7 +449,6 @@ def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
             poll_date = m.group(1).strip()
             break
 
-    # 2. Locate Main Standings Table
     target = soup.find("table", id="btable")
 
     if target is None:
@@ -504,12 +506,10 @@ def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
         if not raw_team or raw_team.lower() in ("team", "school", "rnk", "rank", "ranking"):
             continue
 
-        # Extract Rank
         raw_rank = cell_text(rank_idx) if rank_idx is not None else cell_text(0)
         rank_match = re.search(r"(\d+)", raw_rank)
         rank_val = int(rank_match.group(1)) if rank_match else len(rows) + 1
 
-        # Check for first-place votes embedded in team string or separate column
         fpv = None
         m_fpv = re.search(r"\(([\d]+)\)", raw_team)
         if m_fpv:
@@ -524,22 +524,18 @@ def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
             if m_col:
                 fpv = m_col.group(1)
 
-        # Extract Points
         raw_pts = cell_text(pts_idx) if pts_idx is not None else cell_text(4)
         m_pts = re.search(r"(\d+)", raw_pts)
         pts_num = m_pts.group(1) if m_pts else "0"
 
-        # Combine Pts and First Place Votes
         if fpv and int(fpv) > 0:
             formatted_pts = f"{pts_num} ({fpv})"
         else:
             formatted_pts = pts_num
 
-        # Extract Overall Record
         raw_rec = cell_text(rec_idx) if rec_idx is not None else cell_text(3)
         record = raw_rec.replace("–", "-") if raw_rec else "—"
 
-        # Extract Last Poll & calculate movement
         raw_last = cell_text(last_idx) if last_idx is not None else (cell_text(5) if len(cells) > 5 else "")
         last_match = re.search(r"(\d+)", raw_last)
 
@@ -582,90 +578,146 @@ def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
         "rows": rows,
     }
 
+# ── Static HTTP Fetcher Fast-Path ─────────────────────────────────────────────
+def fetch_static_html(url: str) -> Optional[str]:
+    try:
+        req = urllib.request.Request(url, headers=FETCH_HEADERS)
+        with urllib.request.urlopen(req, timeout=12) as response:
+            return response.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        logger.debug(f"Static HTTP fetch skipped for {url}: {e}")
+        return None
 
-# ── Playwright Fetch ──────────────────────────────────────────────────────────
+# ── Dynamic Async Playwright Fetcher ──────────────────────────────────────────
+async def fetch_rendered_html(context: BrowserContext, feed: Dict[str, Any]) -> str:
+    page: Optional[Page] = None
+    url = feed["url"]
+    feed_type = feed.get("type", "standings")
+    try:
+        page = await context.new_page()
+        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-def fetch_all_rendered(feeds: List[Dict[str, Any]]) -> Dict[str, Any]:
-    from playwright.sync_api import sync_playwright
-
-    scraped_data = {}
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(user_agent=UA)
-        page = context.new_page()
-
-        # Block media/fonts to speed up, keep scripts/styles for dynamic table mounting
-        page.route(
-            "**/*",
-            lambda route: route.abort()
-            if route.request.resource_type in ("image", "media", "font")
-            else route.continue_(),
-        )
-
-        for feed in feeds:
-            feed_id = feed["id"]
-            feed_type = feed.get("type", "standings")
-            url = feed["url"]
-
-            print(f"Fetching [{feed['name']}] -> {url} ...")
+        if feed_type == "poll":
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                await page.wait_for_selector("#btable tbody tr", timeout=8000)
+            except Exception:
+                await page.wait_for_selector("table tbody tr, table tr", timeout=5000)
+        else:
+            try:
+                await page.wait_for_selector("table tbody tr, table.table-divisionless", timeout=8000)
+            except Exception:
+                await page.wait_for_selector("table", timeout=4000)
 
-                if feed_type == "poll":
-                    try:
-                        page.wait_for_selector("#btable tbody tr", timeout=15000)
-                    except Exception:
-                        page.wait_for_selector("table tbody tr", timeout=10000)
-                else:
-                    try:
-                        page.wait_for_selector("table tbody tr", timeout=15000)
-                    except Exception:
-                        page.wait_for_selector("table", timeout=5000)
+        return await page.content()
+    finally:
+        if page:
+            await page.close()
 
-                html = page.content()
+async def process_feed(
+    context: BrowserContext,
+    feed: Dict[str, Any],
+    semaphore: asyncio.Semaphore
+) -> Tuple[str, Dict[str, Any]]:
+    feed_id = feed["id"]
+    feed_type = feed.get("type", "standings")
+    url = feed["url"]
 
-                if feed_type == "poll":
-                    data = parse_uscho_poll_table(html, feed)
-                else:
-                    data = parse_standings_table(html, feed)
+    # 1. Try static HTTP fast path (avoids browser page allocation if HTML is pre-rendered)
+    if feed_type != "poll":
+        static_html = await asyncio.to_thread(fetch_static_html, url)
+        if static_html:
+            try:
+                data = parse_standings_table(static_html, feed)
+                logger.info(f"  ✓ [{feed['name']}] Parsed via static HTTP fast-path ({len(data['rows'])} rows)")
+                return feed_id, {"status": "ok", **data}
+            except Exception:
+                pass
 
-                scraped_data[feed_id] = {"status": "ok", **data}
-                pts_note = f" (with {feed['point_col'].upper()})" if feed.get("point_col") else ""
-                print(f"  ✓ Parsed {len(data['rows'])} rows{pts_note}.")
-            except Exception as exc:
-                print(f"  ✗ Error [{feed_id}]: {exc}", file=sys.stderr)
-                scraped_data[feed_id] = {
-                    "status": "error",
-                    "error": str(exc)[:300],
-                    "rows": [],
-                }
+    # 2. Dynamic Playwright rendering path (with concurrency semaphore)
+    async with semaphore:
+        logger.info(f"Fetching [{feed['name']}] via browser -> {url}...")
+        try:
+            html = await fetch_rendered_html(context, feed)
+            if feed_type == "poll":
+                data = parse_uscho_poll_table(html, feed)
+            else:
+                data = parse_standings_table(html, feed)
 
-        browser.close()
+            pts_note = f" (with {feed['point_col'].upper()})" if feed.get("point_col") else ""
+            logger.info(f"  ✓ [{feed['name']}] Parsed {len(data['rows'])} rows{pts_note}.")
+            return feed_id, {"status": "ok", **data}
+        except Exception as exc:
+            logger.error(f"  ✗ Error [{feed_id}]: {exc}")
+            return feed_id, {
+                "id": feed_id,
+                "name": feed["name"],
+                "source": url,
+                "status": "error",
+                "error": str(exc)[:300],
+                "rows": [],
+            }
 
-    return scraped_data
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
+# ── Caching & Payload Helpers ────────────────────────────────────────────────
 def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
+def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
+    clean_d = {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
+    if "sports" in clean_d and isinstance(clean_d["sports"], dict):
+        clean_sports = {}
+        for s_id, s_data in clean_d["sports"].items():
+            if isinstance(s_data, dict):
+                clean_sports[s_id] = {k: v for k, v in s_data.items() if k != "updated_at"}
+            else:
+                clean_sports[s_id] = s_data
+        clean_d["sports"] = clean_sports
+    return clean_d
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Summit League, NCHC, WCHA, PFL Standings and USCHO Polls Scraper")
-    ap.add_argument("--out", default=str(DEFAULT_OUT), help="Path to output data.json")
-    args = ap.parse_args()
+def _age_in_hours(iso_str: str) -> float:
+    try:
+        cleaned_iso = iso_str.replace("Z", "+00:00")
+        parsed_dt = dt.datetime.fromisoformat(cleaned_iso)
+        return (dt.datetime.now(dt.timezone.utc) - parsed_dt).total_seconds() / 3600.0
+    except Exception:
+        return 999.0
 
-    out_path = Path(args.out)
-
+# ── Main Async Runner ──────────────────────────────────────────────────────────
+async def run_scraper(out_path: Path) -> None:
     old_sports: Dict[str, Any] = {}
+    old_payload: Dict[str, Any] = {}
     if out_path.exists():
         try:
-            old_sports = json.loads(out_path.read_text(encoding="utf-8")).get("sports", {})
+            old_payload = json.loads(out_path.read_text(encoding="utf-8"))
+            if isinstance(old_payload, dict):
+                old_sports = old_payload.get("sports", {})
         except Exception:
             pass
 
-    new_scraped = fetch_all_rendered(FEEDS_CONFIG)
+    semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled"]
+        )
+        context = await browser.new_context(
+            user_agent=UA,
+            viewport={"width": 1280, "height": 800}
+        )
+
+        # Intercept network requests to abort bandwidth-heavy assets
+        await context.route(
+            "**/*",
+            lambda route: route.abort()
+            if route.request.resource_type in {"image", "media", "font"}
+            else route.continue_()
+        )
+
+        tasks = [process_feed(context, feed, semaphore) for feed in FEEDS_CONFIG]
+        results = await asyncio.gather(*tasks)
+        await browser.close()
+
+    new_scraped = dict(results)
     current_timestamp = now_iso()
     final_sports: Dict[str, Any] = {}
 
@@ -678,7 +730,7 @@ def main() -> None:
             res["updated_at"] = current_timestamp
             final_sports[s_id] = res
         elif old and old.get("rows"):
-            print(f"[{s_id}] Scrape failed — keeping previous data as stale.")
+            logger.warning(f"[{s_id}] Scrape failed — keeping previous data as stale.")
             final_sports[s_id] = {
                 **old,
                 "status": "stale",
@@ -698,13 +750,26 @@ def main() -> None:
         "sports": final_sports,
     }
 
+    # Smart cache hit check: skip rewrite if sports data hasn't changed and is < 18h old
+    if old_payload and _strip_volatile(old_payload) == _strip_volatile(payload):
+        old_gen = old_payload.get("generated_at", "")
+        if old_gen and _age_in_hours(old_gen) < MAX_CACHE_HOURS:
+            logger.info(f"Cache hit (<{MAX_CACHE_HOURS}h old, identical standings/polls) — skipping disk rewrite.")
+            return
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    print(f"\n✓ Successfully wrote {len(final_sports)} feeds to {out_path}")
+    logger.info(f"\n✓ Successfully wrote {len(final_sports)} feeds to {out_path}")
 
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Summit League, NCHC, WCHA, PFL Standings and USCHO Polls Scraper")
+    ap.add_argument("--out", default=str(DEFAULT_OUT), help="Path to output data.json")
+    args = ap.parse_args()
+
+    asyncio.run(run_scraper(Path(args.out)))
 
 if __name__ == "__main__":
     main()
