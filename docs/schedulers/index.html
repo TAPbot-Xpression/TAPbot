@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TAPbot - Game Schedules</title>
+  <title>TAPbot - Schedules</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
@@ -18,7 +18,8 @@
       --border:         #1e2d47;
       --border-light:   #2a3d5c;
 
-      --team-primary:   #5b2d86;
+      /* St. Thomas Purple Brand Palette */
+      --team-primary:   #510c76;
       --team-accent:    #8b5cf6;
       --team-glow:      rgba(139, 92, 246, 0.35);
       --team-light:     #ddd6fe;
@@ -173,14 +174,38 @@
     .meta .meta-stale { color: var(--amber); }
     .meta .meta-bad   { color: var(--red); }
 
-    /* ── Header Right Controls (Clean, Right-Aligned) ────────────────────────── */
+    /* ── Header Right Controls (JSON Link + Theme Switcher) ──────────────────── */
     .header-right-controls {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 0.5rem;
+      gap: 0.65rem;
       flex-shrink: 0;
       margin-left: auto;
+    }
+
+    .site-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--team-accent);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .site-link-btn:hover {
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 12px var(--team-glow);
     }
 
     .control-pill-group {
@@ -213,19 +238,6 @@
       background: var(--surface-2);
     }
 
-    /* ── Notice Banner ───────────────────────────────────────────────────────── */
-    .notice {
-      display: none;
-      background: rgba(245, 158, 11, 0.08);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-radius: var(--radius-sm);
-      padding: 0.75rem 1.15rem;
-      font-size: 0.9rem;
-      color: var(--amber);
-      margin-bottom: 1.5rem;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
     /* ── Schedule Cards Grid ─────────────────────────────────────────────────── */
     .grid {
       display: grid;
@@ -251,13 +263,14 @@
       scroll-margin-top: 1rem;
     }
 
+    /* Unified St. Thomas Brand Purple Left Stripe and Glow */
     .card::before {
       content: "";
       position: absolute;
       inset: 0 auto 0 0;
       width: 4px;
-      background: var(--sport-color, var(--team-accent));
-      box-shadow: 0 0 14px var(--sport-color, var(--team-glow));
+      background: var(--team-accent);
+      box-shadow: 0 0 14px var(--team-glow);
       z-index: 1;
     }
 
@@ -532,11 +545,9 @@
       font-family: inherit;
     }
 
-    .team-pill-dot {
-      width: 11px;
-      height: 11px;
-      border-radius: 50%;
-      background: currentColor;
+    .team-pill-emoji {
+      font-size: 1.15rem;
+      line-height: 1;
       display: inline-block;
       flex-shrink: 0;
     }
@@ -622,12 +633,15 @@
   <header>
     <div class="wordmark">
       <span class="wordmark-eyebrow" id="eyebrowText">Tommie Athletic Productions Broadcast Operations Tool · 2026-27 Season</span>
-      <h1 id="pageTitle">Game Schedules</h1>
+      <h1 id="pageTitle">Schedules</h1>
       <div class="meta" id="metaBar">Loading schedules…</div>
     </div>
 
-    <!-- Right Controls: Theme Toggle Only -->
+    <!-- Header Right Controls: all_schedules.json Link + Theme Toggle -->
     <div class="header-right-controls">
+      <a href="https://tapbot-xpression.github.io/TAPbot/schedulers/all_schedules.json" target="_blank" rel="noopener noreferrer" class="site-link-btn" title="Open live JSON feed">
+        all_schedules.json ↗
+      </a>
       <div class="control-pill-group" role="group" aria-label="Theme Selection">
         <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
           <span id="themeToggleLabel">🌙 Dark</span>
@@ -636,12 +650,9 @@
     </div>
   </header>
 
-  <!-- Partial Load Notice -->
-  <div class="notice" id="loadNotice" role="status"></div>
-
   <!-- Schedule Cards Grid -->
   <div class="grid" id="cardsGrid">
-    <div class="card" style="grid-column: 1 / -1; --sport-color: var(--team-accent);">
+    <div class="card" style="grid-column: 1 / -1;">
       <div class="message"><span class="message-icon">⏳</span>Loading live schedules…</div>
     </div>
   </div>
@@ -688,17 +699,17 @@
     'softball'
   ];
 
-  const SPORT_META = {
-    football:          { emoji: '🏈', color: '#f59e0b' },
-    volleyball:        { emoji: '🏐', color: '#ec4899' },
-    mens_soccer:       { emoji: '⚽', color: '#10b981' },
-    womens_soccer:     { emoji: '⚽', color: '#34d399' },
-    mens_hockey:       { emoji: '🏒', color: '#06b6d4' },
-    womens_hockey:     { emoji: '🏒', color: '#22d3ee' },
-    mens_basketball:   { emoji: '🏀', color: '#3b82f6' },
-    womens_basketball: { emoji: '🏀', color: '#a855f7' },
-    baseball:          { emoji: '⚾', color: '#ef4444' },
-    softball:          { emoji: '🥎', color: '#f97316' }
+  const SPORT_EMOJIS = {
+    football:          '🏈',
+    volleyball:        '🏐',
+    mens_soccer:       '⚽',
+    womens_soccer:     '⚽',
+    mens_hockey:       '🏒',
+    womens_hockey:     '🏒',
+    mens_basketball:   '🏀',
+    womens_basketball: '🏀',
+    baseball:          '⚾',
+    softball:          '🥎'
   };
 
   const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
@@ -721,17 +732,17 @@
     return String(key).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 
-  function sportMeta(key, name) {
-    if (SPORT_META[key]) return SPORT_META[key];
+  function getSportEmoji(key, name) {
+    if (SPORT_EMOJIS[key]) return SPORT_EMOJIS[key];
     const n = (name || key || '').toLowerCase();
-    if (n.includes('basketball')) return { emoji: '🏀', color: '#3b82f6' };
-    if (n.includes('hockey'))     return { emoji: '🏒', color: '#06b6d4' };
-    if (n.includes('soccer'))     return { emoji: '⚽', color: '#10b981' };
-    if (n.includes('football'))   return { emoji: '🏈', color: '#f59e0b' };
-    if (n.includes('volleyball')) return { emoji: '🏐', color: '#ec4899' };
-    if (n.includes('baseball'))   return { emoji: '⚾', color: '#ef4444' };
-    if (n.includes('softball'))   return { emoji: '🥎', color: '#f97316' };
-    return { emoji: '🏅', color: '#94a3b8' };
+    if (n.includes('basketball')) return '🏀';
+    if (n.includes('hockey'))     return '🏒';
+    if (n.includes('soccer'))     return '⚽';
+    if (n.includes('football'))   return '🏈';
+    if (n.includes('volleyball')) return '🏐';
+    if (n.includes('baseball'))   return '⚾';
+    if (n.includes('softball'))   return '🥎';
+    return '🏅';
   }
 
   function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
@@ -824,14 +835,12 @@
 
     keys.forEach(key => {
       const s = sportsObj[key];
-      const meta = sportMeta(key, s.name);
       const opp = s.opponent_schedule || {};
       out.push({
         uid: safeId(key),
         key,
         name: s.name || prettify(key),
-        emoji: meta.emoji,
-        color: meta.color,
+        emoji: getSportEmoji(key, s.name),
         games: (s.games || []).map(normGame),
         opp: {
           team: opp.team || null,
@@ -975,7 +984,7 @@
       </details>` : '';
 
     return `
-      <article class="card" id="card-${s.uid}" style="--sport-color:${s.color}">
+      <article class="card" id="card-${s.uid}">
         <div class="card-header">
           <div class="card-title-group">
             <div class="card-league">${s.games.length} upcoming game${s.games.length === 1 ? '' : 's'}</div>
@@ -993,7 +1002,7 @@
 
     if (!SPORTS.length) {
       grid.innerHTML = `
-        <div class="card" style="grid-column: 1 / -1; --sport-color: var(--red);">
+        <div class="card" style="grid-column: 1 / -1;">
           <div class="message">
             <span class="message-icon">⚠️</span>
             Could not load schedule data.<br/><small style="color:var(--text-faint);display:block;margin-top:.5rem;">
@@ -1015,7 +1024,7 @@
 
     if (!active.length) {
       grid.innerHTML = `
-        <div class="card" style="grid-column: 1 / -1; --sport-color: var(--text-faint);">
+        <div class="card" style="grid-column: 1 / -1;">
           <div class="message"><span class="message-icon">🗓️</span>No upcoming games across all sports.</div>
         </div>`;
       return;
@@ -1031,7 +1040,7 @@
 
     document.getElementById('offSeasonPills').innerHTML = off.map(s => `
       <span class="team-pill non-conf static" title="${esc(s.name)}">
-        <span class="team-pill-dot" style="color:${s.color}"></span>
+        <span class="team-pill-emoji">${s.emoji}</span>
         <span>${esc(s.name)}</span>
         <span class="pill-count">Off Season</span>
       </span>`).join('');
