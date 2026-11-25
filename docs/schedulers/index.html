@@ -173,7 +173,7 @@
     .meta .meta-stale { color: var(--amber); }
     .meta .meta-bad   { color: var(--red); }
 
-    /* ── Header Right Controls (Explicitly Right-Aligned) ─────────────────────── */
+    /* ── Header Right Controls (Clean, Right-Aligned) ────────────────────────── */
     .header-right-controls {
       display: flex;
       align-items: center;
@@ -208,102 +208,9 @@
       transition: all 0.15s ease;
       white-space: nowrap;
     }
-    .control-pill-btn:hover:not(:disabled) {
+    .control-pill-btn:hover {
       color: var(--text);
       background: var(--surface-2);
-    }
-    .control-pill-btn:disabled {
-      opacity: .6;
-      cursor: progress;
-    }
-
-    /* ── Sport Selector Ribbon (Prominent Pill Styling) ──────────────────────── */
-    .selector-block {
-      margin-bottom: 2rem;
-    }
-
-    .section-caption {
-      font-size: 0.82rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 0.75rem;
-      display: block;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .team-pills {
-      display: flex;
-      gap: 0.65rem;
-      flex-wrap: wrap;
-    }
-
-    .team-pill {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      color: var(--text-muted);
-      padding: 0.7rem 1.25rem;
-      border-radius: 9999px;
-      font-size: 0.98rem;
-      font-weight: 800;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      font-family: inherit;
-    }
-
-    .team-pill:hover {
-      border-color: var(--border-light);
-      color: var(--text);
-      background: var(--surface-2);
-      transform: translateY(-1px);
-    }
-
-    .team-pill.active {
-      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-2) 100%);
-      border-color: var(--team-accent);
-      color: var(--team-btn-text, #ffffff);
-      box-shadow: 0 0 18px var(--team-glow);
-    }
-
-    .team-pill-dot {
-      width: 11px;
-      height: 11px;
-      border-radius: 50%;
-      background: currentColor;
-      display: inline-block;
-      flex-shrink: 0;
-    }
-
-    .team-pill.non-conf {
-      border-style: dashed;
-      border-color: var(--border-light);
-    }
-    .team-pill.static { cursor: default; }
-    .team-pill.static:hover {
-      transform: none;
-      background: var(--surface);
-      color: var(--text-muted);
-      border-color: var(--border-light);
-    }
-
-    .pill-count {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.78rem;
-      font-weight: 800;
-      padding: 0.12rem 0.5rem;
-      border-radius: 999px;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid var(--border-light);
-      color: var(--text-muted);
-    }
-    .team-pill.active .pill-count {
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.35);
-      background: rgba(0, 0, 0, 0.35);
     }
 
     /* ── Notice Banner ───────────────────────────────────────────────────────── */
@@ -317,155 +224,6 @@
       color: var(--amber);
       margin-bottom: 1.5rem;
       font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* ── Next Up Spotlight Card ──────────────────────────────────────────────── */
-    .spotlight-card {
-      display: none;
-      background: var(--surface);
-      border: 1.5px solid var(--team-accent);
-      border-radius: var(--radius);
-      box-shadow: 0 0 32px var(--team-glow), 0 8px 28px rgba(0,0,0,0.4);
-      overflow: hidden;
-      margin-bottom: 2rem;
-      animation: fadeIn 0.2s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .spotlight-header {
-      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-2) 100%);
-      padding: 1.15rem 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .sport-badge {
-      background: var(--team-accent);
-      color: var(--team-btn-text, #ffffff);
-      font-size: 1.75rem;
-      width: 58px;
-      height: 58px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 0 18px var(--team-glow);
-    }
-
-    .spotlight-meta-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      justify-content: center;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    .spot-tag {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.78rem;
-      font-weight: 800;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid var(--border-light);
-      color: var(--text);
-      padding: 0.15rem 0.5rem;
-      border-radius: 6px;
-      min-width: 40px;
-      text-align: center;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .spotlight-details {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-      min-width: 0;
-    }
-
-    .spotlight-name {
-      font-size: 1.5rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
-
-    .spotlight-sub {
-      font-size: 0.88rem;
-      color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-      gap: 1px;
-      background: var(--border);
-    }
-
-    .stat-cell {
-      background: var(--surface);
-      padding: 0.85rem 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      position: relative;
-      border: none;
-      text-align: left;
-      color: inherit;
-      font: inherit;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .stat-cell:hover { background: var(--surface-2); }
-
-    .stat-key {
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .stat-val {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .stat-sub {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .stat-cell.rank-1 {
-      background: var(--gold-bg);
-      border-bottom: 2.5px solid var(--gold);
-    }
-    .stat-cell.rank-1 .stat-val { color: var(--gold); }
-
-    .rank-tag {
-      font-size: 0.65rem;
-      padding: 1px 4px;
-      border-radius: 4px;
-      font-weight: 800;
-      background: var(--gold);
-      color: #000;
     }
 
     /* ── Schedule Cards Grid ─────────────────────────────────────────────────── */
@@ -506,10 +264,6 @@
     .card:hover {
       border-color: var(--border-light);
       box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-    }
-    .card.flash {
-      border-color: var(--team-accent);
-      box-shadow: 0 0 24px var(--team-glow);
     }
 
     .card-header {
@@ -742,8 +496,70 @@
     }
     .scout .table-wrap { border-top: 1px solid var(--border); }
 
-    /* ── Messages & Off-season Block ─────────────────────────────────────────── */
-    .empty, .message {
+    /* ── Off-season Block ────────────────────────────────────────────────────── */
+    .offseason-block {
+      margin-bottom: 2rem;
+    }
+
+    .section-caption {
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .team-pills {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+
+    .team-pill {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.65rem 1.15rem;
+      border-radius: 9999px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-family: inherit;
+    }
+
+    .team-pill-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .team-pill.non-conf {
+      border-style: dashed;
+      border-color: var(--border-light);
+    }
+    .team-pill.static { cursor: default; }
+
+    .pill-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 800;
+      padding: 0.12rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+    }
+
+    /* ── Messages ────────────────────────────────────────────────────────────── */
+    .message {
       padding: 3rem 1.5rem;
       text-align: center;
       color: var(--text-muted);
@@ -757,7 +573,6 @@
       display: block;
     }
 
-    .offseason-block { margin-bottom: 2rem; }
     .legend {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.8rem;
@@ -787,7 +602,6 @@
       header { flex-wrap: wrap; }
       .header-right-controls { width: 100%; justify-content: flex-start; margin-left: 0; }
       .col-id, th.col-id { display: none; }
-      .spotlight-header { flex-wrap: wrap; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -812,13 +626,8 @@
       <div class="meta" id="metaBar">Loading schedules…</div>
     </div>
 
-    <!-- Right Controls: Standardized Pill Group (Refresh & Theme Toggle) -->
+    <!-- Right Controls: Theme Toggle Only -->
     <div class="header-right-controls">
-      <div class="control-pill-group" role="group" aria-label="Refresh">
-        <button id="btnRefresh" class="control-pill-btn" onclick="loadAll()" title="Reload schedule feed">
-          <span id="refreshLabel">⟳ Refresh</span>
-        </button>
-      </div>
       <div class="control-pill-group" role="group" aria-label="Theme Selection">
         <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
           <span id="themeToggleLabel">🌙 Dark</span>
@@ -827,32 +636,8 @@
     </div>
   </header>
 
-  <!-- Sport Selector Ribbon -->
-  <section class="selector-block">
-    <span class="section-caption">Select Sport</span>
-    <div class="team-pills" id="sportPills"></div>
-  </section>
-
   <!-- Partial Load Notice -->
   <div class="notice" id="loadNotice" role="status"></div>
-
-  <!-- Next Up Spotlight Card -->
-  <div class="spotlight-card" id="nextUpCard">
-    <div class="spotlight-header">
-      <div class="sport-badge" id="nextBadge">🏟️</div>
-      <div class="spotlight-meta-stack">
-        <span class="spot-tag" id="nextTagHA">—</span>
-        <span class="spot-tag" id="nextTagIn">—</span>
-      </div>
-      <div class="spotlight-details">
-        <div class="spotlight-name" id="nextTitle">—</div>
-        <div class="spotlight-sub" id="nextSub">—</div>
-      </div>
-    </div>
-    <div>
-      <div class="stat-grid" id="nextGrid"></div>
-    </div>
-  </div>
 
   <!-- Schedule Cards Grid -->
   <div class="grid" id="cardsGrid">
@@ -863,7 +648,7 @@
 
   <!-- Off-season / Completed Sports -->
   <section class="offseason-block" id="offSeasonBlock" style="display:none;">
-    <span class="section-caption">No Upcoming Games</span>
+    <span class="section-caption">No Upcoming Games / Off Season</span>
     <div class="team-pills" id="offSeasonPills"></div>
   </section>
 
@@ -921,7 +706,6 @@
   // ══ STATE ═══════════════════════════════════════════════════════════════════
   let SPORTS = [];
   let FEED_DATA = null;
-  let sportFilter = 'all';
   const OPEN_SCOUT = new Set();
   let loading = false;
 
@@ -1029,7 +813,6 @@
     const out = [];
     const sportsObj = (data && data.sports) || {};
     
-    // Sort according to defined SPORT_ORDER, then append any remaining
     const keys = Object.keys(sportsObj).sort((a, b) => {
       const ia = SPORT_ORDER.indexOf(a);
       const ib = SPORT_ORDER.indexOf(b);
@@ -1062,10 +845,6 @@
   async function loadAll() {
     if (loading) return;
     loading = true;
-    const btn = document.getElementById('btnRefresh');
-    const lbl = document.getElementById('refreshLabel');
-    btn.disabled = true;
-    lbl.textContent = '⟳ Loading…';
 
     try {
       FEED_DATA = await fetchScheduleData();
@@ -1078,8 +857,6 @@
       render();
     }
 
-    btn.disabled = false;
-    lbl.textContent = '⟳ Refresh';
     loading = false;
   }
 
@@ -1099,68 +876,9 @@
     }
   }
 
-  function visibleSports() {
-    return SPORTS.filter(s => sportFilter === 'all' || s.uid === sportFilter);
-  }
-
   function render() {
-    renderPills();
-    renderNextUp();
     renderCards();
     renderOffSeason();
-  }
-
-  function renderPills() {
-    const total = SPORTS.reduce((n, s) => n + s.games.length, 0);
-    let html = `
-      <button class="team-pill ${sportFilter === 'all' ? 'active' : ''}" onclick="setSport('all')">
-        <span class="team-pill-dot" style="color:var(--team-accent)"></span>
-        <span>All Sports</span>
-        <span class="pill-count">${total}</span>
-      </button>`;
-
-    html += SPORTS.map(s => `
-      <button class="team-pill ${s.uid === sportFilter ? 'active' : ''} ${s.games.length ? '' : 'non-conf'}"
-              onclick="setSport('${s.uid}')" title="${esc(s.name)}">
-        <span class="team-pill-dot" style="color:${s.color}"></span>
-        <span>${esc(s.name)}</span>
-        <span class="pill-count">${s.games.length}</span>
-      </button>`).join('');
-
-    document.getElementById('sportPills').innerHTML = html;
-  }
-
-  function renderNextUp() {
-    const card = document.getElementById('nextUpCard');
-    const nexts = visibleSports()
-      .map(s => ({ s, g: nextGame(s) }))
-      .filter(x => x.g)
-      .sort((a, b) => a.g.date - b.g.date);
-
-    if (!nexts.length) { card.style.display = 'none'; return; }
-
-    const top = nexts[0];
-    const n = daysUntil(top.g.date);
-    const oppLabel = (top.g.opp.rank ? `#${top.g.opp.rank} ` : '') + top.g.opp.name;
-
-    document.getElementById('nextBadge').textContent = top.s.emoji;
-    document.getElementById('nextTagHA').textContent = top.g.ha || '—';
-    document.getElementById('nextTagIn').textContent = countdownText(n);
-    document.getElementById('nextTitle').textContent = `${top.g.ha ? top.g.ha + ' ' : ''}${oppLabel}`;
-    document.getElementById('nextSub').textContent =
-      `${top.s.name} · ${weekday(top.g.date)} ${top.g.dateText}`;
-
-    document.getElementById('nextGrid').innerHTML = nexts.map((x, i) => {
-      const opp = (x.g.opp.rank ? `#${x.g.opp.rank} ` : '') + x.g.opp.name;
-      return `
-        <button class="stat-cell ${i === 0 ? 'rank-1' : ''}" onclick="scrollToCard('${x.s.uid}')" title="Jump to ${esc(x.s.name)}">
-          <span class="stat-key"><span>${x.s.emoji} ${esc(x.s.name)}</span>${i === 0 ? '<span class="rank-tag">NEXT</span>' : ''}</span>
-          <span class="stat-val">${esc(weekday(x.g.date))} ${esc(x.g.dateText)}</span>
-          <span class="stat-sub">${esc(x.g.ha)} ${esc(opp)}</span>
-        </button>`;
-    }).join('');
-
-    card.style.display = 'block';
   }
 
   function oppCell(g) {
@@ -1285,7 +1003,7 @@
       return;
     }
 
-    const active = visibleSports()
+    const active = SPORTS
       .filter(s => s.games.length > 0)
       .sort((a, b) => {
         const na = nextGame(a), nb = nextGame(b);
@@ -1298,7 +1016,7 @@
     if (!active.length) {
       grid.innerHTML = `
         <div class="card" style="grid-column: 1 / -1; --sport-color: var(--text-faint);">
-          <div class="message"><span class="message-icon">🗓️</span>No upcoming games for the selected sport.</div>
+          <div class="message"><span class="message-icon">🗓️</span>No upcoming games across all sports.</div>
         </div>`;
       return;
     }
@@ -1308,7 +1026,7 @@
 
   function renderOffSeason() {
     const block = document.getElementById('offSeasonBlock');
-    const off = visibleSports().filter(s => s.games.length === 0);
+    const off = SPORTS.filter(s => s.games.length === 0);
     if (!off.length) { block.style.display = 'none'; return; }
 
     document.getElementById('offSeasonPills').innerHTML = off.map(s => `
@@ -1321,21 +1039,8 @@
   }
 
   // ══ INTERACTIONS ════════════════════════════════════════════════════════════
-  function setSport(uid) {
-    sportFilter = uid;
-    render();
-  }
-
   function onScoutToggle(uid, open) {
     if (open) OPEN_SCOUT.add(uid); else OPEN_SCOUT.delete(uid);
-  }
-
-  function scrollToCard(uid) {
-    const el = document.getElementById('card-' + uid);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    el.classList.add('flash');
-    setTimeout(() => el.classList.remove('flash'), 1400);
   }
 
   // ── Color Mode (Dark / Light) ────────────────────────────────────────────────
