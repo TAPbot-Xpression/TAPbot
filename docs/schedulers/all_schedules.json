@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-25T02:45:11.584076+00:00",
+  "updated_at": "2026-11-25T03:35:54.600705+00:00",
   "team": "St. Thomas (MN)",
   "sports": {
     "football": {
@@ -7,7 +7,7 @@
       "game_count": 0,
       "games": [],
       "opponent_schedule": {
-        "team": null,
+        "team": "",
         "source": "auto",
         "game_count": 0,
         "games": [],
@@ -19,7 +19,7 @@
       "game_count": 0,
       "games": [],
       "opponent_schedule": {
-        "team": null,
+        "team": "",
         "source": "auto",
         "game_count": 0,
         "games": [],
@@ -31,7 +31,7 @@
       "game_count": 0,
       "games": [],
       "opponent_schedule": {
-        "team": null,
+        "team": "",
         "source": "auto",
         "game_count": 0,
         "games": [],
@@ -43,7 +43,7 @@
       "game_count": 0,
       "games": [],
       "opponent_schedule": {
-        "team": null,
+        "team": "",
         "source": "auto",
         "game_count": 0,
         "games": [],
@@ -491,7 +491,7 @@
       "game_count": 0,
       "games": [],
       "opponent_schedule": {
-        "team": null,
+        "team": "",
         "source": "auto",
         "game_count": 0,
         "games": [],
@@ -503,7 +503,7 @@
       "game_count": 0,
       "games": [],
       "opponent_schedule": {
-        "team": null,
+        "team": "",
         "source": "auto",
         "game_count": 0,
         "games": [],
