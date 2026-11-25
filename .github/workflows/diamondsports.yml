@@ -2,10 +2,15 @@ name: Scrape Diamond Sports
 
 # Place this file at: .github/workflows/diamondsports.yml
 # Scrapes Summit League baseball + softball and commits JSON to docs/diamondsports/
+# Runs every morning at 3:45 AM Central (CST or CDT, depending on daylight saving).
 
 on:
   schedule:
-    - cron: "30 14 * * *"   # 14:30 UTC = 8:30 AM CST / 9:30 AM CDT (hockey runs at 14:15)
+    # GitHub cron is UTC only and has no daylight saving support.
+    # Both times are scheduled; the "Check Central time" step lets only the
+    # one that lands on 3:45 AM Central through.
+    - cron: "45 9 * * *"    # 3:45 AM CST (winter, UTC-6)
+    - cron: "45 8 * * *"    # 3:45 AM CDT (summer, UTC-5)
   workflow_dispatch:
     inputs:
       sport:
@@ -47,21 +52,45 @@ jobs:
       changed: ${{ steps.commit.outputs.changed }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check Central time
+        id: tz
+        run: |
+          # Manual runs and push runs always go. Scheduled runs only go in the 3 AM Central hour.
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=America/Chicago date +%H)
+          echo "Central hour is $HOUR"
+          if [ "$HOUR" = "03" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Not the 3 AM Central hour. Skipping this run."
+          fi
 
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        if: steps.tz.outputs.go == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        if: steps.tz.outputs.go == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: scrapers/diamondsports/requirements.txt
 
       - name: Install dependencies
+        if: steps.tz.outputs.go == 'true'
         run: pip install -r scrapers/diamondsports/requirements.txt
 
       - name: Install Playwright browser
+        if: steps.tz.outputs.go == 'true'
         run: playwright install --with-deps chromium
 
       - name: Run diamond sports scraper
+        if: steps.tz.outputs.go == 'true'
         env:
           SPORT: ${{ inputs.sport }}
           SCHOOL: ${{ inputs.school }}
@@ -76,6 +105,7 @@ jobs:
 
       - name: Commit JSON
         id: commit
+        if: steps.tz.outputs.go == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
