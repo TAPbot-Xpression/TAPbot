@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-25T15:27:14.402292+00:00",
+  "updated_at": "2026-11-26T16:56:22.023039+00:00",
   "team": "St. Thomas (MN)",
   "sports": {
     "football": {
@@ -76,31 +76,31 @@
           "game_id": "6643425",
           "date": "Dec. 11",
           "home_away": "AT",
-          "opponent": "Colorado College"
+          "opponent": "{SUP}18{}Colorado College"
         },
         {
           "game_id": "6643426",
           "date": "Dec. 12",
           "home_away": "AT",
-          "opponent": "Colorado College"
+          "opponent": "{SUP}18{}Colorado College"
         },
         {
           "game_id": "6643185",
           "date": "Jan. 1",
           "home_away": "AT",
-          "opponent": "Providence"
+          "opponent": "{SUP}9{}Providence"
         },
         {
           "game_id": "6643186",
           "date": "Jan. 2",
           "home_away": "AT",
-          "opponent": "Providence"
+          "opponent": "{SUP}9{}Providence"
         },
         {
           "game_id": "6643427",
           "date": "Jan. 8",
           "home_away": "VS",
-          "opponent": "{SUP}11{}St. Cloud State"
+          "opponent": "St. Cloud State"
         }
       ],
       "opponent_schedule": {
@@ -118,37 +118,37 @@
             "game_id": "6642651",
             "date": "Dec. 4",
             "home_away": "AT",
-            "opponent": "Augustana (SD)"
+            "opponent": "{SUP}6{}Augustana (SD)"
           },
           {
             "game_id": "6642652",
             "date": "Dec. 5",
             "home_away": "AT",
-            "opponent": "Augustana (SD)"
+            "opponent": "{SUP}6{}Augustana (SD)"
           },
           {
             "game_id": "6642698",
             "date": "Dec. 11",
             "home_away": "VS",
-            "opponent": "Michigan Tech"
+            "opponent": "{SUP}12{}Michigan Tech"
           },
           {
             "game_id": "6642699",
             "date": "Dec. 12",
             "home_away": "VS",
-            "opponent": "Michigan Tech"
+            "opponent": "{SUP}12{}Michigan Tech"
           },
           {
             "game_id": "6643519",
             "date": "Dec. 16",
             "home_away": "AT",
-            "opponent": "{SUP}11{}St. Cloud State"
+            "opponent": "St. Cloud State"
           },
           {
             "game_id": "6666288",
             "date": "Jan. 2",
             "home_away": "AT",
-            "opponent": "{SUP}2{}Minnesota"
+            "opponent": "Minnesota"
           },
           {
             "game_id": "6643435",
