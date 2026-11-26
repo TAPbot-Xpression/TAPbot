@@ -972,6 +972,11 @@
     .team-rank-card.rank-2 .team-rank-val { color: var(--silver); }
     .team-rank-card.rank-3 .team-rank-val { color: var(--bronze); }
 
+    /* Teams with no data for the selected stat sit at the bottom, unranked */
+    .team-rank-card.no-data .rank-num-pill { background: transparent; color: var(--text-faint); }
+    .team-rank-card.no-data .team-rank-name,
+    .team-rank-card.no-data .team-rank-val { color: var(--text-faint); }
+
     .empty {
       padding: 3rem;
       text-align: center;
@@ -983,10 +988,14 @@
     /* ── Footer ──────────────────────────────────────────────────────────────── */
     footer {
       margin-top: 3.5rem;
-      padding-top: 1.75rem;
+      padding-top: 1.5rem;
       border-top: 1px solid var(--border);
-      text-align: center;
-      font-size: 0.92rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.88rem;
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
     }
@@ -994,12 +1003,7 @@
     footer a {
       color: var(--team-accent);
       text-decoration: none;
-      font-weight: 600;
-      transition: color 0.15s ease;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
+      font-weight: 700;
     }
 
     @media (max-width: 720px) {
@@ -1170,8 +1174,11 @@
   <!-- Footer with Repository Link -->
   <footer>
     <a href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
-      TAPbot - Developed by St. Thomas Athletics - Hosted on GitHub
+      TAPbot · St. Thomas Athletics · Broadcast Operations Tool
     </a>
+    <div id="footerSubtitle" style="font-size:0.82rem; color:var(--text-muted);">
+      Collegiate Ice Hockey Statistics
+    </div>
   </footer>
 
 </div>
@@ -1380,15 +1387,18 @@
   };
 
   // ── Team Stats Definitions ─────────────────────────────────────────────────
+  // asc: true  -> lower is better (lowest value ranks #1)
+  // asc: false -> higher is better (highest value ranks #1)
   const TEAM_STAT_DEFINITIONS = [
-    { key: 'goals_per_game', label: 'G/G',       desc: 'Goals Per Game',             asc: false },
-    { key: 'shots_per_game', label: 'SH/G',      desc: 'Shots Per Game',             asc: false },
-    { key: 'shot_pct',       label: 'SHOT%',     desc: 'Shot Percentage',            asc: false },
-    { key: 'pp_pct',         label: 'PP%',       desc: 'Power Play Percentage',      asc: false },
-    { key: 'pk_pct',         label: 'PK%',       desc: 'Penalty Kill Percentage',    asc: false },
-    { key: 'pen_per_game',   label: 'PEN/G',     desc: 'Penalties Per Game',         asc: true  },
-    { key: 'pim_per_game',   label: 'PIM/G',     desc: 'Penalty Minutes Per Game',   asc: true  },
-    { key: 'faceoff_pct',    label: 'FO%',       desc: 'Faceoff Percentage',         asc: false }
+    { key: 'goals_per_game',         label: 'G/G',    desc: 'Goals Per Game',           asc: false },
+    { key: 'goals_against_per_game', label: 'GA/G',   desc: 'Goals Against Per Game',   asc: true  },
+    { key: 'shots_per_game',         label: 'SH/G',   desc: 'Shots Per Game',           asc: false },
+    { key: 'shot_pct',               label: 'SHOT%',  desc: 'Shot Percentage',          asc: false },
+    { key: 'pp_pct',                 label: 'PP%',    desc: 'Power Play Percentage',    asc: false },
+    { key: 'pk_pct',                 label: 'PK%',    desc: 'Penalty Kill Percentage',  asc: false },
+    { key: 'pen_per_game',           label: 'PEN/G',  desc: 'Penalties Per Game',       asc: true  },
+    { key: 'pim_per_game',           label: 'PIM/G',  desc: 'Penalty Minutes Per Game', asc: true  },
+    { key: 'faceoff_pct',            label: 'FO%',    desc: 'Faceoff Percentage',       asc: false }
   ];
 
   // ── Table Column Definitions ───────────────────────────────────────────────
@@ -1415,6 +1425,8 @@
     { key: 'w_l_t',  label: 'W-L-T' },
     { key: 'min',    label: 'MIN' }
   ];
+
+  const MISSING = -999999;
 
   let CURRENT_DIVISION = 'men';
   let CURRENT_TEAM = 'st_thomas_mhockey';
@@ -1454,6 +1466,7 @@
 
     const cfg = TEAMS_CONFIG[division];
     document.getElementById('pageTitle').textContent = `${cfg.conferenceLabel} ${cfg.divisionLabel} Season Stats`;
+    document.getElementById('footerSubtitle').textContent = `${cfg.conferenceLabel} ${cfg.divisionLabel} Statistics`;
 
     HOCKEY_CACHE = {};
     renderTeamPills();
@@ -1503,6 +1516,7 @@
     const team = divCfg.teams.find(t => t.slug === teamSlug) || divCfg.teams[0];
 
     document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusDot').style.background = '';
     document.getElementById('statusText').textContent = 'Loading…';
     showTablePanel(`Loading ${team.shortName} hockey stats…`);
 
@@ -1561,7 +1575,7 @@
 
       const updatedTime = RAW_DATA.generated_at ? new Date(RAW_DATA.generated_at).toLocaleString() : 'Live';
       const teamDisplayName = RAW_DATA.team || team.name;
-      document.getElementById('metaBar').innerHTML = `<strong>${teamDisplayName}</strong> · Updated: ${updatedTime}`;
+      document.getElementById('metaBar').innerHTML = `<strong>${esc(teamDisplayName)}</strong> · Updated: ${esc(updatedTime)}`;
       document.getElementById('tableTitle').textContent = `${teamDisplayName} ${divCfg.divisionLabel} Stats`;
       document.getElementById('teamStatsCardTitle').textContent = `${teamDisplayName} Team Stats`;
       document.getElementById('statusDot').className = 'status-dot';
@@ -1575,7 +1589,7 @@
       document.getElementById('statusDot').className = 'status-dot';
       document.getElementById('statusDot').style.background = 'var(--red)';
       document.getElementById('statusText').textContent = 'Error';
-      showTablePanel(`<span style="color:#f87171">Failed to load stats for ${team.name} (${team.slug}.json).</span><br><small style="color:var(--text-muted)">Ensure the hockey scraper has generated this file.</small>`);
+      showTablePanel(`<span style="color:#f87171">Failed to load stats for ${esc(team.name)} (${esc(team.slug)}.json).</span><br><small style="color:var(--text-muted)">Ensure the hockey scraper has generated this file.</small>`);
       renderTeamStatsGrid();
     }
   }
@@ -1784,7 +1798,7 @@
       return;
     }
 
-    const player = PLAYERS.find(p => 
+    const player = PLAYERS.find(p =>
       String(p.number) === searchNum || p.name.toLowerCase().includes(searchNum.toLowerCase())
     );
     renderPlayerSpotlight(player);
@@ -1844,28 +1858,35 @@
         name: t.shortName,
         fullName: t.name,
         num: numV,
+        missing: numV === MISSING,
         display: rawV
       };
     });
 
+    // Teams with no value for this stat always go to the bottom (even for
+    // "lower is better" stats like GA/G), so they never show up as #1.
     rankedTeams.sort((a, b) => {
-      if (def.asc) return a.num - b.num;
-      return b.num - a.num;
+      if (a.missing && b.missing) return 0;
+      if (a.missing) return 1;
+      if (b.missing) return -1;
+      return def.asc ? a.num - b.num : b.num - a.num;
     });
 
     const card = document.getElementById('teamLeaderboardCard');
     document.getElementById('leaderboardStatTitle').textContent = `${def.desc} (${def.label})`;
-    document.getElementById('leaderboardStatSub').textContent = `${divCfg.conferenceLabel} Conference Leaderboard · ${divCfg.divisionLabel}`;
+    document.getElementById('leaderboardStatSub').textContent =
+      `${divCfg.conferenceLabel} Conference Leaderboard · ${divCfg.divisionLabel} · ${def.asc ? 'lowest ranks first' : 'highest ranks first'}`;
 
     const grid = document.getElementById('leaderboardGrid');
     grid.innerHTML = rankedTeams.map((t, idx) => {
       const rank = idx + 1;
-      const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+      const rankClass = t.missing ? 'no-data'
+        : rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
       const isActiveTeam = t.slug === CURRENT_TEAM ? 'is-active-team' : '';
 
       return `<div class="team-rank-card ${rankClass} ${isActiveTeam}">
         <div class="team-rank-left">
-          <div class="rank-num-pill">${rank}</div>
+          <div class="rank-num-pill">${t.missing ? '–' : rank}</div>
           <div class="team-rank-name">${esc(t.name)}</div>
         </div>
         <div class="team-rank-val">${esc(t.display)}</div>
@@ -1877,11 +1898,12 @@
   }
 
   // ── Utility Helpers ────────────────────────────────────────────────────────
+  // Handles "2.0", ".257", "25.7%" and "-" (missing)
   function parseStat(val) {
-    if (val === undefined || val === null || val === '-' || val === '--' || val === '') return -999999;
+    if (val === undefined || val === null || val === '-' || val === '--' || val === '') return MISSING;
     const cleanStr = String(val).replace('%', '').replace('+', '').trim();
     const num = parseFloat(cleanStr);
-    return isNaN(num) ? -999999 : num;
+    return isNaN(num) ? MISSING : num;
   }
 
   function setLink(id, url, title) {
