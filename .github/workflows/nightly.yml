@@ -70,7 +70,7 @@ jobs:
       # ── 3. Diamond Sports ──────────────────────────────────────────
       - name: Scrape Diamond Sports
         continue-on-error: true
-        run: python scrapers/diamond_sports/scrape_diamond_sports.py
+        run: python scrapers/diamondsports/scrape_diamond_sports.py
 
       # ── 4. Standings ───────────────────────────────────────────────
       - name: Scrape Standings
