@@ -4,7 +4,7 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-26T05:19:30.963970+00:00",
+  "generated_at": "2026-11-26T05:39:02.140659+00:00",
   "source_stats_url": "https://gophersports.com/sports/womens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://gophersports.com/sports/womens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -393,6 +393,36 @@
       "shg": "0",
       "gwg": "0",
       "pn_pim": "0-0"
+    },
+    {
+      "number": "56",
+      "name": "Hannah Clark",
+      "position": "G",
+      "year": "JR",
+      "is_goalie": "true",
+      "gp_gs": "10-11",
+      "ga": "18",
+      "gaa": "1.63",
+      "sv": "262",
+      "sv_pct": ".936",
+      "sho": "3",
+      "w_l_t": "10-1-0",
+      "min": "663:32"
+    },
+    {
+      "number": "1",
+      "name": "Layla Hemp",
+      "position": "G",
+      "year": "SO",
+      "is_goalie": "true",
+      "gp_gs": "3-3",
+      "ga": "7",
+      "gaa": "2.33",
+      "sv": "53",
+      "sv_pct": ".883",
+      "sho": "0",
+      "w_l_t": "3-0-0",
+      "min": "180:00"
     }
   ]
 }
