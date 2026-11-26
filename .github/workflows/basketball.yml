@@ -2,18 +2,31 @@ name: Scrape Basketball
 
 # Place this file at: .github/workflows/basketball.yml
 # Scrapes Summit League men's and women's basketball and commits JSON to docs/basketball/
-# Runs every morning at 3:30 AM Central Time (automatically adjusting for CST/CDT).
+# Runs every morning at about 3:30 AM Central (CST or CDT, depending on daylight saving).
+#
+# GitHub cron is UTC only and has no daylight saving support, so the run is
+# scheduled twice. The "gate" job lets only the run that lands in the
+# 3:25 to 4:15 AM Central window continue. The other one shows as skipped (this is normal).
+#
+#   Cron (UTC)   In winter (CST, UTC-6)   In summer (CDT, UTC-5)
+#   08:30        2:30 AM  -> skipped      3:30 AM  -> runs
+#   09:30        3:30 AM  -> runs         4:30 AM  -> skipped
+#
+# The two crons are exactly one hour apart, so the window tolerates a start
+# delay of up to 45 minutes and can never match the wrong cron.
+#
+# Other sport workflows run around the same time (diamond sports 3:45 AM, hockey 4:30 AM).
+# Each has its own concurrency group, and the push step rebases and retries,
+# so overlapping runs do not collide.
 
 on:
   schedule:
-    # Native IANA timezone evaluation (handles Daylight Saving Time automatically)
-    - cron: '30 3 * * *'
-      timezone: 'America/Chicago'
-
+    - cron: "30 8 * * *"     # 3:30 AM CDT (summer, UTC-5)
+    - cron: "30 9 * * *"     # 3:30 AM CST (winter, UTC-6)
   workflow_dispatch:
     inputs:
       gender:
-        description: "Gender to scrape"
+        description: "Which division to scrape"
         required: false
         default: "all"
         type: choice
@@ -22,14 +35,13 @@ on:
           - men
           - women
       only_teams:
-        description: "Comma-separated team names/slugs (e.g. 'St. Thomas,Denver') or blank for all"
+        description: "Teams to scrape (e.g. 'St. Thomas,Omaha'). Blank = all. Skips the Non-Conf slots."
         required: false
         default: ""
         type: string
-
   push:
     branches: [main]
-    paths:
+    paths:                          # only basketball changes trigger this workflow
       - "scrapers/basketball/**"
       - ".github/workflows/basketball.yml"
 
@@ -41,12 +53,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    # Scheduled runs only continue if the Central clock reads 3:25 to 4:15 AM.
+    # Manual runs and pushes always continue.
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check Central time
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then
+            echo "Not a scheduled run - continuing."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          H=$(TZ=America/Chicago date +%-H)
+          M=$(TZ=America/Chicago date +%-M)
+          MINS=$((H * 60 + M))
+          echo "Central time: $(TZ=America/Chicago date '+%H:%M %Z')"
+
+          # 205 = 3:25 AM, 255 = 4:15 AM local. Tolerates GitHub start delays.
+          if [ "$MINS" -ge 205 ] && [ "$MINS" -le 255 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Outside the 3:30 AM Central window - skipping this cron."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   scrape:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
       changed: ${{ steps.commit.outputs.changed }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -61,28 +106,27 @@ jobs:
       - name: Install dependencies
         run: pip install -r scrapers/basketball/requirements.txt
 
-      - name: Get Playwright version for cache key
-        id: playwright-version
-        run: |
-          PW_VERSION=$(python -c "import playwright; print(playwright.__version__)")
-          echo "version=${PW_VERSION}" >> "$GITHUB_OUTPUT"
+      # Cache the Chromium download, keyed on the installed Playwright version.
+      # Same key as the hockey workflow so the workflows can share one cache.
+      - name: Get Playwright version
+        id: pw
+        run: echo "version=$(python -m pip show playwright | awk '/^Version:/{print $2}')" >> "$GITHUB_OUTPUT"
 
-      - name: Cache Playwright Browsers
-        id: playwright-cache
+      - name: Cache Playwright browsers
+        id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
 
-      - name: Install Playwright Chromium & system deps
-        run: |
-          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
-            echo "Playwright browser cache hit. Installing OS dependencies only."
-            playwright install-deps chromium
-          else
-            echo "Playwright cache miss. Installing browser and dependencies."
-            playwright install --with-deps chromium
-          fi
+      - name: Install Playwright browser (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: playwright install --with-deps chromium
+
+      # The browser is cached, but the Ubuntu system libraries are not.
+      - name: Install Playwright system dependencies (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
 
       - name: Run basketball scraper
         env:
@@ -90,14 +134,9 @@ jobs:
           ONLY: ${{ inputs.only_teams }}
         run: |
           ARGS=()
-          if [ -n "$GENDER" ] && [ "$GENDER" != "all" ]; then
-            ARGS+=(--gender "$GENDER")
-          fi
-          if [ -n "$ONLY" ]; then
-            ARGS+=(--only "$ONLY")
-          fi
-
-          echo "Running: python scrapers/basketball/scrape_basketball.py ${ARGS[*]}"
+          if [ -n "$GENDER" ] && [ "$GENDER" != "all" ]; then ARGS+=(--gender "$GENDER"); fi
+          if [ -n "$ONLY" ]; then ARGS+=(--only "$ONLY"); fi
+          echo "Executing: python scrapers/basketball/scrape_basketball.py ${ARGS[*]}"
           python scrapers/basketball/scrape_basketball.py "${ARGS[@]}"
 
       - name: Commit JSON
@@ -105,28 +144,25 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add -A docs/basketball
-
           if git diff --cached --quiet; then
-            echo "No changes to commit (data is identical / cached)."
+            echo "No changes to commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
           git commit -m "chore(basketball): update stats [$(date -u '+%Y-%m-%d %H:%M UTC')]"
 
-          # Retry push with rebase in case another sport scraper commits concurrently
+          # Other sport workflows may push at the same time, so retry with a rebase.
+          # changed=true is only set when the push actually succeeds.
           for i in 1 2 3; do
             if git pull --rebase origin main && git push origin HEAD:main; then
               echo "changed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            echo "Push attempt $i failed, retrying in 5s..."
+            echo "Push attempt $i failed, retrying..."
             sleep 5
           done
-
-          echo "Failed to push after 3 attempts."
+          echo "Could not push after 3 attempts."
           exit 1
 
   deploy:
