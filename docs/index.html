@@ -228,31 +228,44 @@
       box-shadow: none;
     }
 
-    .src-top { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+    .src-top {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: .5rem .75rem;
+    }
     .src-id {
       font-family: 'JetBrains Mono', monospace; font-size: .74rem; font-weight: 700;
       letter-spacing: .14em; color: var(--faint);
     }
 
-    /* Tally light + status indicator */
+    /* ── Tally light + "Scan | Data" status text ──────────────────────────────
+       The dot color and the Scan value follow the SCAN age.
+       The Data value is always muted so Scan stands out. */
     .tally {
-      display: inline-flex; align-items: center; gap: .5rem;
-      font-family: 'JetBrains Mono', monospace; font-size: .76rem; font-weight: 700;
-      letter-spacing: .04em; color: var(--muted);
+      display: inline-flex; align-items: center; gap: .55rem;
+      font-family: 'JetBrains Mono', monospace; font-size: .76rem; font-weight: 600;
+      letter-spacing: .02em; color: var(--muted);
+      white-space: nowrap;
+      margin-left: auto;
     }
     .tally i {
+      flex: 0 0 auto;
       width: 11px; height: 11px; border-radius: 50%; background: var(--faint);
       box-shadow: 0 0 0 3px rgba(255,255,255,.04);
     }
+    .tally b { font-weight: 800; }
+    .tally .tally-sep  { color: var(--border-light); margin: 0 .1rem; }
+    .tally .tally-data { color: var(--muted); }
+
     .tally[data-state="live"]        i { background: var(--live);  box-shadow: 0 0 10px var(--live);  animation: pulse 2.4s ease-in-out infinite; }
     .tally[data-state="stale"]       i { background: var(--stale); box-shadow: 0 0 10px var(--stale); }
     .tally[data-state="off"]         i { background: var(--off); }
     .tally[data-state="bad"]         i { background: var(--bad);   box-shadow: 0 0 10px var(--bad); }
     .tally[data-state="placeholder"] i { background: var(--faint); }
-    .tally[data-state="live"]        { color: var(--live); }
-    .tally[data-state="stale"]       { color: var(--stale); }
-    .tally[data-state="bad"]         { color: var(--bad); }
-    .tally[data-state="placeholder"] { color: var(--faint); }
+    .tally[data-state="live"]        .tally-scan { color: var(--live); }
+    .tally[data-state="stale"]       .tally-scan { color: var(--stale); }
+    .tally[data-state="off"]         .tally-scan { color: var(--off); }
+    .tally[data-state="bad"]         .tally-scan { color: var(--bad); }
+    .tally[data-state="placeholder"] .tally-scan { color: var(--faint); }
 
     @keyframes pulse { 50% { opacity: .45; } }
 
@@ -262,34 +275,19 @@
     }
     .src-league { color: var(--muted); font-size: 1rem; margin-top: .3rem; font-weight: 500; }
 
-    /* Dual-Timestamp Status Strip */
-    .src-timestamps {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.73rem;
-      color: var(--muted);
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      padding: 0.35rem 0.65rem;
-      border-radius: 6px;
-      margin-top: 0.2rem;
-      width: fit-content;
-    }
-    .src-timestamps span b {
-      color: var(--text);
-      font-weight: 600;
-    }
-    .src-timestamps .dot-sep {
-      color: var(--border-light);
-    }
-
     .src-foot {
       display: flex; justify-content: space-between; align-items: center; gap: 1rem;
       margin-top: auto; padding-top: .9rem; border-top: 1px dashed var(--line);
     }
     .src-detail { font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--faint); }
+
+    .season-chip {
+      margin-left: .6rem; padding: .08rem .45rem;
+      border: 1px solid var(--border-light); border-radius: 4px;
+      font-size: .68rem; font-weight: 700; letter-spacing: .08em; color: var(--off);
+    }
+    .season-chip[hidden] { display: none; }
+
     .src-open {
       font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.2rem;
       letter-spacing: .08em; text-transform: uppercase; color: var(--purple);
@@ -369,6 +367,19 @@
   // ══ HUB SITE CONFIGURATION ══════════════════════════════════════════════
   const REPO_URL = 'https://github.com/TAPbot-Xpression/TAPbot';
 
+  // Tally light thresholds, based on SCAN age (hours).
+  //   age <= SCAN_FRESH_HOURS                      -> green
+  //   SCAN_FRESH_HOURS < age <= SCAN_STALE_HOURS   -> amber
+  //   age >  SCAN_STALE_HOURS                      -> red
+  // 26h = one nightly run (24h) plus 2h of slack for GitHub's scheduler delay.
+  const SCAN_FRESH_HOURS = 26;
+  const SCAN_STALE_HOURS = 48;
+
+  // false = the light always follows the scan age, even for out-of-season sports
+  //         (an "OFF-SEASON" chip is shown in the card footer instead).
+  // true  = out-of-season cards get a gray light and ignore the scan age.
+  const GRAY_OUT_OFF_SEASON = false;
+
   // Group 1: Stat Dashboards (Hockey, Basketball, Diamond Sports, Volleyball, Football)
   const STAT_SPORTS = [
     {
@@ -434,8 +445,6 @@
     }
   ];
 
-  const FRESH_HOURS = 24;
-
   let globalSrcIndex = 1;
 
   function createSourceCard(s, targetContainer) {
@@ -450,21 +459,17 @@
       <div class="src-top">
         <span class="src-id">SRC ${srcNum}</span>
         <span class="tally" data-state="${isPh ? 'placeholder' : 'checking'}">
-          <i></i><span class="tally-text">${isPh ? 'IN DEVELOPMENT' : 'Checking…'}</span>
+          <i></i><span class="tally-text">${isPh
+            ? '<span class="tally-scan">IN DEVELOPMENT</span>'
+            : '<span class="tally-scan">Checking…</span>'}</span>
         </span>
       </div>
       <div>
         <div class="src-name">${s.name}</div>
         <div class="src-league">${s.league}</div>
-        ${!isPh ? `
-        <div class="src-timestamps" style="display:none;">
-          <span class="stamp-scan">Scan: <b>Checking…</b></span>
-          <span class="dot-sep">·</span>
-          <span class="stamp-data">Data: <b>Checking…</b></span>
-        </div>` : ''}
       </div>
       <div class="src-foot">
-        <span class="src-detail">${s.detail}</span>
+        <span class="src-detail">${s.detail}<span class="season-chip" hidden>OFF-SEASON</span></span>
         <span class="src-open">${isPh ? 'Planned' : 'Open dashboard →'}</span>
       </div>`;
 
@@ -482,64 +487,89 @@
   const ALL_SPORTS = [...STAT_SPORTS, ...UTILITY_SPORTS];
 
   /**
-   * Dual-timestamp resolver:
-   * Inspects root and nested objects for last_scan & last_updated,
-   * falling back to generated_at / updated_at / scraped_at if unmigrated.
+   * Dual-timestamp resolver.
+   * Reads last_scan / last_updated from the root (or from a nested object such as
+   * the standings "sports" map). Files from scrapers that haven't been migrated
+   * yet fall back to generated_at / updated_at and are flagged as `legacy`.
    */
+  const SCAN_KEYS    = ['last_scan', 'generated_at', 'updated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
+  const UPDATED_KEYS = ['last_updated', 'updated_at', 'generated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
+
+  function pickStamp(o, keys) {
+    if (!o || typeof o !== 'object') return null;
+    for (const k of keys) {
+      if (o[k]) {
+        const t = Date.parse(o[k]);
+        if (!isNaN(t)) return { t, key: k };
+      }
+    }
+    return null;
+  }
+
   function findTimestamps(obj) {
     if (Array.isArray(obj)) obj = obj[0];
-    if (!obj || typeof obj !== 'object') return { scan: null, updated: null };
+    if (!obj || typeof obj !== 'object') return { scan: null, updated: null, legacy: false };
 
-    const parseField = (o, keys) => {
-      for (const k of keys) {
-        if (o[k]) {
-          const t = Date.parse(o[k]);
-          if (!isNaN(t)) return t;
-        }
-      }
-      return null;
-    };
+    let scan = pickStamp(obj, SCAN_KEYS);
+    let updated = pickStamp(obj, UPDATED_KEYS);
 
-    const SCAN_KEYS = ['last_scan', 'generated_at', 'updated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
-    const UPDATED_KEYS = ['last_updated', 'updated_at', 'generated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
-
-    let scan = parseField(obj, SCAN_KEYS);
-    let updated = parseField(obj, UPDATED_KEYS);
-
-    // If top-level didn't match, inspect child dictionary objects (e.g. sports sub-map)
+    // Nothing at the root? Look one level down (e.g. sports.mbball.last_scan).
     if (!scan || !updated) {
       for (const v of Object.values(obj)) {
         if (v && typeof v === 'object' && !Array.isArray(v)) {
-          if (!scan) scan = parseField(v, SCAN_KEYS);
-          if (!updated) updated = parseField(v, UPDATED_KEYS);
+          if (!scan) scan = pickStamp(v, SCAN_KEYS);
+          if (!updated) updated = pickStamp(v, UPDATED_KEYS);
           if (scan && updated) break;
         }
       }
     }
 
-    return { scan, updated };
+    return {
+      scan: scan ? scan.t : null,
+      updated: updated ? updated.t : null,
+      // true when the "scan" value is really a generated_at/updated_at stamp
+      legacy: !scan || scan.key !== 'last_scan'
+    };
   }
 
   function ago(ms) {
     if (ms === null || isNaN(ms)) return '—';
-    const m = Math.round(ms / 60000);
+    const m = Math.round(Math.max(ms, 0) / 60000);
     if (m < 60) return `${Math.max(m, 1)}m ago`;
     const h = Math.round(m / 60);
     if (h < 48) return `${h}h ago`;
     return `${Math.round(h / 24)}d ago`;
   }
 
-  function setTally(card, state, text) {
+  /** Sets the light color and the "Scan: xx | Data: xx" text in the tally. */
+  function setTally(card, state, html, title) {
     const t = card.querySelector('.tally');
     t.dataset.state = state;
-    t.querySelector('.tally-text').textContent = text;
+    t.querySelector('.tally-text').innerHTML = html;
+    if (title) t.title = title; else t.removeAttribute('title');
   }
 
+  function scanDataHtml(scanAge, updatedAge, legacy) {
+    const star = legacy ? '*' : '';
+    return `<span class="tally-scan">Scan: <b>${ago(scanAge)}${star}</b></span>` +
+           `<span class="tally-sep">|</span>` +
+           `<span class="tally-data">Data: <b>${ago(updatedAge)}${star}</b></span>`;
+  }
+
+  const LEGACY_NOTE =
+    '* This scraper has not been updated to write last_scan / last_updated yet. ' +
+    'Both values come from its generated_at / updated_at stamp, which only moves when the file is rewritten.';
+
   async function checkSport(s) {
-    if (s.isPlaceholder) return 'placeholder';
+    if (s.isPlaceholder) return { state: 'placeholder', inSeason: true };
 
     const month = new Date().getMonth() + 1;
     const inSeason = s.seasonMonths.includes(month);
+
+    // Off-season chip in the footer
+    const chip = s._el.querySelector('.season-chip');
+    if (chip) chip.hidden = inSeason;
+
     try {
       let res = await fetch(`${s.statusFile}?t=${Date.now()}`);
       if (!res.ok && s.fallbackStatusFile) {
@@ -548,60 +578,48 @@
       if (!res.ok) throw new Error(res.status);
 
       const data = await res.json();
-      const { scan, updated } = findTimestamps(data);
+      const { scan, updated, legacy } = findTimestamps(data);
 
-      const scanAge = scan ? (Date.now() - scan) : null;
-      const updatedAge = updated ? (Date.now() - updated) : null;
-
-      // Update Dual-Timestamp pill on card
-      const tsPill = s._el.querySelector('.src-timestamps');
-      if (tsPill && (scan || updated)) {
-        tsPill.style.display = 'inline-flex';
-        const scanEl = tsPill.querySelector('.stamp-scan');
-        const dataEl = tsPill.querySelector('.stamp-data');
-        if (scanEl) scanEl.innerHTML = `Scan: <b>${ago(scanAge)}</b>`;
-        if (dataEl) dataEl.innerHTML = `Data: <b>${ago(updatedAge)}</b>`;
+      // No usable timestamp at all: the file exists but we can't judge it.
+      if (scan === null && updated === null) {
+        setTally(s._el, 'stale', '<span class="tally-scan">NO TIMESTAMP</span>',
+                 'The JSON file has no recognizable timestamp field.');
+        return { state: 'stale', inSeason };
       }
 
-      if (!inSeason) {
-        setTally(s._el, 'off', scanAge !== null ? `OFF-SEASON · ${ago(scanAge)}` : 'OFF-SEASON');
-        return 'off';
-      }
+      const now = Date.now();
+      const scanAge = scan !== null ? now - scan : (now - updated); // fall back to Data if Scan is missing
+      const updatedAge = updated !== null ? now - updated : null;
+      const scanHours = scanAge / 3600000;
 
-      if (!scan && !updated) {
-        setTally(s._el, 'live', 'ONLINE');
-        return 'live';
-      }
+      let state;
+      if (!inSeason && GRAY_OUT_OFF_SEASON) state = 'off';
+      else if (scanHours <= SCAN_FRESH_HOURS) state = 'live';
+      else if (scanHours <= SCAN_STALE_HOURS) state = 'stale';
+      else state = 'bad';
 
-      // Tally evaluates freshness based on the last scan attempt
-      const evalAge = scanAge !== null ? scanAge : updatedAge;
-
-      if (evalAge <= FRESH_HOURS * 3600000) {
-        setTally(s._el, 'live', `LIVE · ${ago(evalAge)}`);
-        return 'live';
-      }
-
-      setTally(s._el, 'stale', `STALE · ${ago(evalAge)}`);
-      return 'stale';
+      setTally(s._el, state, scanDataHtml(scanAge, updatedAge, legacy), legacy ? LEGACY_NOTE : '');
+      return { state, inSeason };
 
     } catch (e) {
-      setTally(s._el, 'bad', 'NO DATA FILE');
-      return 'bad';
+      setTally(s._el, 'bad', '<span class="tally-scan">NO DATA FILE</span>');
+      return { state: 'bad', inSeason };
     }
   }
 
   (async () => {
     const activeToCheck = ALL_SPORTS.filter(s => !s.isPlaceholder);
-    const states = await Promise.all(activeToCheck.map(checkSport));
-    const n = k => states.filter(x => x === k).length;
+    const results = await Promise.all(activeToCheck.map(checkSport));
+    const n = k => results.filter(r => r.state === k).length;
+    const offSeason = results.filter(r => !r.inSeason).length;
 
     const parts = [
       `<b>${ALL_SPORTS.length}</b> sources (${activeToCheck.length} active)`,
-      `<b>${n('live')}</b> live`
+      `<b>${n('live')}</b> scanned on time`
     ];
     if (n('stale')) parts.push(`<b>${n('stale')}</b> stale`);
-    if (n('off'))   parts.push(`<b>${n('off')}</b> off-season`);
-    if (n('bad'))   parts.push(`<b>${n('bad')}</b> missing`);
+    if (n('bad'))   parts.push(`<b>${n('bad')}</b> overdue / missing`);
+    if (offSeason)  parts.push(`<b>${offSeason}</b> off-season`);
     document.getElementById('summary').innerHTML = parts.map(p => `<span>${p}</span>`).join('');
   })();
 
