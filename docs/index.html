@@ -262,6 +262,29 @@
     }
     .src-league { color: var(--muted); font-size: 1rem; margin-top: .3rem; font-weight: 500; }
 
+    /* Dual-Timestamp Status Strip */
+    .src-timestamps {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.73rem;
+      color: var(--muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      margin-top: 0.2rem;
+      width: fit-content;
+    }
+    .src-timestamps span b {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .src-timestamps .dot-sep {
+      color: var(--border-light);
+    }
+
     .src-foot {
       display: flex; justify-content: space-between; align-items: center; gap: 1rem;
       margin-top: auto; padding-top: .9rem; border-top: 1px dashed var(--line);
@@ -412,7 +435,6 @@
   ];
 
   const FRESH_HOURS = 24;
-  const STAMP_KEYS = ['updated_at', 'generated_at', 'last_updated', 'scraped_at', 'timestamp', 'updated', 'as_of'];
 
   let globalSrcIndex = 1;
 
@@ -434,6 +456,12 @@
       <div>
         <div class="src-name">${s.name}</div>
         <div class="src-league">${s.league}</div>
+        ${!isPh ? `
+        <div class="src-timestamps" style="display:none;">
+          <span class="stamp-scan">Scan: <b>Checking…</b></span>
+          <span class="dot-sep">·</span>
+          <span class="stamp-data">Data: <b>Checking…</b></span>
+        </div>` : ''}
       </div>
       <div class="src-foot">
         <span class="src-detail">${s.detail}</span>
@@ -453,11 +481,17 @@
 
   const ALL_SPORTS = [...STAT_SPORTS, ...UTILITY_SPORTS];
 
-  function findStamp(obj) {
+  /**
+   * Dual-timestamp resolver:
+   * Inspects root and nested objects for last_scan & last_updated,
+   * falling back to generated_at / updated_at / scraped_at if unmigrated.
+   */
+  function findTimestamps(obj) {
     if (Array.isArray(obj)) obj = obj[0];
-    if (!obj || typeof obj !== 'object') return null;
-    const pick = o => {
-      for (const k of STAMP_KEYS) {
+    if (!obj || typeof obj !== 'object') return { scan: null, updated: null };
+
+    const parseField = (o, keys) => {
+      for (const k of keys) {
         if (o[k]) {
           const t = Date.parse(o[k]);
           if (!isNaN(t)) return t;
@@ -465,18 +499,29 @@
       }
       return null;
     };
-    let t = pick(obj);
-    if (t) return t;
-    for (const v of Object.values(obj)) {
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
-        t = pick(v);
-        if (t) return t;
+
+    const SCAN_KEYS = ['last_scan', 'generated_at', 'updated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
+    const UPDATED_KEYS = ['last_updated', 'updated_at', 'generated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
+
+    let scan = parseField(obj, SCAN_KEYS);
+    let updated = parseField(obj, UPDATED_KEYS);
+
+    // If top-level didn't match, inspect child dictionary objects (e.g. sports sub-map)
+    if (!scan || !updated) {
+      for (const v of Object.values(obj)) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          if (!scan) scan = parseField(v, SCAN_KEYS);
+          if (!updated) updated = parseField(v, UPDATED_KEYS);
+          if (scan && updated) break;
+        }
       }
     }
-    return null;
+
+    return { scan, updated };
   }
 
   function ago(ms) {
+    if (ms === null || isNaN(ms)) return '—';
     const m = Math.round(ms / 60000);
     if (m < 60) return `${Math.max(m, 1)}m ago`;
     const h = Math.round(m / 60);
@@ -502,25 +547,41 @@
       }
       if (!res.ok) throw new Error(res.status);
 
-      const stamp = findStamp(await res.json());
-      const age = stamp ? (Date.now() - stamp) : null;
+      const data = await res.json();
+      const { scan, updated } = findTimestamps(data);
+
+      const scanAge = scan ? (Date.now() - scan) : null;
+      const updatedAge = updated ? (Date.now() - updated) : null;
+
+      // Update Dual-Timestamp pill on card
+      const tsPill = s._el.querySelector('.src-timestamps');
+      if (tsPill && (scan || updated)) {
+        tsPill.style.display = 'inline-flex';
+        const scanEl = tsPill.querySelector('.stamp-scan');
+        const dataEl = tsPill.querySelector('.stamp-data');
+        if (scanEl) scanEl.innerHTML = `Scan: <b>${ago(scanAge)}</b>`;
+        if (dataEl) dataEl.innerHTML = `Data: <b>${ago(updatedAge)}</b>`;
+      }
 
       if (!inSeason) {
-        setTally(s._el, 'off', age !== null ? `OFF-SEASON · ${ago(age)}` : 'OFF-SEASON');
+        setTally(s._el, 'off', scanAge !== null ? `OFF-SEASON · ${ago(scanAge)}` : 'OFF-SEASON');
         return 'off';
       }
 
-      if (!stamp) {
+      if (!scan && !updated) {
         setTally(s._el, 'live', 'ONLINE');
         return 'live';
       }
 
-      if (age <= FRESH_HOURS * 3600000) {
-        setTally(s._el, 'live', `LIVE · ${ago(age)}`);
+      // Tally evaluates freshness based on the last scan attempt
+      const evalAge = scanAge !== null ? scanAge : updatedAge;
+
+      if (evalAge <= FRESH_HOURS * 3600000) {
+        setTally(s._el, 'live', `LIVE · ${ago(evalAge)}`);
         return 'live';
       }
 
-      setTally(s._el, 'stale', `STALE · ${ago(age)}`);
+      setTally(s._el, 'stale', `STALE · ${ago(evalAge)}`);
       return 'stale';
 
     } catch (e) {
