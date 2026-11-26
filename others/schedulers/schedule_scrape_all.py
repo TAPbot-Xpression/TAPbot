@@ -5,7 +5,7 @@ Football, Volleyball, Baseball, Softball, Men's Basketball, Women's Basketball,
 Men's Hockey, Women's Hockey, Men's Soccer, Women's Soccer.
 
 Combines North Campus and South Campus scrapers and adds Women's Hockey.
-Outputs all sport schedules to a single JSON file: 'all_schedules.json'.
+Outputs all sport schedules to a single JSON file: 'docs/schedulers/all_schedules.json'.
 
 Features:
   1. Pulls schedules via the NCAA API (schedule-alt route) keeping the NEXT 8
@@ -64,7 +64,9 @@ MAX_CACHE_HOURS = 18
 # Dynamic paths
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
-OUTPUT_FILE = SCRIPT_DIR / "all_schedules.json"
+OUTPUT_DIR = REPO_ROOT / "docs" / "schedulers"
+OUTPUT_FILE = OUTPUT_DIR / "all_schedules.json"
+LEGACY_OUTPUT_FILE = SCRIPT_DIR / "all_schedules.json"
 CONFIG_FILE = SCRIPT_DIR / "config_all.txt"               # primary override file
 CONFIG_FALLBACK = SCRIPT_DIR / "config.txt"               # fallback if config_all.txt isn't present
 
@@ -549,13 +551,14 @@ def strip(games: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def read_existing_schedules() -> Dict[str, Any]:
-    if OUTPUT_FILE.exists():
-        try:
-            data = json.loads(OUTPUT_FILE.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                return data
-        except Exception:
-            pass
+    for path in (OUTPUT_FILE, LEGACY_OUTPUT_FILE):
+        if path.exists():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
     return {}
 
 
@@ -612,6 +615,7 @@ def write_output(results: Dict[str, Any]) -> None:
             logger.info("Cache hit (<%dh old, identical schedules) — skipping rewrite of all_schedules.json.", MAX_CACHE_HOURS)
             return
 
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = OUTPUT_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     os.replace(tmp, OUTPUT_FILE)
