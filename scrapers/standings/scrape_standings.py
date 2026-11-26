@@ -11,17 +11,32 @@ Extracts:
 Output (repo-relative, resolved from this script's location):
   docs/standings/data.json
 
+Timestamps (all UTC, ISO-8601):
+  last_scan     Top level: the last time this script ran and fetched at least one feed.
+                Per feed:  the last time that feed was fetched successfully.
+  last_updated  Top level: the most recent time ANY feed's data changed.
+                Per feed:  the last time that feed's rows / poll_date changed.
+  generated_at  Legacy alias of the top-level last_scan, so the current Hub keeps working.
+  updated_at    Legacy alias of the per-feed last_scan.
+
 Optimizations & safeguards applied:
   1. Full async concurrency across feeds via asyncio.Semaphore(4) + asyncio.gather.
   2. Static HTTP fast-path via urllib.request before launching browser rendering.
   3. Playwright resource routing (aborts image, media, font downloads).
   4. Selector-driven DOM waits replacing long static timeouts.
   5. Last-good-data preservation: individual feed failures keep stale data so the site never empties.
-  6. Smart cache & git-diff preservation: avoids rewriting identical JSON (<18h old).
+  6. Dual timestamps: last_scan advances whenever a scan is written; last_updated only moves
+     when the data actually changes.
+  7. Write throttle: if nothing changed and the stored last_scan is newer than
+     SCAN_WRITE_INTERVAL_HOURS, the file is left alone (no commit, no deploy).
+     Use --force-write to bypass.
+  8. Total-failure guard: if no feed could be fetched, the file is not touched and the script
+     exits 1, so a full outage is never shown as a fresh scan.
 
 Usage:
   python scrapers/standings/scrape_standings.py
   python scrapers/standings/scrape_standings.py --out docs/standings/data.json
+  python scrapers/standings/scrape_standings.py --force-write
 """
 
 from __future__ import annotations
@@ -36,7 +51,7 @@ import re
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from bs4 import BeautifulSoup
 from playwright.async_api import BrowserContext, Page, async_playwright
@@ -50,7 +65,11 @@ REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DI
 DEFAULT_OUT = REPO_ROOT / "docs" / "standings" / "data.json"
 
 CONCURRENCY_LIMIT = 4
-MAX_CACHE_HOURS = 18
+
+# When the data is unchanged, only re-write the file (to advance last_scan) if the stored
+# last_scan is at least this many hours old. 0 = always write.
+# Higher = fewer commits/deploys, but the displayed "last scan" can lag the real scan by up to this long.
+SCAN_WRITE_INTERVAL_HOURS = 6
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -229,9 +248,11 @@ FEEDS_CONFIG: List[Dict[str, Any]] = [
     },
 ]
 
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def clean(text: Any) -> str:
     return re.sub(r"\s+", " ", str(text) if text is not None else "").strip()
+
 
 def get_team_acronym(team_name: str, overrides: Optional[Dict[str, str]] = None) -> str:
     cleaned = clean(team_name)
@@ -254,17 +275,21 @@ def get_team_acronym(team_name: str, overrides: Optional[Dict[str, str]] = None)
         return "".join(w[0] for w in words).upper()
     return cleaned[:4].upper()
 
+
 def header_cells(table: Any) -> List[str]:
     row = table.select_one("thead tr:last-of-type") or table.find("tr")
     return [clean(c.get_text()) for c in row.find_all(["th", "td"])] if row else []
+
 
 def body_rows(table: Any) -> List[Any]:
     rows = table.select("tbody tr") or table.find_all("tr")[1:]
     return [r for r in rows if r.find_all(["td", "th"])]
 
+
 def team_text(cell: Any) -> str:
     link = cell.find("a")
     return clean((link or cell).get_text())
+
 
 def is_pods_table(table: Any) -> bool:
     hdrs = [h.lower() for h in header_cells(table)]
@@ -276,6 +301,7 @@ def is_pods_table(table: Any) -> bool:
     if len(body_rows(table)) < 6:
         return True
     return False
+
 
 # ── Sidearm Standings Table Parser ────────────────────────────────────────────
 def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
@@ -437,6 +463,7 @@ def parse_standings_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
         "rows": rows,
     }
 
+
 # ── USCHO Poll Table Parser (Targets Bootstrap-Vue #btable) ───────────────────
 def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
     soup = BeautifulSoup(html, "html.parser")
@@ -578,6 +605,7 @@ def parse_uscho_poll_table(html: str, meta: Dict[str, Any]) -> Dict[str, Any]:
         "rows": rows,
     }
 
+
 # ── Static HTTP Fetcher Fast-Path ─────────────────────────────────────────────
 def fetch_static_html(url: str) -> Optional[str]:
     try:
@@ -587,6 +615,7 @@ def fetch_static_html(url: str) -> Optional[str]:
     except Exception as e:
         logger.debug(f"Static HTTP fetch skipped for {url}: {e}")
         return None
+
 
 # ── Dynamic Async Playwright Fetcher ──────────────────────────────────────────
 async def fetch_rendered_html(context: BrowserContext, feed: Dict[str, Any]) -> str:
@@ -612,6 +641,7 @@ async def fetch_rendered_html(context: BrowserContext, feed: Dict[str, Any]) -> 
     finally:
         if page:
             await page.close()
+
 
 async def process_feed(
     context: BrowserContext,
@@ -657,32 +687,65 @@ async def process_feed(
                 "rows": [],
             }
 
-# ── Caching & Payload Helpers ────────────────────────────────────────────────
+
+# ── Timestamp & Caching Helpers ───────────────────────────────────────────────
+ROOT_VOLATILE_KEYS = ("generated_at", "updated_at", "last_scan", "last_updated")
+FEED_VOLATILE_KEYS = ("updated_at", "last_scan", "last_updated")
+
+
 def now_iso() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
+
+def _parse_iso(value: Any) -> Optional[dt.datetime]:
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed
+
+
+def _age_in_hours(iso_str: Any) -> float:
+    parsed = _parse_iso(iso_str)
+    if parsed is None:
+        return 999.0
+    return (dt.datetime.now(dt.timezone.utc) - parsed).total_seconds() / 3600.0
+
+
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
-    clean_d = {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
-    if "sports" in clean_d and isinstance(clean_d["sports"], dict):
-        clean_sports = {}
-        for s_id, s_data in clean_d["sports"].items():
-            if isinstance(s_data, dict):
-                clean_sports[s_id] = {k: v for k, v in s_data.items() if k != "updated_at"}
-            else:
-                clean_sports[s_id] = s_data
-        clean_d["sports"] = clean_sports
+    """Payload minus every timestamp field, for content comparison."""
+    clean_d = {k: v for k, v in d.items() if k not in ROOT_VOLATILE_KEYS}
+    sports = clean_d.get("sports")
+    if isinstance(sports, dict):
+        clean_d["sports"] = {
+            s_id: ({k: v for k, v in s_data.items() if k not in FEED_VOLATILE_KEYS}
+                   if isinstance(s_data, dict) else s_data)
+            for s_id, s_data in sports.items()
+        }
     return clean_d
 
-def _age_in_hours(iso_str: str) -> float:
-    try:
-        cleaned_iso = iso_str.replace("Z", "+00:00")
-        parsed_dt = dt.datetime.fromisoformat(cleaned_iso)
-        return (dt.datetime.now(dt.timezone.utc) - parsed_dt).total_seconds() / 3600.0
-    except Exception:
-        return 999.0
 
-# ── Main Async Runner ──────────────────────────────────────────────────────────
-async def run_scraper(out_path: Path) -> None:
+def _feed_content(feed: Dict[str, Any]) -> Dict[str, Any]:
+    """The part of a feed that counts as 'data' for last_updated purposes."""
+    return {"rows": feed.get("rows"), "poll_date": feed.get("poll_date")}
+
+
+def _prev_last_scan(old_feed: Dict[str, Any]) -> Optional[str]:
+    # Files written before the dual-timestamp change only have updated_at (= last successful scan).
+    return old_feed.get("last_scan") or old_feed.get("updated_at")
+
+
+def _prev_last_updated(old_feed: Dict[str, Any]) -> Optional[str]:
+    # Same migration fallback. First run after the change may slightly overstate last_updated.
+    return old_feed.get("last_updated") or old_feed.get("updated_at")
+
+
+# ── Main Async Runner ─────────────────────────────────────────────────────────
+async def run_scraper(out_path: Path, force_write: bool = False) -> int:
     old_sports: Dict[str, Any] = {}
     old_payload: Dict[str, Any] = {}
     if out_path.exists():
@@ -690,8 +753,10 @@ async def run_scraper(out_path: Path) -> None:
             old_payload = json.loads(out_path.read_text(encoding="utf-8"))
             if isinstance(old_payload, dict):
                 old_sports = old_payload.get("sports", {})
+            else:
+                old_payload = {}
         except Exception:
-            pass
+            old_payload = {}
 
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
@@ -718,24 +783,35 @@ async def run_scraper(out_path: Path) -> None:
         await browser.close()
 
     new_scraped = dict(results)
-    current_timestamp = now_iso()
+    now = now_iso()
     final_sports: Dict[str, Any] = {}
+    feeds_ok = 0
 
     for feed in FEEDS_CONFIG:
         s_id = feed["id"]
         res = new_scraped.get(s_id)
-        old = old_sports.get(s_id)
+        old = old_sports.get(s_id) or {}
 
         if res and res.get("status") == "ok":
-            res["updated_at"] = current_timestamp
+            feeds_ok += 1
+            unchanged = bool(old.get("rows")) and _feed_content(old) == _feed_content(res)
+            res["last_scan"] = now
+            res["last_updated"] = (_prev_last_updated(old) or now) if unchanged else now
+            res["updated_at"] = now  # legacy alias of last_scan
             final_sports[s_id] = res
-        elif old and old.get("rows"):
+
+        elif old.get("rows"):
             logger.warning(f"[{s_id}] Scrape failed — keeping previous data as stale.")
-            final_sports[s_id] = {
+            kept = {
                 **old,
                 "status": "stale",
                 "error": res.get("error") if res else "Fetch failed",
             }
+            # Failed fetch: do NOT advance this feed's timestamps.
+            kept["last_scan"] = _prev_last_scan(old)
+            kept["last_updated"] = _prev_last_updated(old)
+            final_sports[s_id] = kept
+
         else:
             final_sports[s_id] = res or {
                 "id": s_id,
@@ -745,31 +821,64 @@ async def run_scraper(out_path: Path) -> None:
                 "rows": [],
             }
 
+    # Guard: if nothing could be fetched, don't claim a fresh scan.
+    if feeds_ok == 0:
+        logger.error("No feed was scraped successfully — leaving existing file untouched (timestamps not advanced).")
+        return 1
+
+    # Top-level last_updated = most recent change across all feeds that have data.
+    stamps = [
+        s.get("last_updated") or s.get("updated_at")
+        for s in final_sports.values() if s.get("rows")
+    ]
+    stamps = [s for s in stamps if _parse_iso(s)]
+    top_last_updated = max(stamps, key=_parse_iso) if stamps else now
+
     payload = {
-        "generated_at": current_timestamp,
+        "last_scan": now,
+        "last_updated": top_last_updated,
+        "generated_at": now,  # legacy alias of last_scan: keeps the current Hub tally green
         "sports": final_sports,
     }
 
-    # Smart cache hit check: skip rewrite if sports data hasn't changed and is < 18h old
-    if old_payload and _strip_volatile(old_payload) == _strip_volatile(payload):
-        old_gen = old_payload.get("generated_at", "")
-        if old_gen and _age_in_hours(old_gen) < MAX_CACHE_HOURS:
-            logger.info(f"Cache hit (<{MAX_CACHE_HOURS}h old, identical standings/polls) — skipping disk rewrite.")
-            return
+    content_same = bool(old_payload) and _strip_volatile(old_payload) == _strip_volatile(payload)
+
+    # Throttle: nothing changed and the stored last_scan is recent -> skip the write (no commit, no deploy).
+    # A file without last_scan (pre-migration) is always rewritten once so the new fields appear.
+    if content_same and not force_write and "last_scan" in old_payload:
+        old_scan = old_payload.get("last_scan") or old_payload.get("generated_at")
+        if _age_in_hours(old_scan) < SCAN_WRITE_INTERVAL_HOURS:
+            logger.info(
+                f"No data change and last_scan is <{SCAN_WRITE_INTERVAL_HOURS}h old — skipping disk write "
+                f"(use --force-write to override)."
+            )
+            return 0
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
+    tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
+    tmp_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    logger.info(f"\n✓ Successfully wrote {len(final_sports)} feeds to {out_path}")
+    os.replace(tmp_path, out_path)
+
+    if content_same:
+        logger.info(f"\n✓ No data change — advanced last_scan only ({now}). last_updated stays {top_last_updated}.")
+    else:
+        logger.info(f"\n✓ Data changed — wrote {len(final_sports)} feeds; last_scan and last_updated set ({now}).")
+    logger.info(f"  Output: {out_path}")
+    return 0
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Summit League, NCHC, WCHA, PFL Standings and USCHO Polls Scraper")
     ap.add_argument("--out", default=str(DEFAULT_OUT), help="Path to output data.json")
+    ap.add_argument("--force-write", action="store_true",
+                    help="Write the file even if nothing changed and last_scan is recent")
     args = ap.parse_args()
 
-    asyncio.run(run_scraper(Path(args.out)))
+    sys.exit(asyncio.run(run_scraper(Path(args.out), force_write=args.force_write)))
+
 
 if __name__ == "__main__":
     main()
