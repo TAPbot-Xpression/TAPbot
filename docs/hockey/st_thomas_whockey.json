@@ -4,7 +4,7 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-25T04:50:10.090416+00:00",
+  "generated_at": "2026-11-26T04:28:39.576629+00:00",
   "source_stats_url": "https://tommiesports.com/sports/whockey/stats/2026-27",
   "source_roster_url": "https://tommiesports.com/sports/whockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -14,8 +14,8 @@
     "shot_pct": "7.6%",
     "pp_pct": "10.7%",
     "pk_pct": "72.4%",
-    "pen_per_game": "2.4",
-    "pim_per_game": "6.1",
+    "pen_per_game": "2.5",
+    "pim_per_game": "6.8",
     "faceoff_pct": "51.7%"
   },
   "players": [
@@ -136,7 +136,7 @@
       "ppg": "0",
       "shg": "0",
       "gwg": "0",
-      "pn_pim": "1-5"
+      "pn_pim": "2-15"
     },
     {
       "number": "13",

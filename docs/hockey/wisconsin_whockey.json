@@ -4,7 +4,7 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-25T03:13:07.388959+00:00",
+  "generated_at": "2026-11-26T04:28:22.464058+00:00",
   "source_stats_url": "https://uwbadgers.com/sports/womens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://uwbadgers.com/sports/womens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -375,6 +375,51 @@
       "shg": "0",
       "gwg": "0",
       "pn_pim": "0-0"
+    },
+    {
+      "number": "1",
+      "name": "Rhyah Stewart",
+      "position": "G",
+      "year": "SO",
+      "is_goalie": "true",
+      "gp_gs": "6-4",
+      "ga": "4",
+      "gaa": ".88",
+      "sv": "97",
+      "sv_pct": ".960",
+      "sho": "1",
+      "w_l_t": "5-0-0",
+      "min": "272:47"
+    },
+    {
+      "number": "30",
+      "name": "Ava McNaughton",
+      "position": "G",
+      "year": "SR",
+      "is_goalie": "true",
+      "gp_gs": "10-10",
+      "ga": "17",
+      "gaa": "1.81",
+      "sv": "220",
+      "sv_pct": ".928",
+      "sho": "1",
+      "w_l_t": "7-2-0",
+      "min": "563:21"
+    },
+    {
+      "number": "31",
+      "name": "Kayla Swartout",
+      "position": "G",
+      "year": "FR",
+      "is_goalie": "true",
+      "gp_gs": "1-0",
+      "ga": "0",
+      "gaa": ".00",
+      "sv": "0",
+      "sv_pct": ".000",
+      "sho": "0",
+      "w_l_t": "0-0-0",
+      "min": "00:00"
     }
   ]
 }
