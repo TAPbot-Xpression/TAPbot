@@ -4,7 +4,7 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-26T04:28:40.126826+00:00",
+  "generated_at": "2026-11-26T05:01:47.276632+00:00",
   "source_stats_url": "https://scsuhuskies.com/sports/womens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://scsuhuskies.com/sports/womens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -375,36 +375,6 @@
       "shg": "0",
       "gwg": "0",
       "pn_pim": "5-10"
-    },
-    {
-      "number": "42",
-      "name": "Emilia Kyrkk\u00f6",
-      "position": "G",
-      "year": "JR",
-      "is_goalie": "true",
-      "gp_gs": "6-6",
-      "ga": "10",
-      "gaa": "1.72",
-      "sv": "127",
-      "sv_pct": ".927",
-      "sho": "1",
-      "w_l_t": "5-1-0",
-      "min": "348:51"
-    },
-    {
-      "number": "33",
-      "name": "Alexis Ehrman",
-      "position": "G",
-      "year": "FR",
-      "is_goalie": "true",
-      "gp_gs": "11-10",
-      "ga": "29",
-      "gaa": "2.90",
-      "sv": "339",
-      "sv_pct": ".921",
-      "sho": "1",
-      "w_l_t": "3-7-0",
-      "min": "599:51"
     }
   ]
 }
