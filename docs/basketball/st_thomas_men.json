@@ -2,7 +2,7 @@
   "team": "St. Thomas",
   "slug": "st_thomas_men",
   "gender": "men",
-  "generated_at": "2026-11-26T04:28:06.679249+00:00",
+  "generated_at": "2026-11-26T04:43:11.306861+00:00",
   "team_stats_status": "ok",
   "team_stats_missing": [],
   "team_stats": {
@@ -24,7 +24,7 @@
     "stl_per_game": "7.3",
     "blk_per_game": "2.2"
   },
-  "conference_team_stats_status": "selector_not_found",
+  "conference_team_stats_status": "no_games",
   "conference_team_stats_missing": [
     "ppg",
     "opp_ppg",
