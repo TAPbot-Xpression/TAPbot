@@ -707,7 +707,7 @@ def parse_goalies_table(soup: BeautifulSoup) -> List[Dict[str, Any]]:
             if f and f not in mapping:
                 mapping[f] = idx
 
-        if not ("gaa" in mapping or "sv_pct" in mapping or "sv" in mapping):
+        if not ("gaa" in mapping or "sv_pct" in mapping or "sv" in mapping or "ga" in mapping):
             continue
 
         name_idx = mapping.get("name")
@@ -968,7 +968,7 @@ def parse_goalies_table_grouped(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     goalies: List[Dict[str, Any]] = []
     for table in _candidate_tables(soup):
         mapping, body_rows, _ = _grouped_mapping(table, map_goalie_header)
-        if not (("gp_gs" in mapping or "gp" in mapping) and ("gaa" in mapping or "sv_pct" in mapping)):
+        if not (("gp_gs" in mapping or "gp" in mapping) and ("gaa" in mapping or "sv_pct" in mapping or "ga" in mapping)):
             continue
 
         name_idx = mapping.get("name", 1)
@@ -1135,7 +1135,7 @@ async def _ensure_ui_tab(page: Page, panel_id: str) -> bool:
 # ── Finalize Player Dict ─────────────────────────────────────────────────────
 def finalize_player(p: Dict[str, Any]) -> Dict[str, str]:
     pos = (p.get("position") or "").upper()
-    is_goalie = pos == "G" or p.get("is_goalie") is True
+    is_goalie = pos == "G" or p.get("is_goalie") is True or p.get("is_goalie") == "true"
 
     record: Dict[str, str] = {
         "number": p.get("number", ""),
@@ -1187,7 +1187,7 @@ def merge_with_roster(raw_players: List[Dict[str, Any]], roster_lookup: Dict[str
         if r_info:
             p["name"] = r_info.get("name") or name
             p["number"] = sp.get("number") or r_info.get("number", "")
-            p["position"] = "G" if sp.get("is_goalie") else (r_info.get("position") or sp.get("position", "F"))
+            p["position"] = "G" if (sp.get("is_goalie") or sp.get("position") == "G") else (r_info.get("position") or sp.get("position", "F"))
             p["year"] = r_info.get("year") or sp.get("year", "")
         merged.append(finalize_player(p))
 
@@ -1244,33 +1244,43 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
 
             # 2. Switch dropdown to Goaltenders
             try:
-                select_box = page.locator('button[data-test-id="s-select__box"]').filter(
-                    has_text=re.compile(r"Skaters|Goaltenders", re.I)).first
-                if await select_box.count() > 0:
-                    await select_box.click()
-                    # Wait for floating listbox to attach and render
-                    goalie_option = page.locator('li[role="option"]').filter(
-                        has_text=re.compile(r"^Goaltenders", re.I)).first
-                    try:
-                        await goalie_option.wait_for(state="visible", timeout=3000)
-                        await goalie_option.click()
-                        # Wait for table header to switch from Skater PTS/G to Goalie GAA/Saves
-                        try:
-                            await page.wait_for_selector(
-                                "th:has-text('GAA'), th:has-text('GA'), th:has-text('Save'), th:has-text('SV%'), th:has-text('MIN')",
-                                timeout=4000
-                            )
-                        except Exception:
-                            await page.wait_for_timeout(800)
+                # Find the dropdown button representing player category (Skaters / Goaltenders)
+                select_box = page.locator('button[data-test-id="s-select__box"], button.s-select-box').filter(
+                    has_text=re.compile(r"Skaters|Goaltenders", re.I)
+                ).first
+                
+                if await select_box.count() == 0:
+                    select_box = page.locator('button[aria-label*="Second Menu Options"]').first
 
-                        html_goalies = await page.content()
-                        soup_goalies = BeautifulSoup(html_goalies, "html.parser")
-                        goalies = parse_goalies_table(soup_goalies)
-                        raw_players.extend(goalies)
-                    except Exception as e:
-                        logger.debug(f"[{label}] Goalie option click/wait error: {e}")
+                if await select_box.count() > 0:
+                    await select_box.scroll_into_view_if_needed()
+                    await select_box.click()
+                    
+                    # Target Goaltenders list option
+                    goalie_option = page.locator('li[role="option"], [data-test-id="s-select__option"]').filter(
+                        has_text=re.compile(r"Goaltenders", re.I)
+                    ).first
+                    
+                    await goalie_option.wait_for(state="visible", timeout=4000)
+                    await goalie_option.click()
+
+                    # Wait for goaltender table to render
+                    try:
+                        await page.wait_for_selector(
+                            "th:has-text('GAA'), th:has-text('GA'), th:has-text('Save'), th:has-text('SV%'), th:has-text('MIN')",
+                            timeout=5000
+                        )
+                    except Exception:
+                        await page.wait_for_timeout(1000)
+
+                    html_goalies = await page.content()
+                    soup_goalies = BeautifulSoup(html_goalies, "html.parser")
+                    goalies = parse_goalies_table(soup_goalies)
+                    raw_players.extend(goalies)
+                else:
+                    logger.warning(f"[{label}] Could not find Skaters/Goaltenders dropdown button")
             except Exception as e:
-                logger.debug(f"[{label}] Goaltenders dropdown interaction: {e}")
+                logger.warning(f"[{label}] Goaltenders dropdown interaction failed: {e}")
 
             if not any(p.get("is_goalie") for p in raw_players):
                 raw_players.extend(parse_goalies_table(soup_skaters))
