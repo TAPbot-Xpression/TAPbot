@@ -15,13 +15,12 @@ Output (repo-relative, resolved from this script's location):
   docs/hockey/non_conf_mhockey.json
   docs/hockey/non_conf_whockey.json
 
-Optimizations applied:
+Optimizations & Resilience:
   1. Full async concurrency across teams bounded by asyncio.Semaphore(5).
   2. Concurrent stats page loading & roster fetching per team via asyncio.create_task.
   3. Playwright resource routing to abort heavy images, media, and fonts.
-  4. Selector-based DOM waits replacing sluggish networkidle timeouts.
-  5. Smart cache & git-diff preservation: avoids rewriting unchanged JSON (<18h old).
-  6. Empty-scrape safeguards: preserves previous player data and team stats if a live scrape fails.
+  4. Reliable DOM state-change waits for Sidearm Vue dropdowns (Skaters -> Goaltenders).
+  5. Empty-scrape safeguards: preserves previous player data and team stats if a live scrape fails.
 """
 
 from __future__ import annotations
@@ -802,7 +801,7 @@ def parse_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
                     found["shots_per_game"] = val_home
 
             elif current_section == "POWER_PLAYS":
-                if "conversion percentage" in label or "percentage" in label or "pp pct" in label:
+                if "conversion percentage" in label or "percentage" in label or "pp pct" in label or "power play %" in label:
                     if val_home and "pp_pct" not in found:
                         v = _pct_str(val_home)
                         if v:
@@ -822,7 +821,7 @@ def parse_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
                     found["pim_per_game"] = val_home
 
             elif current_section == "FACEOFFS":
-                if ("percentage" in label or "pct" in label or "faceoff" in label) and "faceoff_pct" not in found:
+                if ("percentage" in label or "faceoff %" in label or "pct" in label or "faceoff" in label) and "faceoff_pct" not in found:
                     v = _pct_str(val_home)
                     if v:
                         found["faceoff_pct"] = v
@@ -1094,7 +1093,7 @@ def parse_team_stats_old(soup: BeautifulSoup) -> Dict[str, str]:
                 found["pim_per_game"] = team_val
 
         elif section == "FACEOFFS":
-            if ("percentage" in n0 or "pct" in n0) and "faceoff_pct" not in found:
+            if ("percentage" in n0 or "pct" in n0 or "faceoff" in n0) and "faceoff_pct" not in found:
                 v = _pct_str(team_val)
                 if v:
                     found["faceoff_pct"] = v
@@ -1201,7 +1200,7 @@ def build_team_data(team_cfg: Dict[str, Any], style_label: str, team_stats: Dict
         "players": merged,
     }
 
-# ── Scrape Pipelines ─────────────────────────────────────────────────────────
+# ── Scrape Single Team Pipeline: NEW STYLE (Vue/Nuxt dropdowns) ──────────────
 async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[str, Any],
                                        semaphore: asyncio.Semaphore) -> Dict[str, Any]:
     async with semaphore:
@@ -1225,10 +1224,11 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
             except Exception:
                 pass
 
-            # 1. Skaters table
+            # 1. Skaters table (default active view)
             html_skaters = await page.content()
             soup_skaters = BeautifulSoup(html_skaters, "html.parser")
-            raw_players.extend(parse_skaters_table(soup_skaters))
+            skaters = parse_skaters_table(soup_skaters)
+            raw_players.extend(skaters)
 
             # 2. Switch dropdown to Goaltenders
             try:
@@ -1236,17 +1236,27 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
                     has_text=re.compile(r"Skaters|Goaltenders", re.I)).first
                 if await select_box.count() > 0:
                     await select_box.click()
+                    # Wait for floating listbox to attach and render
                     goalie_option = page.locator('li[role="option"]').filter(
                         has_text=re.compile(r"^Goaltenders", re.I)).first
-                    if await goalie_option.count() > 0:
+                    try:
+                        await goalie_option.wait_for(state="visible", timeout=3000)
                         await goalie_option.click()
+                        # Wait for table header to switch from Skater PTS/G to Goalie GAA/Saves
                         try:
-                            await page.wait_for_selector("table", timeout=4000)
+                            await page.wait_for_selector(
+                                "th:has-text('GAA'), th:has-text('GA'), th:has-text('Save'), th:has-text('SV%'), th:has-text('MIN')",
+                                timeout=4000
+                            )
                         except Exception:
-                            await page.wait_for_timeout(500)
+                            await page.wait_for_timeout(800)
+
                         html_goalies = await page.content()
                         soup_goalies = BeautifulSoup(html_goalies, "html.parser")
-                        raw_players.extend(parse_goalies_table(soup_goalies))
+                        goalies = parse_goalies_table(soup_goalies)
+                        raw_players.extend(goalies)
+                    except Exception as e:
+                        logger.debug(f"[{label}] Goalie option click/wait error: {e}")
             except Exception as e:
                 logger.debug(f"[{label}] Goaltenders dropdown interaction: {e}")
 
@@ -1260,9 +1270,13 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
                 if await team_stats_tab.count() > 0:
                     await team_stats_tab.click()
                     try:
-                        await page.wait_for_selector("table", timeout=4000)
+                        await page.wait_for_selector(
+                            "th:has-text('SHOT'), th:has-text('POWER PLAY'), td:has-text('Goals per game'), td:has-text('Goals/Game')",
+                            timeout=4000
+                        )
                     except Exception:
-                        await page.wait_for_timeout(500)
+                        await page.wait_for_timeout(800)
+
                     html_team = await page.content()
                     soup_team = BeautifulSoup(html_team, "html.parser")
                     parsed_ts = parse_team_stats(soup_team)
@@ -1282,11 +1296,12 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
 
         roster_lookup = await roster_task
         merged = merge_with_roster(raw_players, roster_lookup)
-        logger.info(f"[{label}] {len(merged)} players, team stats found: "
-                    f"{sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
+        logger.info(f"[{label}] {len(merged)} players ({sum(1 for p in merged if p.get('is_goalie') == 'true')} goalies), "
+                    f"team stats found: {sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
         team_data = build_team_data(team_cfg, style, team_stats, merged)
         return write_team_json(slug, team_data)
 
+# ── Scrape Single Team Pipeline: OLD STYLE (jQuery UI tabs) ──────────────────
 async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[str, Any],
                                        semaphore: asyncio.Semaphore) -> Dict[str, Any]:
     async with semaphore:
@@ -1338,8 +1353,8 @@ async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[s
 
         roster_lookup = await roster_task
         merged = merge_with_roster(raw_players, roster_lookup)
-        logger.info(f"[{label}] {len(merged)} players, team stats found: "
-                    f"{sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
+        logger.info(f"[{label}] {len(merged)} players ({sum(1 for p in merged if p.get('is_goalie') == 'true')} goalies), "
+                    f"team stats found: {sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
         team_data = build_team_data(team_cfg, "Old Style (jQuery UI tabs)", team_stats, merged)
         return write_team_json(slug, team_data)
 
@@ -1385,8 +1400,8 @@ def parse_team_stats_asu_wmt(soup: BeautifulSoup) -> Dict[str, str]:
             v = _pct_str(val_home)
             if v:
                 found["shot_pct"] = v
-        elif ("power play percentage" in label_clean or "pp pct" in label_clean or "power play %" in label_clean):
-            if val_home and "pp_pct" not in found:
+        elif ("power play percentage" in label_clean or "conversion percentage" in label_clean or "pp pct" in label_clean) and "pp_pct" not in found:
+            if val_home:
                 v = _pct_str(val_home)
                 if v:
                     found["pp_pct"] = v
@@ -1460,8 +1475,8 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
 
         roster_lookup = await roster_task
         merged = merge_with_roster(raw_players, roster_lookup)
-        logger.info(f"[{label}] {len(merged)} players, team stats found: "
-                    f"{sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
+        logger.info(f"[{label}] {len(merged)} players ({sum(1 for p in merged if p.get('is_goalie') == 'true')} goalies), "
+                    f"team stats found: {sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
         team_data = build_team_data(team_cfg, "WMT Digital (Static DOM)", team_stats, merged)
         return write_team_json(slug, team_data)
 
@@ -1503,7 +1518,7 @@ async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool
                         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         )
 
-        # Block media/fonts/images to drastically speed up network transfers
+        # Block media/fonts/images to speed up network transfers
         await context.route(
             "**/*",
             lambda route: route.abort()
@@ -1527,7 +1542,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="NCHC Men's and WCHA Women's Hockey Stats Scraper")
     ap.add_argument("--gender", choices=["all", "men", "women"], default="all",
                     help="Filter by gender (default: all)")
-    ap.add_argument("--only", help='Comma-separated team names/slugs, e.g. "St. Thomas,Minnesota,Wisconsin"')
+    ap.add_argument("--only", help='Comma-separated team names/slugs, e.g. "St. Thomas,Minnesota,St. Cloud State"')
     ap.add_argument("--debug", action="store_true", help="Debug mode")
     args = ap.parse_args()
 
