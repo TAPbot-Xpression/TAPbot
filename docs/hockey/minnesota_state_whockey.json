@@ -4,19 +4,20 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-26T04:28:52.534727+00:00",
+  "generated_at": "2026-11-26T05:19:46.931264+00:00",
   "source_stats_url": "https://msumavericks.com/sports/womens-ice-hockey/stats/2026-27?path=whockey",
   "source_roster_url": "https://msumavericks.com/sports/womens-ice-hockey/roster?print=true",
   "site_style": "Old Style (jQuery UI tabs)",
   "team_stats": {
     "goals_per_game": "2.3",
+    "goals_against_per_game": "3.5",
     "shots_per_game": "26.1",
-    "shot_pct": "8.7%",
-    "pp_pct": "14.6%",
-    "pk_pct": "71.7%",
+    "shot_pct": ".087",
+    "pp_pct": ".146",
+    "pk_pct": ".717",
     "pen_per_game": "3.7",
     "pim_per_game": "8.4",
-    "faceoff_pct": "48.2%"
+    "faceoff_pct": ".482"
   },
   "players": [
     {

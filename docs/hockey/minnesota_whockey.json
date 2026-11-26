@@ -4,19 +4,20 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-26T04:28:47.105019+00:00",
+  "generated_at": "2026-11-26T05:19:30.963970+00:00",
   "source_stats_url": "https://gophersports.com/sports/womens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://gophersports.com/sports/womens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
   "team_stats": {
     "goals_per_game": "4.9",
+    "goals_against_per_game": "1.8",
     "shots_per_game": "42.4",
-    "shot_pct": "11.6%",
-    "pp_pct": "34.2%",
-    "pk_pct": "81.6%",
+    "shot_pct": ".116",
+    "pp_pct": ".342",
+    "pk_pct": ".816",
     "pen_per_game": "3.4",
     "pim_per_game": "7.9",
-    "faceoff_pct": "57.5%"
+    "faceoff_pct": ".575"
   },
   "players": [
     {

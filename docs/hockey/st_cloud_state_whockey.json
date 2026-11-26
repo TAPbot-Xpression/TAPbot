@@ -4,19 +4,20 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-26T05:01:47.276632+00:00",
+  "generated_at": "2026-11-26T05:19:39.504180+00:00",
   "source_stats_url": "https://scsuhuskies.com/sports/womens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://scsuhuskies.com/sports/womens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
   "team_stats": {
     "goals_per_game": "2.1",
+    "goals_against_per_game": "2.8",
     "shots_per_game": "26.2",
-    "shot_pct": "8.1%",
-    "pp_pct": "18.2%",
-    "pk_pct": "82.9%",
+    "shot_pct": ".081",
+    "pp_pct": ".182",
+    "pk_pct": ".829",
     "pen_per_game": "2.4",
     "pim_per_game": "4.8",
-    "faceoff_pct": "47.4%"
+    "faceoff_pct": ".474"
   },
   "players": [
     {

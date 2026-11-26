@@ -4,19 +4,20 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-26T04:28:55.679379+00:00",
+  "generated_at": "2026-11-26T05:19:33.218116+00:00",
   "source_stats_url": "https://ohiostatebuckeyes.com/sports/womens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://ohiostatebuckeyes.com/sports/womens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
   "team_stats": {
     "goals_per_game": "4.3",
+    "goals_against_per_game": "1.8",
     "shots_per_game": "38.1",
-    "shot_pct": "11.1%",
-    "pp_pct": "40.4%",
-    "pk_pct": "83.3%",
+    "shot_pct": ".111",
+    "pp_pct": ".404",
+    "pk_pct": ".833",
     "pen_per_game": "4.1",
     "pim_per_game": "8.1",
-    "faceoff_pct": "56.0%"
+    "faceoff_pct": ".560"
   },
   "players": [
     {

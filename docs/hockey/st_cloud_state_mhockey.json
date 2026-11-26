@@ -4,19 +4,20 @@
   "gender": "men",
   "sport": "hockey",
   "conference": "NCHC",
-  "generated_at": "2026-11-26T04:28:31.375553+00:00",
+  "generated_at": "2026-11-26T05:19:19.049956+00:00",
   "source_stats_url": "https://scsuhuskies.com/sports/mens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://scsuhuskies.com/sports/mens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
   "team_stats": {
     "goals_per_game": "2.0",
+    "goals_against_per_game": "3.3",
     "shots_per_game": "28.6",
-    "shot_pct": "7.0%",
-    "pp_pct": "25.7%",
-    "pk_pct": "75.0%",
+    "shot_pct": ".070",
+    "pp_pct": ".257",
+    "pk_pct": ".750",
     "pen_per_game": "4.1",
     "pim_per_game": "8.2",
-    "faceoff_pct": "53.1%"
+    "faceoff_pct": ".531"
   },
   "players": [
     {

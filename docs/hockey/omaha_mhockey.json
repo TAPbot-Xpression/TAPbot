@@ -4,19 +4,20 @@
   "gender": "men",
   "sport": "hockey",
   "conference": "NCHC",
-  "generated_at": "2026-11-25T15:25:57.419024+00:00",
+  "generated_at": "2026-11-26T05:19:17.598184+00:00",
   "source_stats_url": "https://omahamavs.com/sports/mens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://omahamavs.com/sports/mens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
   "team_stats": {
     "goals_per_game": "3.1",
+    "goals_against_per_game": "2.8",
     "shots_per_game": "28.8",
-    "shot_pct": "10.7%",
-    "pp_pct": "17.5%",
-    "pk_pct": "80.0%",
+    "shot_pct": ".107",
+    "pp_pct": ".175",
+    "pk_pct": ".800",
     "pen_per_game": "5.2",
     "pim_per_game": "12.8",
-    "faceoff_pct": "49.9%"
+    "faceoff_pct": ".499"
   },
   "players": [
     {

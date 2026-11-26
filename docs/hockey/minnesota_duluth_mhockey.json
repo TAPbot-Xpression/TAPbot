@@ -4,19 +4,20 @@
   "gender": "men",
   "sport": "hockey",
   "conference": "NCHC",
-  "generated_at": "2026-11-26T04:28:03.602481+00:00",
+  "generated_at": "2026-11-26T05:19:16.383434+00:00",
   "source_stats_url": "https://umdbulldogs.com/sports/mens-ice-hockey/stats",
   "source_roster_url": "https://umdbulldogs.com/sports/mens-ice-hockey/roster?print=true",
   "site_style": "Old Style (jQuery UI tabs)",
   "team_stats": {
     "goals_per_game": "3.5",
+    "goals_against_per_game": "1.6",
     "shots_per_game": "32.8",
-    "shot_pct": "10.7%",
-    "pp_pct": "22.4%",
-    "pk_pct": "94.9%",
+    "shot_pct": ".107",
+    "pp_pct": ".224",
+    "pk_pct": ".949",
     "pen_per_game": "3.1",
     "pim_per_game": "8.6",
-    "faceoff_pct": "47.6%"
+    "faceoff_pct": ".476"
   },
   "players": [
     {

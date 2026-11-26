@@ -4,19 +4,20 @@
   "gender": "women",
   "sport": "hockey",
   "conference": "WCHA",
-  "generated_at": "2026-11-26T04:28:50.046590+00:00",
+  "generated_at": "2026-11-26T05:19:46.347978+00:00",
   "source_stats_url": "https://umdbulldogs.com/sports/womens-ice-hockey/stats",
   "source_roster_url": "https://umdbulldogs.com/sports/whockey/roster?print=true",
   "site_style": "Old Style (jQuery UI tabs)",
   "team_stats": {
     "goals_per_game": "2.6",
+    "goals_against_per_game": "1.7",
     "shots_per_game": "29.7",
-    "shot_pct": "8.9%",
-    "pp_pct": "8.3%",
-    "pk_pct": "82.9%",
+    "shot_pct": ".089",
+    "pp_pct": ".083",
+    "pk_pct": ".829",
     "pen_per_game": "2.8",
     "pim_per_game": "6.6",
-    "faceoff_pct": "46.3%"
+    "faceoff_pct": ".463"
   },
   "players": [
     {
