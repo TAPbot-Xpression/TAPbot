@@ -4,7 +4,7 @@
   "gender": "men",
   "sport": "hockey",
   "conference": "NCHC",
-  "generated_at": "2026-11-26T05:24:15.413549+00:00",
+  "generated_at": "2026-11-26T05:29:54.746906+00:00",
   "source_stats_url": "https://miamiredhawks.com/sports/mens-ice-hockey/stats/2026-27",
   "source_roster_url": "https://miamiredhawks.com/sports/mens-ice-hockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -427,36 +427,6 @@
       "shg": "0",
       "gwg": "0",
       "pn_pim": "0-0"
-    },
-    {
-      "number": "72",
-      "name": "Yegor Yegorov",
-      "position": "G",
-      "year": "FR",
-      "is_goalie": "true",
-      "gp_gs": "2-1",
-      "ga": "2",
-      "gaa": "1.46",
-      "sv": "29",
-      "sv_pct": ".935",
-      "sho": "0",
-      "w_l_t": "1-0-0",
-      "min": "82:18"
-    },
-    {
-      "number": "45",
-      "name": "Matteo Drobac",
-      "position": "G",
-      "year": "JR",
-      "is_goalie": "true",
-      "gp_gs": "13-13",
-      "ga": "27",
-      "gaa": "2.16",
-      "sv": "271",
-      "sv_pct": ".909",
-      "sho": "0",
-      "w_l_t": "9-4-0",
-      "min": "751:17"
     }
   ]
 }

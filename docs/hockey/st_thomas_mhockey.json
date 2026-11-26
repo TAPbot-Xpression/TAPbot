@@ -4,7 +4,7 @@
   "gender": "men",
   "sport": "hockey",
   "conference": "NCHC",
-  "generated_at": "2026-11-26T05:19:02.974964+00:00",
+  "generated_at": "2026-11-26T05:29:56.705850+00:00",
   "source_stats_url": "https://tommiesports.com/sports/mhockey/stats/2026-27",
   "source_roster_url": "https://tommiesports.com/sports/mhockey/roster/print",
   "site_style": "New Style (Sidearm Nuxt/Vue)",
@@ -410,6 +410,51 @@
       "shg": "0",
       "gwg": "0",
       "pn_pim": "1-2"
+    },
+    {
+      "number": "1",
+      "name": "Will Ingemann",
+      "position": "G",
+      "year": "SO",
+      "is_goalie": "true",
+      "gp_gs": "10-10",
+      "ga": "22",
+      "gaa": "2.38",
+      "sv": "253",
+      "sv_pct": ".920",
+      "sho": "0",
+      "w_l_t": "5-4-1",
+      "min": "553:58"
+    },
+    {
+      "number": "35",
+      "name": "Ajay White",
+      "position": "G",
+      "year": "FR",
+      "is_goalie": "true",
+      "gp_gs": "2-2",
+      "ga": "5",
+      "gaa": "2.54",
+      "sv": "42",
+      "sv_pct": ".894",
+      "sho": "0",
+      "w_l_t": "1-1-0",
+      "min": "118:04"
+    },
+    {
+      "number": "32",
+      "name": "Carsen Musser",
+      "position": "G",
+      "year": "JR",
+      "is_goalie": "true",
+      "gp_gs": "2-1",
+      "ga": "6",
+      "gaa": "3.31",
+      "sv": "43",
+      "sv_pct": ".878",
+      "sho": "0",
+      "w_l_t": "0-1-0",
+      "min": "108:43"
     }
   ]
 }
