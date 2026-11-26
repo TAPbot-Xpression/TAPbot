@@ -14,15 +14,19 @@ Output (repo-relative, resolved from this script's location):
   docs/hockey/<slug>.json
   docs/hockey/non_conf_mhockey.json
   docs/hockey/non_conf_whockey.json
+  debug/<slug>_*.html|png   (only with --debug, only when a goalie step fails)
 
 Optimizations & Features:
-  1. Full async concurrency across teams bounded by asyncio.Semaphore(5).
-  2. Concurrent stats page loading & roster fetching per team via asyncio.create_task.
-  3. Playwright resource routing to abort heavy images, media, and fonts.
-  4. Robust dropdown DOM state-change waits for Sidearm Vue/Nuxt (Skaters -> Goaltenders).
-  5. Decimals for team percentage metrics (e.g. .257 instead of 25.7%).
-  6. Tracks both Goals Per Game and Goals Against Per Game.
-  7. Smart cache (<18h) and empty-scrape fallback safeguards.
+  1. Async concurrency across teams bounded by asyncio.Semaphore(5).
+  2. Every team gets its OWN isolated browser context (no shared focus/state between
+     concurrent pages - dropdown menus on Sidearm close when another page steals focus).
+  3. Concurrent stats page loading & roster fetching per team via asyncio.create_task.
+  4. Playwright resource routing to abort heavy images, media, and fonts.
+  5. New Style goalie switch: waits for Vue hydration, retries up to 3x, and VERIFIES the
+     swap (dropdown reads "Goaltenders" AND goalie column headers are on screen) before parsing.
+  6. Decimals for team percentage metrics (e.g. .257 instead of 25.7%).
+  7. Tracks both Goals Per Game and Goals Against Per Game.
+  8. Smart cache (<18h) and empty-scrape fallback safeguards (players, team stats, goalies).
 """
 
 from __future__ import annotations
@@ -41,7 +45,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from bs4 import BeautifulSoup
-from playwright.async_api import BrowserContext, Page, async_playwright
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("hockey_scraper")
@@ -51,11 +55,17 @@ sys.setrecursionlimit(20000)
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
 OUT_DIR = REPO_ROOT / "docs" / "hockey"
+DEBUG_DIR = REPO_ROOT / "debug"
 NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
 
 CONCURRENCY_LIMIT = 5
 MIN_ROSTER_ENTRIES = 8
 MAX_CACHE_HOURS = 18
+GOALIE_SWITCH_ATTEMPTS = 3
+DEBUG_MODE = False
+
+USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 
 # ── Teams Registry ───────────────────────────────────────────────────────────
 TEAMS_CONFIG: List[Dict[str, Any]] = [
@@ -459,6 +469,9 @@ def _age_in_hours(iso_str: str) -> float:
     except Exception:
         return 999.0
 
+def _is_goalie_record(p: Dict[str, Any]) -> bool:
+    return str(p.get("is_goalie")).lower() == "true" or p.get("position") == "G"
+
 def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
     """Writes docs/hockey/<slug>.json with empty scrape safeguards and smart caching."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -472,13 +485,21 @@ def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning(f"[{team_data.get('team', slug)}] No players scraped - keeping existing {slug}.json")
         return existing
 
-    # 2. Safeguard against missing team stats
+    # 2. Safeguard against missing goalies (a failed Skaters->Goaltenders switch must not wipe good goalie data)
+    new_players = team_data.get("players") or []
+    old_goalies = [p for p in (existing.get("players") or []) if _is_goalie_record(p)]
+    if new_players and not any(_is_goalie_record(p) for p in new_players) and old_goalies and same_team:
+        team_data["players"] = new_players + old_goalies
+        logger.warning(f"[{team_data.get('team', slug)}] No goalies scraped - carrying forward "
+                       f"{len(old_goalies)} goalie(s) from previous {slug}.json")
+
+    # 3. Safeguard against missing team stats
     if (not _has_team_stats(team_data.get("team_stats"))
             and _has_team_stats(existing.get("team_stats")) and same_team):
         team_data["team_stats"] = existing["team_stats"]
         logger.warning(f"[{team_data.get('team', slug)}] Team stats not found - keeping previous team_stats")
 
-    # 3. Smart cache: skip rewrite if payload content matches and is fresh (< MAX_CACHE_HOURS)
+    # 4. Smart cache: skip rewrite if payload content matches and is fresh (< MAX_CACHE_HOURS)
     if existing and same_source:
         old_clean = _strip_volatile(existing)
         new_clean = _strip_volatile(team_data)
@@ -490,6 +511,18 @@ def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
     with open(OUT_DIR / f"{slug}.json", "w", encoding="utf-8") as f:
         json.dump(team_data, f, indent=2)
     return team_data
+
+# ── Debug Snapshots (only with --debug) ───────────────────────────────────────
+async def dump_debug(page: Page, slug: str, tag: str) -> None:
+    if not DEBUG_MODE:
+        return
+    try:
+        DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+        (DEBUG_DIR / f"{slug}_{tag}.html").write_text(await page.content(), encoding="utf-8")
+        await page.screenshot(path=str(DEBUG_DIR / f"{slug}_{tag}.png"), full_page=True)
+        logger.info(f"[{slug}] debug snapshot saved: debug/{slug}_{tag}.*")
+    except Exception as e:
+        logger.debug(f"[{slug}] debug snapshot failed: {e}")
 
 # ── Roster Resolution Helpers ────────────────────────────────────────────────
 def _add_roster(lookup: Dict[str, Dict[str, str]], name: str, num: str, pos: str, yr: str) -> None:
@@ -1180,6 +1213,8 @@ def merge_with_roster(raw_players: List[Dict[str, Any]], roster_lookup: Dict[str
 
         r_info = find_roster_entry(name, sp.get("number", ""), roster_lookup)
         if roster_lookup and len(roster_lookup) >= MIN_ROSTER_ENTRIES and not r_info:
+            if sp.get("is_goalie"):
+                logger.warning(f"Goaltender '{name}' scraped from stats but not found on roster - dropped")
             continue
 
         seen.add(name.lower())
@@ -1212,6 +1247,91 @@ def build_team_data(team_cfg: Dict[str, Any], style_label: str, team_stats: Dict
         "players": merged,
     }
 
+# ══ NEW STYLE: Skaters -> Goaltenders SWITCH (Sidearm Nuxt/Vue) ══════════════
+# These run inside the browser. Both must be true before we trust the page:
+#   1. the dropdown button now reads "Goaltenders"
+#   2. a visible <th> with an exact goalie header (GAA / SV% / SV / SAVES / GA) exists
+SELECT_SHOWS_GOALIES_JS = r"""
+() => Array.from(document.querySelectorAll('button[data-test-id="s-select__box"], button.s-select-box'))
+        .some(b => /goaltender|goalie/i.test(b.textContent || ''))
+"""
+
+GOALIE_HEADERS_JS = r"""
+() => {
+  const want = ['GAA', 'SV%', 'SV', 'SAVES', 'GA'];
+  return Array.from(document.querySelectorAll('th')).some(th => {
+    if (!th.offsetParent) return false;
+    const t = (th.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    return want.includes(t);
+  });
+}
+"""
+
+async def _find_player_select(page: Page):
+    """Return the select button that currently reads Skaters/Goaltenders (not Overall/Conference/season)."""
+    boxes = page.locator('button[data-test-id="s-select__box"], button.s-select-box')
+    try:
+        total = await boxes.count()
+    except Exception:
+        return None
+    for i in range(total):
+        box = boxes.nth(i)
+        try:
+            txt = (await box.inner_text()).strip()
+        except Exception:
+            continue
+        if re.search(r"skater|goaltender|goalie", txt, re.I):
+            return box
+    return None
+
+async def switch_to_goaltenders(page: Page, label: str, attempts: int = GOALIE_SWITCH_ATTEMPTS) -> bool:
+    """
+    Switch the New Style stats table from Skaters to Goaltenders and CONFIRM it happened.
+    Retries because clicking before Vue finishes hydrating (or while the page is busy)
+    silently does nothing. Returns True only when the goalie table is actually on screen.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            box = await _find_player_select(page)
+            if box is None:
+                logger.warning(f"[{label}] goalie switch {attempt}/{attempts}: Skaters/Goaltenders dropdown not found yet")
+                await page.wait_for_timeout(1500 * attempt)
+                continue
+
+            current = (await box.inner_text()).strip()
+            if not re.search(r"goaltender|goalie", current, re.I):
+                await box.scroll_into_view_if_needed()
+                if attempt == 2:
+                    await box.evaluate("el => el.click()")   # fallback if a normal click is intercepted
+                else:
+                    await box.click()
+
+                option = page.locator('[role="option"]').filter(
+                    has_text=re.compile(r"goaltender|goalie", re.I)).first
+                await option.wait_for(state="visible", timeout=4000)
+                try:
+                    await option.click(timeout=3000)
+                except Exception:
+                    await option.evaluate("el => el.click()")
+
+                await page.wait_for_function(SELECT_SHOWS_GOALIES_JS, timeout=5000)
+
+            await page.wait_for_function(GOALIE_HEADERS_JS, timeout=6000)
+            logger.info(f"[{label}] switched to Goaltenders on attempt {attempt}/{attempts}")
+            return True
+
+        except Exception as e:
+            first_line = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+            logger.warning(f"[{label}] goalie switch {attempt}/{attempts} failed: {first_line}")
+            try:
+                await page.keyboard.press("Escape")   # close any half-open listbox before retrying
+            except Exception:
+                pass
+            await page.wait_for_timeout(1500 * attempt)
+
+    logger.error(f"[{label}] could NOT switch to Goaltenders after {attempts} attempts")
+    return False
+
 # ── Scrape Single Team Pipeline: NEW STYLE (Vue/Nuxt dropdowns) ──────────────
 async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[str, Any],
                                        semaphore: asyncio.Semaphore) -> Dict[str, Any]:
@@ -1235,52 +1355,30 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
                 await page.wait_for_selector("table, button[data-test-id='s-select__box'], button[role='tab']", timeout=8000)
             except Exception:
                 pass
+            # Let Vue hydrate. Clicking the dropdown before hydration does nothing.
+            try:
+                await page.wait_for_load_state("networkidle", timeout=6000)
+            except Exception:
+                pass
 
             # 1. Skaters table (default active view)
             html_skaters = await page.content()
             soup_skaters = BeautifulSoup(html_skaters, "html.parser")
             skaters = parse_skaters_table(soup_skaters)
             raw_players.extend(skaters)
+            logger.info(f"[{label}] parsed {len(skaters)} skater row(s)")
 
-            # 2. Switch dropdown to Goaltenders
-            try:
-                # Find the dropdown button representing player category (Skaters / Goaltenders)
-                select_box = page.locator('button[data-test-id="s-select__box"], button.s-select-box').filter(
-                    has_text=re.compile(r"Skaters|Goaltenders", re.I)
-                ).first
-                
-                if await select_box.count() == 0:
-                    select_box = page.locator('button[aria-label*="Second Menu Options"]').first
-
-                if await select_box.count() > 0:
-                    await select_box.scroll_into_view_if_needed()
-                    await select_box.click()
-                    
-                    # Target Goaltenders list option
-                    goalie_option = page.locator('li[role="option"], [data-test-id="s-select__option"]').filter(
-                        has_text=re.compile(r"Goaltenders", re.I)
-                    ).first
-                    
-                    await goalie_option.wait_for(state="visible", timeout=4000)
-                    await goalie_option.click()
-
-                    # Wait for goaltender table to render
-                    try:
-                        await page.wait_for_selector(
-                            "th:has-text('GAA'), th:has-text('GA'), th:has-text('Save'), th:has-text('SV%'), th:has-text('MIN')",
-                            timeout=5000
-                        )
-                    except Exception:
-                        await page.wait_for_timeout(1000)
-
-                    html_goalies = await page.content()
-                    soup_goalies = BeautifulSoup(html_goalies, "html.parser")
-                    goalies = parse_goalies_table(soup_goalies)
-                    raw_players.extend(goalies)
-                else:
-                    logger.warning(f"[{label}] Could not find Skaters/Goaltenders dropdown button")
-            except Exception as e:
-                logger.warning(f"[{label}] Goaltenders dropdown interaction failed: {e}")
+            # 2. Switch dropdown to Goaltenders (retries + verifies the swap)
+            goalies: List[Dict[str, Any]] = []
+            if await switch_to_goaltenders(page, label):
+                soup_goalies = BeautifulSoup(await page.content(), "html.parser")
+                goalies = parse_goalies_table(soup_goalies)
+                logger.info(f"[{label}] parsed {len(goalies)} goaltender row(s)")
+                if not goalies:
+                    await dump_debug(page, slug, "goalies_empty")
+            else:
+                await dump_debug(page, slug, "goalie_switch_failed")
+            raw_players.extend(goalies)
 
             if not any(p.get("is_goalie") for p in raw_players):
                 raw_players.extend(parse_goalies_table(soup_skaters))
@@ -1501,18 +1599,37 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
         team_data = build_team_data(team_cfg, "WMT Digital (Static DOM)", team_stats, merged)
         return write_team_json(slug, team_data)
 
-# ── Router Dispatcher ────────────────────────────────────────────────────────
-async def scrape_team(context: BrowserContext, team_cfg: Dict[str, Any],
+# ── Per-Team Isolated Browser Context + Router Dispatcher ────────────────────
+async def make_context(browser: Browser) -> BrowserContext:
+    """Each team gets its own context so concurrent pages never share focus/state."""
+    context = await browser.new_context(user_agent=USER_AGENT)
+    # Block media/fonts/images to speed up network transfers
+    await context.route(
+        "**/*",
+        lambda route: route.abort()
+        if route.request.resource_type in {"image", "media", "font"}
+        else route.continue_()
+    )
+    return context
+
+async def scrape_team(browser: Browser, team_cfg: Dict[str, Any],
                       semaphore: asyncio.Semaphore) -> Dict[str, Any]:
     style = team_cfg.get("style", "new")
-    if style == "old":
-        return await scrape_single_team_old_style(context, team_cfg, semaphore)
-    elif style == "asu":
-        return await scrape_single_team_asu_wmt(context, team_cfg, semaphore)
-    return await scrape_single_team_new_style(context, team_cfg, semaphore)
+    context = await make_context(browser)
+    try:
+        if style == "old":
+            return await scrape_single_team_old_style(context, team_cfg, semaphore)
+        elif style == "asu":
+            return await scrape_single_team_asu_wmt(context, team_cfg, semaphore)
+        return await scrape_single_team_new_style(context, team_cfg, semaphore)
+    finally:
+        await context.close()
 
 # ── Main Runner ──────────────────────────────────────────────────────────────
 async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool) -> None:
+    global DEBUG_MODE
+    DEBUG_MODE = debug
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
@@ -1534,21 +1651,9 @@ async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool
             headless=True,
             args=["--disable-blink-features=AutomationControlled"]
         )
-        context = await browser.new_context(
-            user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        )
-
-        # Block media/fonts/images to speed up network transfers
-        await context.route(
-            "**/*",
-            lambda route: route.abort()
-            if route.request.resource_type in {"image", "media", "font"}
-            else route.continue_()
-        )
 
         results = await asyncio.gather(
-            *[scrape_team(context, t, semaphore) for t in teams],
+            *[scrape_team(browser, t, semaphore) for t in teams],
             return_exceptions=True,
         )
         await browser.close()
@@ -1564,7 +1669,8 @@ def main() -> None:
     ap.add_argument("--gender", choices=["all", "men", "women"], default="all",
                     help="Filter by gender (default: all)")
     ap.add_argument("--only", help='Comma-separated team names/slugs, e.g. "St. Thomas,Minnesota,St. Cloud State"')
-    ap.add_argument("--debug", action="store_true", help="Debug mode")
+    ap.add_argument("--debug", action="store_true",
+                    help="Save HTML + screenshot to debug/ when a goalie step fails")
     args = ap.parse_args()
 
     asyncio.run(run_scraper(
