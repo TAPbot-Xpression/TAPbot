@@ -15,12 +15,14 @@ Output (repo-relative, resolved from this script's location):
   docs/hockey/non_conf_mhockey.json
   docs/hockey/non_conf_whockey.json
 
-Optimizations & Resilience:
+Optimizations & Features:
   1. Full async concurrency across teams bounded by asyncio.Semaphore(5).
   2. Concurrent stats page loading & roster fetching per team via asyncio.create_task.
   3. Playwright resource routing to abort heavy images, media, and fonts.
-  4. Reliable DOM state-change waits for Sidearm Vue dropdowns (Skaters -> Goaltenders).
-  5. Empty-scrape safeguards: preserves previous player data and team stats if a live scrape fails.
+  4. Robust dropdown DOM state-change waits for Sidearm Vue/Nuxt (Skaters -> Goaltenders).
+  5. Decimals for team percentage metrics (e.g. .257 instead of 25.7%).
+  6. Tracks both Goals Per Game and Goals Against Per Game.
+  7. Smart cache (<18h) and empty-scrape fallback safeguards.
 """
 
 from __future__ import annotations
@@ -227,7 +229,7 @@ TEAMS_CONFIG: List[Dict[str, Any]] = [
 ]
 
 TEAM_STAT_KEYS = [
-    "goals_per_game", "shots_per_game", "shot_pct",
+    "goals_per_game", "goals_against_per_game", "shots_per_game", "shot_pct",
     "pp_pct", "pk_pct", "pen_per_game", "pim_per_game", "faceoff_pct",
 ]
 
@@ -362,12 +364,23 @@ def _f(x: Any) -> Optional[float]:
         return None
 
 def _pct_str(raw: Any) -> Optional[str]:
+    """Returns a 3-decimal string like '.257' for team statistics."""
     v = _f(raw)
     if v is None:
         return None
-    if v <= 1.0:
-        v *= 100.0
-    return f"{v:.1f}%"
+    if v > 1.0:
+        v /= 100.0
+    s = f"{v:.3f}"
+    return s[1:] if s.startswith("0") else s
+
+def _pk_str(opp_raw: Any) -> Optional[str]:
+    """Penalty kill = 1.000 - Opponent Power Play conversion, returned as decimal like '.765'."""
+    v = _f(opp_raw)
+    if v is None:
+        return None
+    if v > 1.0:
+        v /= 100.0
+    return _pct_str(1.0 - v)
 
 def is_valid_player_candidate(name: str) -> bool:
     if not name or len(name) < 3:
@@ -793,6 +806,8 @@ def parse_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
             if current_section == "SHOTS":
                 if ("goals per game" in label or "goals/game" in label) and "goals_per_game" not in found:
                     found["goals_per_game"] = val_home
+                    if val_opp:
+                        found["goals_against_per_game"] = val_opp
                 elif ("shot percentage" in label or "shot pct" in label or "shot %" in label) and "shot_pct" not in found:
                     v = _pct_str(val_home)
                     if v:
@@ -807,12 +822,9 @@ def parse_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
                         if v:
                             found["pp_pct"] = v
                     if val_opp and "pk_pct" not in found:
-                        opp_float = _f(val_opp)
-                        if opp_float is not None:
-                            if opp_float > 1.0:
-                                opp_float /= 100.0
-                            pk_val = (1.0 - opp_float) * 100.0
-                            found["pk_pct"] = f"{pk_val:.1f}%"
+                        pk = _pk_str(val_opp)
+                        if pk:
+                            found["pk_pct"] = pk
 
             elif current_section == "PENALTIES":
                 if (label == "per game" or "pen/g" in label or "penalties per game" in label) and "pen_per_game" not in found:
@@ -1066,6 +1078,8 @@ def parse_team_stats_old(soup: BeautifulSoup) -> Dict[str, str]:
         if section == "SHOTS":
             if "goals per game" in n0 and "goals_per_game" not in found and team_val:
                 found["goals_per_game"] = team_val
+                if opp_val:
+                    found["goals_against_per_game"] = opp_val
             elif ("shot percentage" in n0 or "shot pct" in n0) and "shot_pct" not in found:
                 v = _pct_str(team_val)
                 if v:
@@ -1080,11 +1094,9 @@ def parse_team_stats_old(soup: BeautifulSoup) -> Dict[str, str]:
                     if v:
                         found["pp_pct"] = v
                 if "pk_pct" not in found:
-                    opp = _f(opp_val)
-                    if opp is not None:
-                        if opp > 1.0:
-                            opp /= 100.0
-                        found["pk_pct"] = f"{(1.0 - opp) * 100.0:.1f}%"
+                    pk = _pk_str(opp_val)
+                    if pk:
+                        found["pk_pct"] = pk
 
         elif section == "PENALTIES":
             if "per game" in n0 and "minute" not in n0 and "pen_per_game" not in found and team_val:
@@ -1394,6 +1406,8 @@ def parse_team_stats_asu_wmt(soup: BeautifulSoup) -> Dict[str, str]:
 
         if "goals per game" in label_clean and "goals_per_game" not in found and val_home:
             found["goals_per_game"] = val_home
+            if val_opp:
+                found["goals_against_per_game"] = val_opp
         elif "shots per game" in label_clean and "shots_per_game" not in found and val_home:
             found["shots_per_game"] = val_home
         elif ("shot percentage" in label_clean or "shot %" in label_clean) and "shot_pct" not in found and val_home:
@@ -1406,12 +1420,9 @@ def parse_team_stats_asu_wmt(soup: BeautifulSoup) -> Dict[str, str]:
                 if v:
                     found["pp_pct"] = v
             if val_opp and "pk_pct" not in found:
-                opp_f = _f(val_opp)
-                if opp_f is not None:
-                    if opp_f > 1.0:
-                        opp_f /= 100.0
-                    pk_val = (1.0 - opp_f) * 100.0
-                    found["pk_pct"] = f"{pk_val:.1f}%"
+                pk = _pk_str(val_opp)
+                if pk:
+                    found["pk_pct"] = pk
         elif ("penalties per game" in label_clean or (label_clean == "per game" and current_section == "PENALTIES")) \
                 and "pen_per_game" not in found and val_home:
             found["pen_per_game"] = val_home
