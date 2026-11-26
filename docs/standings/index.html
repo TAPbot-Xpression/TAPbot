@@ -361,28 +361,6 @@
       flex-wrap: wrap;
     }
 
-    /* Per-Card Timestamp Pill */
-    .card-time-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      background: var(--surface-3);
-      border: 1px solid var(--border);
-      padding: 0.22rem 0.55rem;
-      border-radius: 6px;
-      white-space: nowrap;
-    }
-    .card-time-pill b {
-      color: var(--text);
-      font-weight: 700;
-    }
-    .card-time-pill .card-sep {
-      color: var(--border-light);
-    }
-
     .card-source-link {
       font-size: 0.76rem;
       font-weight: 700;
@@ -682,7 +660,7 @@
       summit_195: "spring", softball: "spring", sball: "spring"
     };
 
-    // ── Time & Timestamp Helpers ───────────────────────────────────────────────
+    // ── Time Helpers ───────────────────────────────────────────────────────────
     function ago(ms) {
       if (ms === null || isNaN(ms)) return '—';
       const m = Math.round(Math.max(ms, 0) / 60000);
@@ -696,21 +674,6 @@
       if (!val || typeof val !== 'string') return null;
       const t = Date.parse(val);
       return isNaN(t) ? null : t;
-    }
-
-    function getFeedTimestamps(feedObj, topPayload) {
-      const scanRaw = feedObj?.last_scan || feedObj?.updated_at || topPayload?.last_scan || topPayload?.generated_at;
-      const dataRaw = feedObj?.last_updated || feedObj?.updated_at || topPayload?.last_updated || topPayload?.generated_at;
-
-      const scanTime = parseIso(scanRaw);
-      const dataTime = parseIso(dataRaw);
-
-      return {
-        scanTime,
-        dataTime,
-        scanAge: scanTime ? Date.now() - scanTime : null,
-        dataAge: dataTime ? Date.now() - dataTime : null,
-      };
     }
 
     // ── Theme Switcher ─────────────────────────────────────────────────────────
@@ -739,16 +702,13 @@
 
         sportsData = data.sports || {};
 
-        // Top-Level Scan & Data Timestamps
-        const topScanRaw = data.last_scan || data.generated_at;
-        const topDataRaw = data.last_updated || data.generated_at;
+        // Header timestamps (top-level last_scan / last_updated, falling back to generated_at)
+        const scanTime = parseIso(data.last_scan || data.generated_at);
+        const dataTime = parseIso(data.last_updated || data.generated_at);
 
-        const topScanTime = parseIso(topScanRaw);
-        const topDataTime = parseIso(topDataRaw);
-
-        if (topScanTime || topDataTime) {
-          const scanAgoStr = topScanTime ? ago(Date.now() - topScanTime) : '—';
-          const dataAgoStr = topDataTime ? ago(Date.now() - topDataTime) : '—';
+        if (scanTime || dataTime) {
+          const scanAgoStr = scanTime ? ago(Date.now() - scanTime) : '—';
+          const dataAgoStr = dataTime ? ago(Date.now() - dataTime) : '—';
 
           metaTime.innerHTML = `
             <span>Last Scan: <b>${scanAgoStr}</b></span>
@@ -759,7 +719,7 @@
           metaTime.textContent = "Feed loaded";
         }
 
-        renderGrid(data);
+        renderGrid();
       } catch (err) {
         grid.innerHTML = `
           <div class="card" style="grid-column: 1 / -1;">
@@ -808,7 +768,7 @@
       return "Summit League";
     }
 
-    function renderGrid(topPayload = {}) {
+    function renderGrid() {
       const grid = document.getElementById("sports-grid");
 
       const knownKeys = DISPLAY_ORDER.filter(id => sportsData[id]);
@@ -830,10 +790,10 @@
         return;
       }
 
-      grid.innerHTML = filtered.map(id => buildCard(id, sportsData[id], topPayload)).join("");
+      grid.innerHTML = filtered.map(id => buildCard(id, sportsData[id])).join("");
     }
 
-    function buildCard(id, s, topPayload = {}) {
+    function buildCard(id, s) {
       const isError = s.status === "error" || !s.rows || s.rows.length === 0;
       const isStale = s.status === "stale";
       const isPoll  = id.includes("poll") || s.type === "poll";
@@ -847,16 +807,6 @@
       const sourceLinkText = isPoll ? "Official USCHO Poll ↗" : "Official Standings ↗";
       const sourceLink = s.source
         ? `<a href="${escHtml(s.source)}" target="_blank" rel="noopener noreferrer" class="card-source-link">${sourceLinkText}</a>`
-        : "";
-
-      // Feed-specific Scan and Data timestamps
-      const { scanAge, dataAge } = getFeedTimestamps(s, topPayload);
-      const timePill = (scanAge !== null || dataAge !== null)
-        ? `<div class="card-time-pill" title="Scan: ${ago(scanAge)} | Data: ${ago(dataAge)}">
-             <span>Scan: <b>${ago(scanAge)}</b></span>
-             <span class="card-sep">|</span>
-             <span>Data: <b>${ago(dataAge)}</b></span>
-           </div>`
         : "";
 
       let bodyContent = "";
@@ -990,7 +940,6 @@
               <h2 class="card-title">${escHtml(displayTitle)}${dateBadge}</h2>
             </div>
             <div class="card-header-right">
-              ${timePill}
               ${sourceLink}
               <span class="badge ${badgeClass}">${badgeText}</span>
             </div>
