@@ -19,9 +19,6 @@ name: Scrape Diamond Sports
 # but can never match the wrong cron (those land exactly one hour away).
 
 on:
-  schedule:
-    - cron: "45 9 * * *"    # 3:45 AM CST (winter, UTC-6)
-    - cron: "45 8 * * *"    # 3:45 AM CDT (summer, UTC-5)
   workflow_dispatch:
     inputs:
       sport:
