@@ -1,7 +1,11 @@
 name: Nightly Scrape All
 
+# Place this file at: .github/workflows/nightly.yml
 # Runs all 5 scrapers sequentially every morning at 3:30 AM Central.
 # One schedule, one browser install, one commit at the end.
+#
+# GitHub scheduled runs are best-effort and can start late. Nothing in this
+# file depends on the exact start time, so a late run still does the full job.
 
 on:
   schedule:
@@ -34,6 +38,9 @@ jobs:
           cache: pip
           cache-dependency-path: "scrapers/**/requirements.txt"
 
+      # NOTE: These are unpinned, so a new release can change scraper behavior
+      # without warning. Later, move them into a pinned root requirements file
+      # and point cache-dependency-path at it.
       - name: Install shared dependencies
         run: |
           pip install playwright beautifulsoup4 requests lxml
@@ -57,32 +64,48 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: playwright install-deps chromium
 
+      # ── Scrapers ───────────────────────────────────────────────────
+      # continue-on-error lets one failure skip nothing else. Each step has
+      # an id so the final check can report failures, and its own timeout so
+      # one hung scraper can't use up the whole job limit.
+
       # ── 1. Basketball ──────────────────────────────────────────────
       - name: Scrape Basketball
+        id: basketball
         continue-on-error: true
+        timeout-minutes: 8
         run: python scrapers/basketball/scrape_basketball.py
 
       # ── 2. Hockey ──────────────────────────────────────────────────
       - name: Scrape Hockey
+        id: hockey
         continue-on-error: true
+        timeout-minutes: 8
         run: python scrapers/hockey/scrape_hockey.py
 
       # ── 3. Diamond Sports ──────────────────────────────────────────
       - name: Scrape Diamond Sports
+        id: diamond
         continue-on-error: true
+        timeout-minutes: 8
         run: python scrapers/diamondsports/scrape_diamond_sports.py
 
       # ── 4. Standings ───────────────────────────────────────────────
       - name: Scrape Standings
+        id: standings
         continue-on-error: true
+        timeout-minutes: 8
         run: python scrapers/standings/scrape_standings.py
 
       # ── 5. Schedules ───────────────────────────────────────────────
       - name: Scrape Schedules
+        id: schedules
         continue-on-error: true
+        timeout-minutes: 8
         run: python others/schedulers/schedule_scrape_all.py
 
       # ── Commit all updated JSONs in one shot ───────────────────────
+      # Runs even when a scraper failed, so good data from the others ships.
       - name: Commit updated data
         id: commit
         run: |
@@ -99,20 +122,49 @@ jobs:
 
           git commit -m "chore: nightly stats update [$(date -u '+%Y-%m-%d %H:%M UTC')]"
 
-          for i in 1 2 3; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
+          # -X theirs: if a rebase conflicts, keep the freshly generated JSON
+          # from this run. Abort between attempts so a failed rebase can't
+          # poison the next one.
+          for i in 1 2 3 4 5; do
+            if git pull --rebase -X theirs origin main && git push origin HEAD:main; then
               echo "changed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "Push attempt $i failed, retrying..."
-            sleep 5
+            git rebase --abort 2>/dev/null || true
+            sleep $((i * 5))
           done
-          echo "Could not push after 3 attempts."
+
+          echo "Could not push after 5 attempts."
           exit 1
+
+      # ── Report scraper failures ────────────────────────────────────
+      # Without this, the run shows green even if every scraper failed.
+      - name: Fail run if any scraper failed
+        if: always()
+        run: |
+          bad=""
+          for r in \
+            "basketball=${{ steps.basketball.outcome }}" \
+            "hockey=${{ steps.hockey.outcome }}" \
+            "diamond=${{ steps.diamond.outcome }}" \
+            "standings=${{ steps.standings.outcome }}" \
+            "schedules=${{ steps.schedules.outcome }}"; do
+            echo "$r"
+            case "$r" in
+              *=failure) bad=1 ;;
+            esac
+          done
+          if [ -n "$bad" ]; then
+            echo "::error::One or more scrapers failed. See the step results above."
+            exit 1
+          fi
 
   deploy:
     needs: scrape-all
-    if: needs.scrape-all.outputs.changed == 'true'
+    # !cancelled() lets good data deploy even when the scrape job is red
+    # because one scraper failed. Deploys only when something was pushed.
+    if: ${{ !cancelled() && needs.scrape-all.outputs.changed == 'true' }}
     uses: ./.github/workflows/deploy.yml
     permissions:
       contents: read
