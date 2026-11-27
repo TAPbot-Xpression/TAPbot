@@ -26,7 +26,8 @@ Optimizations & Features:
      swap (dropdown reads "Goaltenders" AND goalie column headers are on screen) before parsing.
   6. Decimals for team percentage metrics (e.g. .257 instead of 25.7%).
   7. Tracks both Goals Per Game and Goals Against Per Game.
-  8. Smart cache (<18h) and empty-scrape fallback safeguards (players, team stats, goalies).
+  8. Dual-timestamp tracking (last_scan refreshed on each run, last_updated updated only when data changes).
+  9. Empty-scrape fallback safeguards (players, team stats, goalies).
 """
 
 from __future__ import annotations
@@ -60,7 +61,6 @@ NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
 
 CONCURRENCY_LIMIT = 5
 MIN_ROSTER_ENTRIES = 8
-MAX_CACHE_HOURS = 18
 GOALIE_SWITCH_ATTEMPTS = 3
 DEBUG_MODE = False
 
@@ -460,20 +460,14 @@ def _has_team_stats(ts: Any) -> bool:
     return isinstance(ts, dict) and any(v not in ("-", "", None) for v in ts.values())
 
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
-
-def _age_in_hours(iso_str: str) -> float:
-    try:
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
-    except Exception:
-        return 999.0
+    """Exclude volatile timestamps when comparing data for changes."""
+    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at", "last_scan", "last_updated")}
 
 def _is_goalie_record(p: Dict[str, Any]) -> bool:
     return str(p.get("is_goalie")).lower() == "true" or p.get("position") == "G"
 
 def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Writes docs/hockey/<slug>.json with empty scrape safeguards and smart caching."""
+    """Writes docs/hockey/<slug>.json with empty scrape safeguards and dual timestamps."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     existing = read_existing_json(slug)
     same_source = existing.get("source_stats_url") == team_data.get("source_stats_url")
@@ -499,17 +493,31 @@ def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
         team_data["team_stats"] = existing["team_stats"]
         logger.warning(f"[{team_data.get('team', slug)}] Team stats not found - keeping previous team_stats")
 
-    # 4. Smart cache: skip rewrite if payload content matches and is fresh (< MAX_CACHE_HOURS)
-    if existing and same_source:
+    now = now_iso()
+    team_data["last_scan"] = now
+
+    # 4. Compare stripped content
+    if existing and same_team:
         old_clean = _strip_volatile(existing)
         new_clean = _strip_volatile(team_data)
-        gen_at = existing.get("generated_at", "")
-        if old_clean == new_clean and gen_at and _age_in_hours(gen_at) < MAX_CACHE_HOURS:
-            logger.info(f"[{team_data.get('team', slug)}] Cache hit (<{MAX_CACHE_HOURS}h old, identical content) - skipping rewrite.")
-            return existing
+
+        if old_clean == new_clean:
+            # Stats did NOT change: Keep previous last_updated, update last_scan only
+            team_data["last_updated"] = existing.get("last_updated") or existing.get("generated_at") or now
+            team_data["generated_at"] = team_data["last_updated"]  # backwards compatibility
+
+            with open(OUT_DIR / f"{slug}.json", "w", encoding="utf-8") as f:
+                json.dump(team_data, f, indent=2)
+            logger.info(f"[{team_data.get('team', slug)}] Stats unchanged — updated last_scan ({now[:16]})")
+            return team_data
+
+    # Stats CHANGED: Update both timestamps
+    team_data["last_updated"] = now
+    team_data["generated_at"] = now
 
     with open(OUT_DIR / f"{slug}.json", "w", encoding="utf-8") as f:
         json.dump(team_data, f, indent=2)
+    logger.info(f"[{team_data.get('team', slug)}] Fresh stats found! Updated last_updated ({now[:16]})")
     return team_data
 
 # ── Debug Snapshots (only with --debug) ───────────────────────────────────────
@@ -1233,13 +1241,16 @@ def build_team_data(team_cfg: Dict[str, Any], style_label: str, team_stats: Dict
     slug, label = team_cfg["slug"], team_cfg["name"]
     gender = team_cfg.get("gender", "men")
     conf = team_cfg.get("conference", "NCHC" if gender == "men" else "WCHA")
+    now = now_iso()
     return {
         "team": label,
         "slug": slug,
         "gender": gender,
         "sport": "hockey",
         "conference": conf,
-        "generated_at": now_iso(),
+        "last_scan": now,
+        "last_updated": now,
+        "generated_at": now,
         "source_stats_url": team_cfg["stats_url"],
         "source_roster_url": team_cfg.get("roster_url", ""),
         "site_style": style_label,
@@ -1248,9 +1259,6 @@ def build_team_data(team_cfg: Dict[str, Any], style_label: str, team_stats: Dict
     }
 
 # ══ NEW STYLE: Skaters -> Goaltenders SWITCH (Sidearm Nuxt/Vue) ══════════════
-# These run inside the browser. Both must be true before we trust the page:
-#   1. the dropdown button now reads "Goaltenders"
-#   2. a visible <th> with an exact goalie header (GAA / SV% / SV / SAVES / GA) exists
 SELECT_SHOWS_GOALIES_JS = r"""
 () => Array.from(document.querySelectorAll('button[data-test-id="s-select__box"], button.s-select-box'))
         .some(b => /goaltender|goalie/i.test(b.textContent || ''))
@@ -1302,7 +1310,7 @@ async def switch_to_goaltenders(page: Page, label: str, attempts: int = GOALIE_S
             if not re.search(r"goaltender|goalie", current, re.I):
                 await box.scroll_into_view_if_needed()
                 if attempt == 2:
-                    await box.evaluate("el => el.click()")   # fallback if a normal click is intercepted
+                    await box.evaluate("el => el.click()")
                 else:
                     await box.click()
 
@@ -1324,7 +1332,7 @@ async def switch_to_goaltenders(page: Page, label: str, attempts: int = GOALIE_S
             first_line = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
             logger.warning(f"[{label}] goalie switch {attempt}/{attempts} failed: {first_line}")
             try:
-                await page.keyboard.press("Escape")   # close any half-open listbox before retrying
+                await page.keyboard.press("Escape")
             except Exception:
                 pass
             await page.wait_for_timeout(1500 * attempt)
@@ -1340,7 +1348,6 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
         gender_desc = "Women's" if team_cfg.get("gender") == "women" else "Men's"
         logger.info(f"Processing {label} ({gender_desc} Hockey, new style)...")
 
-        # Concurrently launch roster fetch while navigating stats page
         roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
 
         raw_players: List[Dict[str, Any]] = []
@@ -1355,7 +1362,6 @@ async def scrape_single_team_new_style(context: BrowserContext, team_cfg: Dict[s
                 await page.wait_for_selector("table, button[data-test-id='s-select__box'], button[role='tab']", timeout=8000)
             except Exception:
                 pass
-            # Let Vue hydrate. Clicking the dropdown before hydration does nothing.
             try:
                 await page.wait_for_load_state("networkidle", timeout=6000)
             except Exception:
@@ -1429,7 +1435,6 @@ async def scrape_single_team_old_style(context: BrowserContext, team_cfg: Dict[s
         gender_desc = "Women's" if team_cfg.get("gender") == "women" else "Men's"
         logger.info(f"Processing {label} ({gender_desc} Hockey, old style)...")
 
-        # Concurrently launch roster fetch while navigating stats page
         roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
 
         raw_players: List[Dict[str, Any]] = []
@@ -1550,7 +1555,6 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
         slug, label = team_cfg["slug"], team_cfg["name"]
         logger.info(f"Processing {label} (Men's Hockey, ASU WMT Digital)...")
 
-        # Concurrently launch roster fetch while navigating stats page
         roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
 
         raw_players: List[Dict[str, Any]] = []
@@ -1603,7 +1607,6 @@ async def scrape_single_team_asu_wmt(context: BrowserContext, team_cfg: Dict[str
 async def make_context(browser: Browser) -> BrowserContext:
     """Each team gets its own context so concurrent pages never share focus/state."""
     context = await browser.new_context(user_agent=USER_AGENT)
-    # Block media/fonts/images to speed up network transfers
     await context.route(
         "**/*",
         lambda route: route.abort()
@@ -1635,11 +1638,9 @@ async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool
 
     teams = list(TEAMS_CONFIG) + load_non_conf_config()
 
-    # Filter by gender if requested
     if gender_filter != "all":
         teams = [t for t in teams if t.get("gender") == gender_filter]
 
-    # Filter by --only team name or slug
     if only:
         wanted = [o.strip().lower() for o in only if o.strip()]
         teams = [t for t in teams if any(w in t["name"].lower() or w in t["slug"].lower() for w in wanted)]
