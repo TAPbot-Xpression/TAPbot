@@ -1,7 +1,7 @@
 # Place this file at: .github/workflows/schedule_scrapers.yml (replaces the existing one)
 #
-# Runs the unified schedule scraper (all sports, North + South Campus) every morning
-# at 4:00 AM Central, copies the JSON into docs/schedulers/, commits it to main,
+# Runs the unified schedule scraper (all sports),
+# copies the JSON into docs/schedulers/, commits it to main,
 # then calls the shared deploy.yml so GitHub Pages publishes the new file.
 #
 # Scraper lives in: others/schedulers/schedule_scrape_all.py
