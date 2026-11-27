@@ -19,9 +19,6 @@ name: Scrape Hockey
 # delay of up to 45 minutes and still never match the wrong cron.
 
 on:
-  schedule:
-    - cron: "30 9 * * *"     # 4:30 AM CDT (summer, UTC-5)
-    - cron: "30 10 * * *"    # 4:30 AM CST (winter, UTC-6)
   workflow_dispatch:
     inputs:
       only_teams:
