@@ -12,9 +12,6 @@ name: Scrape Basketball
 # so overlapping runs do not collide.
 
 on:
-  schedule:
-    - cron: "30 3 * * *"
-      timezone: "America/Chicago"
   workflow_dispatch:
     inputs:
       gender:
