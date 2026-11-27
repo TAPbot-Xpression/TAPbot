@@ -17,10 +17,13 @@ Optimizations & safeguards applied:
   3. Playwright resource blocking (aborts image, font, media downloads).
   4. Automatic Year Fallback: Tries the current season first; if empty and no
      explicit --year was provided, automatically falls back to the previous season.
-  5. Tightened Safeguards:
+  5. Dual Timestamps (last_scan & last_updated):
+     - last_scan updates on every run to confirm scraper execution.
+     - last_updated only changes when player/team hitting & pitching metrics change.
+     - generated_at maintained for backwards compatibility.
+  6. Tightened Safeguards:
      - Never overwrites existing valid stats if a new scrape returns empty data.
      - Preserves data even if the source URL changed (e.g. across seasons).
-  6. Smart JSON caching: skips rewriting if payload is identical and <18h old.
 """
 
 from __future__ import annotations
@@ -316,6 +319,9 @@ def load_non_conf_teams(sports: List[str]) -> List[Dict[str, Any]]:
 
 # ── Cleaners & Evaluators ─────────────────────────────────────────────────────
 _BLANK = {"", "-1", "none", "null", "nan", "n/a", "na", "-", "--", "---", "-.---", "—"}
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 def _s(v: Any) -> str:
     if v is None or isinstance(v, bool):
@@ -967,6 +973,9 @@ def try_extract_sidearm_html(soup: BeautifulSoup, roster_by_num: Dict[str, Any],
         p["pitching_stats"] = {k: pit[k] for k in PITCHING_FIELDS}
         players_map[j] = p
 
+    hitting_list.sort(key=lambda x: x.pop("_sort", 999))
+    pitching_list.sort(key=lambda x: x.pop("_sort", 999))
+
     return hitting_list, pitching_list, hitting_by_num, pitching_by_num, players_map
 
 
@@ -1145,6 +1154,7 @@ def extract_stats(stats_html: str, roster_html: str, school_meta: Dict[str, Any]
     pitching_list.sort(key=lambda x: x.pop("_sort", 999))
     players_sorted = [players_map[k] for k in sorted(players_map.keys())]
 
+    now = now_iso()
     return {
         "team_id": school_meta["id"],
         "team": school_meta["name"],
@@ -1153,7 +1163,9 @@ def extract_stats(stats_html: str, roster_html: str, school_meta: Dict[str, Any]
         "source": school_meta["stats_url"].format(year=year),
         "source_roster": roster_used_url or (school_meta.get("roster_candidates", [""])[0] if school_meta.get("roster_candidates") else ""),
         "status": "ok" if (hitting_list or pitching_list) else "empty",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "last_scan": now,
+        "last_updated": now,
+        "generated_at": now,
         "players": players_sorted,
         "hitting": hitting_list,
         "pitching": pitching_list,
@@ -1220,7 +1232,7 @@ def read_existing_json(out_path: str) -> Dict[str, Any]:
 
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
     """Strip dynamic timestamps and metadata for content equality check."""
-    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
+    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at", "last_scan", "last_updated")}
 
 def _age_in_hours(iso_str: str) -> float:
     try:
@@ -1231,11 +1243,11 @@ def _age_in_hours(iso_str: str) -> float:
 
 def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
     """
-    Saves JSON safely with safeguards:
+    Saves JSON safely with dual-timestamps:
     1. Empty-scrape safeguard: If new scrape has 0 players but old file has data for
        this school/opponent, keep old data even if the source URL changed across seasons.
-    2. Smart timestamp preservation: If payload is identical and previous timestamp is fresh (<18h),
-       keep previous file untouched so git diff stays clean and unnecessary CI builds are skipped.
+    2. Dual timestamps: last_scan is updated on every run. last_updated only changes
+       when hitting, pitching, or player records change.
     """
     existing = read_existing_json(out_path)
     has_new = bool(stats_payload.get("hitting") or stats_payload.get("pitching") or stats_payload.get("players"))
@@ -1251,18 +1263,33 @@ def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
                        stats_payload.get("team"), os.path.basename(out_path))
         return False
 
-    # 2. Smart timestamp caching (avoid Git noise & redundant Page deployments)
-    if existing and same_source:
+    now = now_iso()
+    stats_payload["last_scan"] = now
+
+    # 2. Content comparison
+    if existing and same_team:
         old_clean = _strip_volatile(existing)
         new_clean = _strip_volatile(stats_payload)
-        gen_at = existing.get("generated_at", "")
-        if old_clean == new_clean and gen_at and _age_in_hours(gen_at) < MAX_CACHE_HOURS:
-            logger.info("  [Cache hit] %s has identical stats and is < %dh old — skipping rewrite.",
-                        os.path.basename(out_path), MAX_CACHE_HOURS)
-            return False
+
+        if old_clean == new_clean:
+            # Stats did NOT change: Keep previous last_updated, update last_scan only
+            stats_payload["last_updated"] = existing.get("last_updated") or existing.get("generated_at") or now
+            stats_payload["generated_at"] = stats_payload["last_updated"]  # backwards compatibility
+
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(stats_payload, f, indent=2)
+            logger.info("  [Stats unchanged] %s — updated last_scan (%s)",
+                        os.path.basename(out_path), now[:16])
+            return True
+
+    # Stats CHANGED: Update both timestamps
+    stats_payload["last_updated"] = now
+    stats_payload["generated_at"] = now
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(stats_payload, f, indent=2)
+    logger.info("  [Fresh stats found] %s — updated last_updated (%s)",
+                os.path.basename(out_path), now[:16])
     return True
 
 def write_empty_non_conf(docs_dir: str, sport: str, year: str) -> None:
@@ -1277,6 +1304,7 @@ def write_empty_non_conf(docs_dir: str, sport: str, year: str) -> None:
     if existing.get("status") == "empty" and not existing.get("source"):
         return
 
+    now = now_iso()
     payload = {
         "team_id": f"non_conf_{sport}",
         "team": "Non-Conf",
@@ -1286,7 +1314,9 @@ def write_empty_non_conf(docs_dir: str, sport: str, year: str) -> None:
         "source_roster": "",
         "status": "empty",
         "message": "No Non-Conf opponent loaded. Add a stats link to non_conf_config.json.",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "last_scan": now,
+        "last_updated": now,
+        "generated_at": now,
         "players": [],
         "hitting": [],
         "pitching": [],
