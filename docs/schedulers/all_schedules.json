@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-27T17:19:53.765961+00:00",
+  "updated_at": "2026-11-27T21:01:34.697611+00:00",
   "team": "St. Thomas (MN)",
   "sports": {
     "football": {
@@ -454,12 +454,6 @@
             "opponent": "UC Riverside"
           },
           {
-            "game_id": "6645449",
-            "date": "Dec. 9",
-            "home_away": "VS",
-            "opponent": "Pepperdine"
-          },
-          {
             "game_id": "6645450",
             "date": "Dec. 12",
             "home_away": "AT",
@@ -482,6 +476,12 @@
             "date": "Jan. 2",
             "home_away": "AT",
             "opponent": "Cal Poly"
+          },
+          {
+            "game_id": "6645454",
+            "date": "Jan. 7",
+            "home_away": "VS",
+            "opponent": "CSUN"
           }
         ]
       }
