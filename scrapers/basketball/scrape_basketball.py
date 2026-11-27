@@ -9,7 +9,9 @@ JSON layout (identical for every team file, so Datalinq graphics can use one pat
       "team": "St. Thomas",
       "slug": "st_thomas_men",
       "gender": "men",
-      "generated_at": "...",
+      "last_scan": "2026-11-27T03:30:00+00:00",
+      "last_updated": "2026-11-26T21:15:00+00:00",
+      "generated_at": "2026-11-26T21:15:00+00:00",
       "team_stats_status": "ok" | "partial" | "kept_previous" | "not_found" | "empty",
       "team_stats_missing": [],
       "team_stats": { ... 17 keys ... },               <- OVERALL team stats (including opp_ppg)
@@ -18,7 +20,7 @@ JSON layout (identical for every team file, so Datalinq graphics can use one pat
                                       "not_confirmed" | "unverified_same_as_overall" |
                                       "error" | "not_found" | "empty",
       "conference_team_stats_missing": [],
-      "conference_team_stats": { ... same 17 keys ... },   <- CONFERENCE-ONLY team stats
+      "conference_team_stats": { ... same 17 keys ... }, <- CONFERENCE-ONLY team stats
       "players": [                                      <- PLAYER group
           { "number": "13", "name": "...", ... },       (every row starts with number)
       ]
@@ -29,7 +31,7 @@ Optimizations & safeguards applied:
   2. Concurrent stats and roster page fetching per team via asyncio.gather.
   3. Playwright resource routing (aborts image, media, and font downloads).
   4. Explicit selector-based waits replacing sluggish networkidle timeouts.
-  5. Smart cache & git-diff preservation: avoids rewriting unchanged JSON (<18h old).
+  5. Dual timestamps (last_scan advances every run; last_updated only changes when stats change).
   6. Empty-scrape & partial-failure safeguards: keeps existing player and team stats.
   7. Clean stat calculation deduplication across Nuxt & HTML parsers.
 """
@@ -1440,7 +1442,7 @@ def read_existing_json(slug: str) -> Dict[str, Any]:
         return {}
 
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at")}
+    return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at", "last_scan", "last_updated")}
 
 def _age_in_hours(iso_str: str) -> float:
     try:
@@ -1455,17 +1457,31 @@ def write_team_json(slug: str, team_data: Dict[str, Any]) -> bool:
     existing = read_existing_json(slug)
     same_source = existing.get("source_stats_url") == team_data.get("source_stats_url")
 
-    # Smart cache hit check: skip rewrite if identical content and < 18h old
+    now = now_iso()
+    team_data["last_scan"] = now
+
+    # Compare stripped content
     if existing and same_source:
         old_clean = _strip_volatile(existing)
         new_clean = _strip_volatile(team_data)
-        gen_at = existing.get("generated_at", "")
-        if old_clean == new_clean and gen_at and _age_in_hours(gen_at) < MAX_CACHE_HOURS:
-            logger.info(f"  [{team_data.get('team', slug)}] Cache hit (<{MAX_CACHE_HOURS}h old, identical data) - skipping write.")
-            return False
+
+        if old_clean == new_clean:
+            # Stats did NOT change: Keep previous last_updated, update last_scan only
+            team_data["last_updated"] = existing.get("last_updated") or existing.get("generated_at") or now
+            team_data["generated_at"] = team_data["last_updated"]  # backwards compatibility
+
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(team_data, f, indent=2)
+            logger.info(f"  [{team_data.get('team', slug)}] Stats unchanged — updated last_scan ({now[:16]})")
+            return True
+
+    # Stats CHANGED: Update both timestamps
+    team_data["last_updated"] = now
+    team_data["generated_at"] = now
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(team_data, f, indent=2)
+    logger.info(f"  [{team_data.get('team', slug)}] Fresh stats found! Updated last_updated ({now[:16]})")
     return True
 
 def write_empty_non_conf(gender: str) -> None:
@@ -1475,6 +1491,7 @@ def write_empty_non_conf(gender: str) -> None:
     if existing.get("status") == "empty" and not existing.get("source_stats_url"):
         return
 
+    now = now_iso()
     payload = {
         "team": "Non-Conf",
         "display_name": "Non-Conf",
@@ -1485,7 +1502,9 @@ def write_empty_non_conf(gender: str) -> None:
         "message": "No Non-Conf opponent loaded. Add a stats link in GitHub Actions > Run workflow.",
         "source_stats_url": "",
         "source_roster_url": "",
-        "generated_at": now_iso(),
+        "last_scan": now,
+        "last_updated": now,
+        "generated_at": now,
         "team_stats_status": "empty",
         "team_stats_missing": list(TEAM_STAT_KEYS),
         "team_stats": empty_team_stats(),
@@ -1657,11 +1676,14 @@ async def scrape_single_team(
             f"({len(conf_found)}/{len(TEAM_STAT_KEYS)} found)"
         )
 
+        now = now_iso()
         team_data: Dict[str, Any] = {
             "team": team_name,
             "slug": slug,
             "gender": gender,
-            "generated_at": now_iso(),
+            "last_scan": now,
+            "last_updated": now,
+            "generated_at": now,
         }
         if is_non_conf:
             team_data.update({
