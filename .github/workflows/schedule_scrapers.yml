@@ -10,12 +10,6 @@
 name: Scrape Schedules
 
 on:
-  schedule:
-    # GitHub cron is UTC only and has no daylight saving support.
-    # Both times are scheduled; the "Check Central time" step lets only the
-    # one that lands on 4:15 AM Central through.
-    - cron: "15 10 * * *"   
-    - cron: "15 9 * * *"    
   workflow_dispatch:        # manual "Run workflow" button
   push:
     branches: [main]
