@@ -25,7 +25,7 @@ Optimizations & Safeguards Applied:
   3. Dual Timestamps:
      - last_scan: advances on every run to confirm scraper execution.
      - last_updated: only updates when games, dates, or opponent schedules change.
-     - updated_at: maintained for backwards compatibility.
+     - updated_at / generated_at: maintained for backwards compatibility.
   4. Out-of-Season Guard: Avoids scanning hundreds of empty daily scoreboards when a sport is well
      outside its active season window.
   5. Optimized Game Resolution: Efficient lookup avoiding repeated full-array re-sorting per scanned day.
@@ -202,7 +202,7 @@ def get_json(path: str, retries: int = 3) -> Optional[Dict[str, Any]]:
     """GET an API path with backoff retry and active rate-limiting."""
     req = urllib.request.Request(
         BASE_URL + path,
-        headers={"User-Agent": "ncaa-schedule-scraper-all"}
+        headers={"User-Agent": "ncaa-scrape-schedules"}
     )
     for attempt in range(retries):
         rate_limited_sleep(DELAY)
@@ -564,7 +564,7 @@ def read_existing_schedules() -> Dict[str, Any]:
 
 
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in d.items() if k not in ("updated_at", "generated_at", "last_scan", "last_updated")}
+    return {k: v for k, v in d.items() if k not in ("last_scan", "last_updated", "updated_at", "generated_at")}
 
 
 def write_output(results: Dict[str, Any]) -> None:
@@ -608,9 +608,15 @@ def write_output(results: Dict[str, Any]) -> None:
     # Dual-timestamp comparison: check if schedule data changed
     if existing_payload and _strip_volatile(existing_payload) == _strip_volatile(payload):
         # Unchanged: preserve previous last_updated, advance last_scan
-        prev_updated = existing_payload.get("last_updated") or existing_payload.get("updated_at") or now
+        prev_updated = (
+            existing_payload.get("last_updated")
+            or existing_payload.get("updated_at")
+            or existing_payload.get("generated_at")
+            or now
+        )
         payload["last_updated"] = prev_updated
         payload["updated_at"] = prev_updated
+        payload["generated_at"] = prev_updated
         logger.info("Schedule data unchanged — advanced last_scan (%s). last_updated stays %s.", now[:16], prev_updated[:16])
     else:
         logger.info("Fresh schedule data found — updated both last_scan and last_updated (%s).", now[:16])
