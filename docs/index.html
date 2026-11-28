@@ -152,14 +152,6 @@
       background: var(--surface-2);
     }
 
-    /* ── Summary Strip ────────────────────────────────────────────────────── */
-    .summary {
-      display: flex; flex-wrap: wrap; gap: .5rem 1.5rem;
-      margin: 1.25rem 0 1.75rem;
-      font-family: 'JetBrains Mono', monospace; font-size: .82rem; color: var(--muted);
-    }
-    .summary b { color: var(--text); font-weight: 700; }
-
     /* ── Section Dividers / Group Headers ─────────────────────────────────── */
     .section-label {
       font-family: 'JetBrains Mono', monospace;
@@ -232,6 +224,11 @@
       display: flex; justify-content: space-between; align-items: center;
       flex-wrap: wrap; gap: .5rem .75rem;
     }
+    .src-top-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
     .src-id {
       font-family: 'JetBrains Mono', monospace; font-size: .74rem; font-weight: 700;
       letter-spacing: .14em; color: var(--faint);
@@ -269,6 +266,22 @@
 
     @keyframes pulse { 50% { opacity: .45; } }
 
+    .season-chip {
+      padding: 0.12rem 0.5rem;
+      border: 1px solid var(--border-light);
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--off);
+      background: var(--surface-2);
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+    }
+    .season-chip[hidden] { display: none !important; }
+
     .src-name {
       font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
       font-size: clamp(2rem, 4.2vw, 2.75rem); line-height: 1; text-transform: uppercase;
@@ -280,13 +293,6 @@
       margin-top: auto; padding-top: .9rem; border-top: 1px dashed var(--line);
     }
     .src-detail { font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--faint); }
-
-    .season-chip {
-      margin-left: .6rem; padding: .08rem .45rem;
-      border: 1px solid var(--border-light); border-radius: 4px;
-      font-size: .68rem; font-weight: 700; letter-spacing: .08em; color: var(--off);
-    }
-    .season-chip[hidden] { display: none; }
 
     .src-open {
       font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.2rem;
@@ -342,8 +348,6 @@
     </div>
   </header>
 
-  <div class="summary" id="summary" aria-live="polite">Checking sources…</div>
-
   <!-- Group 1: Team & Season Stat Dashboards -->
   <div class="section-label">Team &amp; Player Statistics</div>
   <main class="bank" id="statsBank"></main>
@@ -376,7 +380,7 @@
   const SCAN_STALE_HOURS = 48;
 
   // false = the light always follows the scan age, even for out-of-season sports
-  //         (an "OFF-SEASON" chip is shown in the card footer instead).
+  //         (an "OFF-SEASON" chip is shown by the tally light instead).
   // true  = out-of-season cards get a gray light and ignore the scan age.
   const GRAY_OUT_OFF_SEASON = false;
 
@@ -387,7 +391,8 @@
       league: "Men's Ice Hockey (NCHC) & Women's Ice Hockey (WCHA)",
       detail: '10 MHOC + Non Conf | 8 WHOC + Non Conf',
       href: 'hockey/',
-      statusFile: 'hockey/st_thomas_mhockey.json',
+      statusFile: 'hockey/last_scan.json',
+      fallbackStatusFile: 'hockey/st_thomas_mhockey.json',
       seasonMonths: [10, 11, 12, 1, 2, 3, 4]
     },
     {
@@ -395,7 +400,8 @@
       league: "Men's & Women's Basketball · Summit League",
       detail: '16 programs + Non Conf',
       href: 'basketball/',
-      statusFile: 'basketball/st_thomas_men.json',
+      statusFile: 'basketball/last_scan.json',
+      fallbackStatusFile: 'basketball/st_thomas_men.json',
       seasonMonths: [11, 12, 1, 2, 3]
     },
     {
@@ -403,8 +409,8 @@
       league: 'Baseball & Softball · Summit League',
       detail: '6 BSB + Non Conf | 7 SB + Non Conf',
       href: 'diamondsports/',
-      statusFile: 'diamondsports/st_thomas_baseball.json',
-      fallbackStatusFile: 'diamondsports/st_thomas_softball.json',
+      statusFile: 'diamondsports/last_scan.json',
+      fallbackStatusFile: 'diamondsports/st_thomas_baseball.json',
       seasonMonths: [2, 3, 4, 5, 6]
     },
     {
@@ -412,7 +418,8 @@
       league: "Women's Volleyball · Summit League",
       detail: '8 programs + Non Conf',
       href: 'volleyball/',
-      statusFile: 'volleyball/st_thomas_wvball.json',
+      statusFile: 'volleyball/last_scan.json',
+      fallbackStatusFile: 'volleyball/st_thomas_wvball.json',
       seasonMonths: [8, 9, 10, 11, 12]
     },
     {
@@ -432,7 +439,8 @@
       league: 'Conference standings + USCHO polls',
       detail: '10 Standings + 2 Polls',
       href: 'standings/',
-      statusFile: 'standings/data.json',
+      statusFile: 'standings/last_scan.json',
+      fallbackStatusFile: 'standings/data.json',
       seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     },
     {
@@ -440,7 +448,8 @@
       league: '10 teams',
       detail: 'Upcoming 8 games for All Sports',
       href: 'schedulers/',
-      statusFile: 'schedulers/all_schedules.json',
+      statusFile: 'schedulers/last_scan.json',
+      fallbackStatusFile: 'schedulers/all_schedules.json',
       seasonMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     }
   ];
@@ -457,7 +466,10 @@
 
     a.innerHTML = `
       <div class="src-top">
-        <span class="src-id">SRC ${srcNum}</span>
+        <div class="src-top-left">
+          <span class="src-id">SRC ${srcNum}</span>
+          <span class="season-chip" hidden>OFF-SEASON</span>
+        </div>
         <span class="tally" data-state="${isPh ? 'placeholder' : 'checking'}">
           <i></i><span class="tally-text">${isPh
             ? '<span class="tally-scan">IN DEVELOPMENT</span>'
@@ -469,7 +481,7 @@
         <div class="src-league">${s.league}</div>
       </div>
       <div class="src-foot">
-        <span class="src-detail">${s.detail}<span class="season-chip" hidden>OFF-SEASON</span></span>
+        <span class="src-detail">${s.detail}</span>
         <span class="src-open">${isPh ? 'Planned' : 'Open dashboard →'}</span>
       </div>`;
 
@@ -488,12 +500,11 @@
 
   /**
    * Dual-timestamp resolver.
-   * Reads last_scan / last_updated from the root (or from a nested object such as
-   * the standings "sports" map). Files from scrapers that haven't been migrated
-   * yet fall back to generated_at / updated_at and are flagged as `legacy`.
+   * Reads last_scan / last_updated (or last_update) from last_scan.json or team files.
+   * Falls back to generated_at / updated_at if needed.
    */
   const SCAN_KEYS    = ['last_scan', 'generated_at', 'updated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
-  const UPDATED_KEYS = ['last_updated', 'updated_at', 'generated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
+  const UPDATED_KEYS = ['last_updated', 'last_update', 'updated_at', 'generated_at', 'scraped_at', 'timestamp', 'updated', 'as_of'];
 
   function pickStamp(o, keys) {
     if (!o || typeof o !== 'object') return null;
@@ -513,7 +524,7 @@
     let scan = pickStamp(obj, SCAN_KEYS);
     let updated = pickStamp(obj, UPDATED_KEYS);
 
-    // Nothing at the root? Look one level down (e.g. sports.mbball.last_scan).
+    // If nothing at root, look one level down (e.g. sports map)
     if (!scan || !updated) {
       for (const v of Object.values(obj)) {
         if (v && typeof v === 'object' && !Array.isArray(v)) {
@@ -527,7 +538,6 @@
     return {
       scan: scan ? scan.t : null,
       updated: updated ? updated.t : null,
-      // true when the "scan" value is really a generated_at/updated_at stamp
       legacy: !scan || scan.key !== 'last_scan'
     };
   }
@@ -558,7 +568,7 @@
 
   const LEGACY_NOTE =
     '* This scraper has not been updated to write last_scan / last_updated yet. ' +
-    'Both values come from its generated_at / updated_at stamp, which only moves when the file is rewritten.';
+    'Both values come from its generated_at / updated_at stamp.';
 
   async function checkSport(s) {
     if (s.isPlaceholder) return { state: 'placeholder', inSeason: true };
@@ -566,7 +576,7 @@
     const month = new Date().getMonth() + 1;
     const inSeason = s.seasonMonths.includes(month);
 
-    // Off-season chip in the footer
+    // Off-season chip by the top tally
     const chip = s._el.querySelector('.season-chip');
     if (chip) chip.hidden = inSeason;
 
@@ -588,7 +598,7 @@
       }
 
       const now = Date.now();
-      const scanAge = scan !== null ? now - scan : (now - updated); // fall back to Data if Scan is missing
+      const scanAge = scan !== null ? now - scan : (now - updated);
       const updatedAge = updated !== null ? now - updated : null;
       const scanHours = scanAge / 3600000;
 
@@ -607,20 +617,10 @@
     }
   }
 
+  // Trigger status checks across all sports
   (async () => {
     const activeToCheck = ALL_SPORTS.filter(s => !s.isPlaceholder);
-    const results = await Promise.all(activeToCheck.map(checkSport));
-    const n = k => results.filter(r => r.state === k).length;
-    const offSeason = results.filter(r => !r.inSeason).length;
-
-    const parts = [
-      `<b>${ALL_SPORTS.length}</b> sources (${activeToCheck.length} active)`,
-      `<b>${n('live')}</b> scanned on time`
-    ];
-    if (n('stale')) parts.push(`<b>${n('stale')}</b> stale`);
-    if (n('bad'))   parts.push(`<b>${n('bad')}</b> overdue / missing`);
-    if (offSeason)  parts.push(`<b>${offSeason}</b> off-season`);
-    document.getElementById('summary').innerHTML = parts.map(p => `<span>${p}</span>`).join('');
+    await Promise.all(activeToCheck.map(checkSport));
   })();
 
   function toggleColorMode() {
