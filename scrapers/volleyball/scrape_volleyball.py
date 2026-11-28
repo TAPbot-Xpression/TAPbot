@@ -22,9 +22,10 @@ Team Stats Captured:
 Features:
   1. Full async concurrency across teams via asyncio.Semaphore.
   2. Isolated Playwright browser contexts with resource blocking (images/fonts/media).
-  3. Interactive DOM navigation for Sidearm Nuxt 3 tabs (Player Stats, Team Stats) and combobox dropdowns.
-  4. Dual-timestamp tracking (last_scan advances every run, last_updated updates only when stats change).
-  5. Empty-scrape protection (preserves last-known-good JSON).
+  3. Precise 2-row multi-header extraction targeting .s-table-header__column-label.
+  4. Direct DOM navigation for Player Stats (Offensive & Defensive) and Team Stats (Totals & Per Set).
+  5. Dual-timestamp tracking (last_scan advances every run, last_updated updates only when stats change).
+  6. Empty-scrape protection (preserves last-known-good JSON).
 """
 
 from __future__ import annotations
@@ -85,7 +86,8 @@ TEAM_STAT_KEYS = [
 
 DISCARD_TERMS = {
     "team", "tm", "total", "totals", "opponent", "opponents", "opp",
-    "season", "overall", "conference", "view bio", "image", "unassigned"
+    "season", "overall", "conference", "view bio", "image", "unassigned",
+    "player", "player uniform", "player name"
 }
 
 _POS_MAP = {
@@ -311,10 +313,11 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
 
     return roster_lookup
 
-# ── Sidearm HTML Table Parser ────────────────────────────────────────────────
+# ── Precise Multi-Row Header Column Mapper ──────────────────────────────────
 HEADER_MAP = {
-    "PLAYER": "name", "NAME": "name", "#": "number", "NO": "number",
-    "SP": "sp", "MP": "mp", "GP": "mp", "SETS": "sp",
+    "#": "number", "NO": "number", "NO.": "number", "UNIFORM": "number",
+    "PLAYER": "name", "NAME": "name", "PLAYERNAME": "name",
+    "SP": "sp", "MP": "mp", "MS": "ms", "GP": "mp", "SETS": "sp",
     "PTS": "pts", "PTS/S": "pts_per_s", "PTS/SET": "pts_per_s",
     "K": "k", "KILLS": "k", "K/S": "k_per_s", "K/SET": "k_per_s",
     "E": "e", "ERRORS": "e",
@@ -324,56 +327,95 @@ HEADER_MAP = {
     "SA": "sa", "ACES": "sa", "SA/S": "sa_per_s", "SA/SET": "sa_per_s",
     "SE": "se",
     "DIG": "dig", "DIGS": "dig", "D": "dig", "DIG/S": "dig_per_s", "DIG/SET": "dig_per_s",
-    "RE": "re",
+    "RE": "re", "REC%": "rec_pct", "RE/S": "re_per_s",
     "BS": "bs", "SOLO": "bs", "BLOCK SOLOS": "bs",
     "BA": "ba", "ASSIST": "ba", "BLOCK ASSISTS": "ba",
     "BLK": "blk", "TOTAL BLOCKS": "blk", "TB": "blk", "BLK/S": "blk_per_s", "BLK/SET": "blk_per_s",
     "BE": "be", "BHE": "bhe"
 }
 
-def parse_html_table(soup: BeautifulSoup) -> Dict[str, Dict[str, Any]]:
+def extract_column_mapping(thead: BeautifulSoup) -> Dict[str, int]:
+    """
+    Finds the exact header row that contains individual column metrics
+    by inspecting `.s-table-header__column-label` or individual `<th>` tags.
+    """
+    mapping: Dict[str, int] = {}
+    rows = thead.find_all("tr")
+    if not rows:
+        return mapping
+
+    # Check rows from bottom-up in thead (row 2 contains the leaf column labels)
+    for r in reversed(rows):
+        ths = r.find_all(["th", "td"])
+        row_mapping: Dict[str, int] = {}
+        for idx, th in enumerate(ths):
+            label_span = th.select_one(".s-table-header__column-label")
+            txt = label_span.get_text(" ", strip=True) if label_span else th.get_text(" ", strip=True)
+            norm = re.sub(r"[^A-Z0-9%/]", "", txt.upper())
+            if norm in HEADER_MAP and HEADER_MAP[norm] not in row_mapping:
+                row_mapping[HEADER_MAP[norm]] = idx
+
+        # If this row mapped core volleyball metrics, return it
+        if len(row_mapping) >= 3:
+            return row_mapping
+
+    return mapping
+
+def parse_sidearm_player_table(table: BeautifulSoup) -> Dict[str, Dict[str, Any]]:
     players: Dict[str, Dict[str, Any]] = {}
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        if len(rows) < 2:
+    thead = table.find("thead")
+    if not thead:
+        return players
+
+    mapping = extract_column_mapping(thead)
+    if not ("name" in mapping or "number" in mapping):
+        return players
+
+    tbody = table.find("tbody")
+    rows = tbody.find_all("tr") if tbody else table.find_all("tr")
+
+    for r in rows:
+        # Skip header rows inside tbody or summary footer rows
+        if r.find_parent("tfoot") or r.find("th") and not r.find("td"):
             continue
 
-        headers = [c.get_text(" ", strip=True).upper() for c in rows[0].find_all(["th", "td"])]
-        mapping: Dict[str, int] = {}
-        for idx, h in enumerate(headers):
-            clean_h = re.sub(r"[^A-Z0-9%/]", "", h)
-            if clean_h in HEADER_MAP and HEADER_MAP[clean_h] not in mapping:
-                mapping[HEADER_MAP[clean_h]] = idx
-
-        if not ("k" in mapping or "dig" in mapping or "a" in mapping or "pts" in mapping or "sp" in mapping):
+        cells = [c.get_text(" ", strip=True) for c in r.find_all(["td", "th"])]
+        if len(cells) < 3:
             continue
 
-        name_idx = mapping.get("name", 1)
-        num_idx = mapping.get("number", 0)
+        # Extract Player Name
+        raw_name = ""
+        name_a = r.find("a", href=re.compile(r"roster", re.I))
+        if name_a:
+            raw_name = name_a.get_text(" ", strip=True)
+        elif "name" in mapping and mapping["name"] < len(cells):
+            raw_name = cells[mapping["name"]]
+        elif len(cells) > 1:
+            raw_name = cells[1]
 
-        for r in rows[1:]:
-            cells = [c.get_text(" ", strip=True) for c in r.find_all(["td", "th"])]
-            if len(cells) < 3:
-                continue
+        c_name = clean_name(raw_name)
+        if not is_valid_player_candidate(c_name):
+            continue
 
-            raw_name = cells[name_idx] if name_idx < len(cells) else ""
-            c_name = clean_name(raw_name)
-            if not is_valid_player_candidate(c_name):
-                continue
+        # Extract Number
+        raw_num = ""
+        if "number" in mapping and mapping["number"] < len(cells):
+            raw_num = cells[mapping["number"]]
+        elif cells[0].isdigit():
+            raw_num = cells[0]
 
-            raw_num = cells[num_idx] if num_idx < len(cells) else ""
-            key = c_name.lower()
-            p = players.setdefault(key, {"name": c_name, "number": clean_number(raw_num)})
+        key = c_name.lower()
+        p = players.setdefault(key, {"name": c_name, "number": clean_number(raw_num)})
 
-            for stat_k, col_idx in mapping.items():
-                if stat_k not in ("name", "number") and col_idx < len(cells):
-                    p[stat_k] = cells[col_idx]
+        for stat_k, col_idx in mapping.items():
+            if stat_k not in ("name", "number") and col_idx < len(cells):
+                p[stat_k] = cells[col_idx]
 
     return players
 
 # ── Interactive Dropdown & Tab Selection ──────────────────────────────────────
 async def select_dropdown_option(page: Page, target_text: str) -> bool:
-    """Clicks a Sidearm custom combobox and selects the requested option."""
+    """Clicks the Sidearm custom combobox and selects the requested option."""
     try:
         comboboxes = page.locator("button[role='combobox'], button[data-test-id='s-select__box']")
         count = await comboboxes.count()
@@ -383,26 +425,30 @@ async def select_dropdown_option(page: Page, target_text: str) -> bool:
                 curr = (await box.inner_text()).strip()
                 if target_text.lower() in curr.lower():
                     return True
+                
+                await box.scroll_into_view_if_needed()
                 await box.click()
                 await page.wait_for_timeout(400)
                 
-                # Look for dropdown item
-                option = page.locator(f"[role='option']:has-text('{target_text}'), li:has-text('{target_text}'), div:has-text('{target_text}')").first
+                option = page.locator(
+                    f"[role='option']:has-text('{target_text}'), li:has-text('{target_text}'), div:has-text('{target_text}')"
+                ).first
                 if await option.is_visible():
                     await option.click()
                     await page.wait_for_timeout(800)
                     return True
                 else:
-                    # Close dropdown if option not found
-                    await box.click()
+                    await page.keyboard.press("Escape")
     except Exception as e:
         logger.debug(f"Combobox selection error for '{target_text}': {e}")
     return False
 
 async def click_tab(page: Page, tab_text: str) -> bool:
-    """Clicks the main tab link (e.g. Player Stats vs Team Stats)."""
+    """Clicks a main tab link (e.g. Player Stats vs Team Stats)."""
     try:
-        tab = page.locator(f"button[role='tab']:has-text('{tab_text}'), button[data-test-id='s-tab__link']:has-text('{tab_text}')").first
+        tab = page.locator(
+            f"button[role='tab']:has-text('{tab_text}'), button[data-test-id='s-tab__link']:has-text('{tab_text}')"
+        ).first
         if await tab.is_visible():
             await tab.click()
             await page.wait_for_timeout(800)
@@ -424,13 +470,13 @@ def parse_volleyball_team_stats(soup: BeautifulSoup, found: Optional[Dict[str, s
             label = cells[0].strip().lower()
             val_team = cells[1].strip()
 
-            if ("percent" in label or "pct" in label or "hitting" in label) and "hit_pct" not in found:
+            if ("percent" in label or "pct" in label or "hitting" in label or "attack percent" in label) and "hit_pct" not in found:
                 found["hit_pct"] = clean_stat_pct(val_team)
             elif ("kills per set" in label or label == "k/s" or label == "kills/s") and "k_per_s" not in found:
                 found["k_per_s"] = clean_stat_float(val_team)
             elif ("assists per set" in label or label == "a/s" or label == "assists/s") and "a_per_s" not in found:
                 found["a_per_s"] = clean_stat_float(val_team)
-            elif ("aces per set" in label or "service aces per set" in label or label == "sa/s" or label == "aces/s") and "sa_per_s" not in found:
+            elif ("service aces per set" in label or "aces per set" in label or label == "sa/s" or label == "aces/s") and "sa_per_s" not in found:
                 found["sa_per_s"] = clean_stat_float(val_team)
             elif ("digs per set" in label or label == "dig/s" or label == "digs/s") and "dig_per_s" not in found:
                 found["dig_per_s"] = clean_stat_float(val_team)
@@ -464,20 +510,30 @@ async def scrape_volleyball_team(
 
             # 1. PLAYER STATS: Ensure Player Stats Tab is Active
             await click_tab(page, "Player Stats")
-            
+
             # 1a. Scrape Offensive View
             await select_dropdown_option(page, "Offensive")
+            try:
+                await page.wait_for_selector(".offensiveStats, th:has-text('K'), th:has-text('PTS')", timeout=4000)
+            except Exception:
+                pass
             soup_off = BeautifulSoup(await page.content(), "html.parser")
-            off_players = parse_html_table(soup_off)
-            for k, p in off_players.items():
-                player_stats_map.setdefault(k, {}).update(p)
+            for tbl in soup_off.find_all("table"):
+                off_players = parse_sidearm_player_table(tbl)
+                for k, p in off_players.items():
+                    player_stats_map.setdefault(k, {}).update(p)
 
             # 1b. Scrape Defensive View
             await select_dropdown_option(page, "Defensive")
+            try:
+                await page.wait_for_selector(".defensiveStats, th:has-text('DIG'), th:has-text('BLK')", timeout=4000)
+            except Exception:
+                pass
             soup_def = BeautifulSoup(await page.content(), "html.parser")
-            def_players = parse_html_table(soup_def)
-            for k, p in def_players.items():
-                player_stats_map.setdefault(k, {}).update(p)
+            for tbl in soup_def.find_all("table"):
+                def_players = parse_sidearm_player_table(tbl)
+                for k, p in def_players.items():
+                    player_stats_map.setdefault(k, {}).update(p)
 
             # 2. TEAM STATS: Switch to Team Stats Tab
             await click_tab(page, "Team Stats")
@@ -500,7 +556,7 @@ async def scrape_volleyball_team(
 
         roster_lookup = await roster_task
 
-        # Build Clean Player List
+        # Build Clean Merged Player List
         merged = []
         for key, p in player_stats_map.items():
             name = clean_name(p.get("name", ""))
