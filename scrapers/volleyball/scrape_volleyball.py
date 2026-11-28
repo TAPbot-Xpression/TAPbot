@@ -22,8 +22,8 @@ Team Stats Captured:
 Features:
   1. Full async concurrency across teams via asyncio.Semaphore.
   2. Isolated Playwright browser contexts with resource blocking (images/fonts/media).
-  3. Precise 2-row multi-header extraction targeting .s-table-header__column-label.
-  4. Direct DOM navigation for Player Stats (Offensive & Defensive) and Team Stats (Totals & Per Set).
+  3. Direct Vue 3 combobox/listbox interaction with verification loops.
+  4. Precise 2-row multi-header extraction targeting .s-table-header__column-label.
   5. Dual-timestamp tracking (last_scan advances every run, last_updated updates only when stats change).
   6. Empty-scrape protection (preserves last-known-good JSON).
 """
@@ -87,7 +87,7 @@ TEAM_STAT_KEYS = [
 DISCARD_TERMS = {
     "team", "tm", "total", "totals", "opponent", "opponents", "opp",
     "season", "overall", "conference", "view bio", "image", "unassigned",
-    "player", "player uniform", "player name"
+    "player", "player uniform", "player name", "-"
 }
 
 _POS_MAP = {
@@ -313,7 +313,7 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
 
     return roster_lookup
 
-# ── Precise Multi-Row Header Column Mapper ──────────────────────────────────
+# ── Precise Column Header Mapper ─────────────────────────────────────────────
 HEADER_MAP = {
     "#": "number", "NO": "number", "NO.": "number", "UNIFORM": "number",
     "PLAYER": "name", "NAME": "name", "PLAYERNAME": "name",
@@ -335,16 +335,11 @@ HEADER_MAP = {
 }
 
 def extract_column_mapping(thead: BeautifulSoup) -> Dict[str, int]:
-    """
-    Finds the exact header row that contains individual column metrics
-    by inspecting `.s-table-header__column-label` or individual `<th>` tags.
-    """
     mapping: Dict[str, int] = {}
     rows = thead.find_all("tr")
     if not rows:
         return mapping
 
-    # Check rows from bottom-up in thead (row 2 contains the leaf column labels)
     for r in reversed(rows):
         ths = r.find_all(["th", "td"])
         row_mapping: Dict[str, int] = {}
@@ -355,7 +350,6 @@ def extract_column_mapping(thead: BeautifulSoup) -> Dict[str, int]:
             if norm in HEADER_MAP and HEADER_MAP[norm] not in row_mapping:
                 row_mapping[HEADER_MAP[norm]] = idx
 
-        # If this row mapped core volleyball metrics, return it
         if len(row_mapping) >= 3:
             return row_mapping
 
@@ -375,15 +369,13 @@ def parse_sidearm_player_table(table: BeautifulSoup) -> Dict[str, Dict[str, Any]
     rows = tbody.find_all("tr") if tbody else table.find_all("tr")
 
     for r in rows:
-        # Skip header rows inside tbody or summary footer rows
-        if r.find_parent("tfoot") or r.find("th") and not r.find("td"):
+        if r.find_parent("tfoot") or (r.find("th") and not r.find("td")):
             continue
 
         cells = [c.get_text(" ", strip=True) for c in r.find_all(["td", "th"])]
         if len(cells) < 3:
             continue
 
-        # Extract Player Name
         raw_name = ""
         name_a = r.find("a", href=re.compile(r"roster", re.I))
         if name_a:
@@ -397,7 +389,6 @@ def parse_sidearm_player_table(table: BeautifulSoup) -> Dict[str, Dict[str, Any]
         if not is_valid_player_candidate(c_name):
             continue
 
-        # Extract Number
         raw_num = ""
         if "number" in mapping and mapping["number"] < len(cells):
             raw_num = cells[mapping["number"]]
@@ -413,45 +404,67 @@ def parse_sidearm_player_table(table: BeautifulSoup) -> Dict[str, Dict[str, Any]
 
     return players
 
-# ── Interactive Dropdown & Tab Selection ──────────────────────────────────────
-async def select_dropdown_option(page: Page, target_text: str) -> bool:
-    """Clicks the Sidearm custom combobox and selects the requested option."""
-    try:
-        comboboxes = page.locator("button[role='combobox'], button[data-test-id='s-select__box']")
-        count = await comboboxes.count()
-        for i in range(count):
-            box = comboboxes.nth(i)
-            if await box.is_visible():
-                curr = (await box.inner_text()).strip()
-                if target_text.lower() in curr.lower():
-                    return True
+# ── Robust Vue Combobox / Dropdown Selector ──────────────────────────────────
+async def select_combobox_option(page: Page, target_text: str, max_retries: int = 3) -> bool:
+    """
+    Finds the active Sidearm Vue combobox, opens its listbox, selects the target option,
+    and verifies the combobox label updates.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            boxes = page.locator("button[role='combobox'], button[data-test-id='s-select__box']")
+            count = await boxes.count()
+            target_box = None
+            for i in range(count):
+                b = boxes.nth(i)
+                if await b.is_visible():
+                    target_box = b
+                    break
+
+            if target_box is None:
+                await page.wait_for_timeout(500)
+                continue
+
+            current_val = (await target_box.inner_text()).strip()
+            if target_text.lower() in current_val.lower():
+                return True
+
+            await target_box.click()
+            await page.wait_for_timeout(300)
+
+            # Target option inside listbox
+            option = page.locator(
+                f"[role='option']:has-text('{target_text}'), li:has-text('{target_text}'), [role='listbox'] span:has-text('{target_text}')"
+            ).first
+            
+            if await option.is_visible():
+                await option.click()
+                await page.wait_for_timeout(600)
                 
-                await box.scroll_into_view_if_needed()
-                await box.click()
-                await page.wait_for_timeout(400)
-                
-                option = page.locator(
-                    f"[role='option']:has-text('{target_text}'), li:has-text('{target_text}'), div:has-text('{target_text}')"
-                ).first
-                if await option.is_visible():
-                    await option.click()
-                    await page.wait_for_timeout(800)
+                # Check if box updated
+                updated_val = (await target_box.inner_text()).strip()
+                if target_text.lower() in updated_val.lower():
                     return True
-                else:
-                    await page.keyboard.press("Escape")
-    except Exception as e:
-        logger.debug(f"Combobox selection error for '{target_text}': {e}")
+            else:
+                await page.keyboard.press("Escape")
+        except Exception as e:
+            logger.debug(f"Combobox select '{target_text}' attempt {attempt} error: {e}")
+            try:
+                await page.keyboard.press("Escape")
+            except Exception:
+                pass
+            await page.wait_for_timeout(500)
+
     return False
 
-async def click_tab(page: Page, tab_text: str) -> bool:
-    """Clicks a main tab link (e.g. Player Stats vs Team Stats)."""
+async def click_main_tab(page: Page, tab_text: str) -> bool:
     try:
         tab = page.locator(
             f"button[role='tab']:has-text('{tab_text}'), button[data-test-id='s-tab__link']:has-text('{tab_text}')"
         ).first
         if await tab.is_visible():
             await tab.click()
-            await page.wait_for_timeout(800)
+            await page.wait_for_timeout(600)
             return True
     except Exception as e:
         logger.debug(f"Tab click error for '{tab_text}': {e}")
@@ -509,12 +522,12 @@ async def scrape_volleyball_team(
                 pass
 
             # 1. PLAYER STATS: Ensure Player Stats Tab is Active
-            await click_tab(page, "Player Stats")
+            await click_main_tab(page, "Player Stats")
 
             # 1a. Scrape Offensive View
-            await select_dropdown_option(page, "Offensive")
+            await select_combobox_option(page, "Offensive")
             try:
-                await page.wait_for_selector(".offensiveStats, th:has-text('K'), th:has-text('PTS')", timeout=4000)
+                await page.wait_for_selector("span.s-table-header__column-label:has-text('K'), span.s-table-header__column-label:has-text('PTS')", timeout=4000)
             except Exception:
                 pass
             soup_off = BeautifulSoup(await page.content(), "html.parser")
@@ -524,11 +537,11 @@ async def scrape_volleyball_team(
                     player_stats_map.setdefault(k, {}).update(p)
 
             # 1b. Scrape Defensive View
-            await select_dropdown_option(page, "Defensive")
+            await select_combobox_option(page, "Defensive")
             try:
-                await page.wait_for_selector(".defensiveStats, th:has-text('DIG'), th:has-text('BLK')", timeout=4000)
+                await page.wait_for_selector("span.s-table-header__column-label:has-text('DIG'), span.s-table-header__column-label:has-text('BLK')", timeout=5000)
             except Exception:
-                pass
+                await page.wait_for_timeout(800)
             soup_def = BeautifulSoup(await page.content(), "html.parser")
             for tbl in soup_def.find_all("table"):
                 def_players = parse_sidearm_player_table(tbl)
@@ -536,15 +549,23 @@ async def scrape_volleyball_team(
                     player_stats_map.setdefault(k, {}).update(p)
 
             # 2. TEAM STATS: Switch to Team Stats Tab
-            await click_tab(page, "Team Stats")
+            await click_main_tab(page, "Team Stats")
 
             # 2a. Scrape Totals View
-            await select_dropdown_option(page, "Totals")
+            await select_combobox_option(page, "Totals")
+            try:
+                await page.wait_for_selector("td:has-text('Percent'), td:has-text('Kills')", timeout=4000)
+            except Exception:
+                pass
             soup_totals = BeautifulSoup(await page.content(), "html.parser")
             parse_volleyball_team_stats(soup_totals, team_stats_dict)
 
             # 2b. Scrape Per Set View
-            await select_dropdown_option(page, "Per Set")
+            await select_combobox_option(page, "Per Set")
+            try:
+                await page.wait_for_selector("td:has-text('Kills Per Set'), td:has-text('Digs Per Set')", timeout=5000)
+            except Exception:
+                await page.wait_for_timeout(800)
             soup_perset = BeautifulSoup(await page.content(), "html.parser")
             parse_volleyball_team_stats(soup_perset, team_stats_dict)
 
