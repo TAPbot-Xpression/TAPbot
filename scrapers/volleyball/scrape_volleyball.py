@@ -4,7 +4,8 @@ scrapers/volleyball/scrape_volleyball.py
 Collegiate Women's Volleyball player and team season stats scraper.
 
 Target site style:
-  - "new": Sidearm Nuxt/Vue (Offensive / Defensive dropdowns/tabs + Team Stats tab)
+  - "new": Sidearm Nuxt/Vue (Interactive Player Stats: Offensive / Defensive views
+           + Team Stats: Totals / Per Set views)
 
 Output (repo-relative):
   docs/volleyball/<slug>.json
@@ -21,7 +22,7 @@ Team Stats Captured:
 Features:
   1. Full async concurrency across teams via asyncio.Semaphore.
   2. Isolated Playwright browser contexts with resource blocking (images/fonts/media).
-  3. Nuxt JSON payload parser with fallback to DOM table parsing.
+  3. Interactive DOM navigation for Sidearm Nuxt 3 tabs (Player Stats, Team Stats) and combobox dropdowns.
   4. Dual-timestamp tracking (last_scan advances every run, last_updated updates only when stats change).
   5. Empty-scrape protection (preserves last-known-good JSON).
 """
@@ -49,15 +50,17 @@ logger = logging.getLogger("volleyball_scraper")
 sys.setrecursionlimit(20000)
 
 # ── Dynamic Path Resolution ──────────────────────────────────────────────────
+def find_repo_root(start: Path) -> Path:
+    for p in [start, *start.parents]:
+        if (p / ".git").exists() or (p / "docs").exists():
+            return p
+    return start
+
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
+REPO_ROOT = find_repo_root(SCRIPT_DIR)
 OUT_DIR = REPO_ROOT / "docs" / "volleyball"
-DEBUG_DIR = REPO_ROOT / "debug"
 
 CONCURRENCY_LIMIT = 4
-MIN_ROSTER_ENTRIES = 6
-DEBUG_MODE = False
-
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -308,129 +311,10 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
 
     return roster_lookup
 
-# ── Nuxt 3 / Vue Data Stats Parser ───────────────────────────────────────────
-def parse_nuxt_data_stats(html: str) -> List[Dict[str, Any]]:
-    players = []
-    patterns = [
-        r'<script[^>]+id=["\']__NUXT_DATA__["\'][^>]*>(.*?)</script>',
-        r"__NUXT_DATA__\s*=\s*(\[.*?\]);",
-        r"window\.__NUXT__\s*=\s*(.*?);\s*",
-    ]
-
-    for pat in patterns:
-        m = re.search(pat, html, re.DOTALL)
-        if not m:
-            continue
-        try:
-            data = json.loads(m.group(1))
-            if not isinstance(data, list):
-                continue
-
-            def resolve(val: Any) -> str:
-                if isinstance(val, int) and 0 <= val < len(data):
-                    target = data[val]
-                    if isinstance(target, (str, int, float)):
-                        return str(target)
-                return str(val) if val is not None else ""
-
-            def find_stat(item: dict, keys: List[str]) -> str:
-                for k in keys:
-                    v = item.get(k)
-                    if v is not None:
-                        res = resolve(v).strip()
-                        if res and res != "None" and res.lower() not in DISCARD_TERMS:
-                            return res
-                return ""
-
-            for item in data:
-                if not isinstance(item, dict):
-                    continue
-                if "opponent" in item or "winOrLoss" in item:
-                    continue
-
-                raw_name = item.get("playerName") or item.get("name") or item.get("fullName")
-                if not raw_name:
-                    continue
-
-                c_name = clean_name(resolve(raw_name))
-                if not is_valid_player_candidate(c_name):
-                    continue
-
-                c_num = clean_number(resolve(item.get("playerUniform") or item.get("jersey") or item.get("number")))
-                c_pos = normalize_position(resolve(item.get("position") or item.get("pos") or item.get("positionShort")))
-                c_yr = normalize_year(resolve(item.get("academicYear") or item.get("year") or item.get("class")))
-
-                mp = find_stat(item, ["matchesPlayed", "mp", "gp"])
-                sp = find_stat(item, ["setsPlayed", "sp"])
-                k = find_stat(item, ["kills", "k"])
-                k_s = find_stat(item, ["killsPerSet", "kPerSet", "k_s"])
-                e = find_stat(item, ["attackErrors", "e"])
-                ta = find_stat(item, ["totalAttacks", "ta", "attempts"])
-                pct = find_stat(item, ["hittingPercentage", "hitPct", "attackPct", "pct"])
-
-                a = find_stat(item, ["assists", "a"])
-                a_s = find_stat(item, ["assistsPerSet", "aPerSet", "a_s"])
-                sa = find_stat(item, ["serviceAces", "aces", "sa"])
-                sa_s = find_stat(item, ["serviceAcesPerSet", "saPerSet", "sa_s"])
-                se = find_stat(item, ["serviceErrors", "se"])
-
-                dig = find_stat(item, ["digs", "dig"])
-                dig_s = find_stat(item, ["digsPerSet", "digPerSet", "dig_s"])
-                re_err = find_stat(item, ["receptionErrors", "re"])
-
-                bs = find_stat(item, ["blockSolos", "bs"])
-                ba = find_stat(item, ["blockAssists", "ba"])
-                blk = find_stat(item, ["totalBlocks", "blk", "blocks"])
-                blk_s = find_stat(item, ["blocksPerSet", "blkPerSet", "blk_s"])
-                be = find_stat(item, ["blockingErrors", "be", "blockErrors"])
-                bhe = find_stat(item, ["ballHandlingErrors", "bhe"])
-                pts = find_stat(item, ["points", "pts", "totalPoints"])
-                pts_s = find_stat(item, ["pointsPerSet", "ptsPerSet", "pts_s"])
-
-                if not any([k, a, dig, blk, pts, sp]):
-                    continue
-
-                players.append({
-                    "number": c_num,
-                    "name": c_name,
-                    "position": c_pos,
-                    "year": c_yr,
-                    "mp": clean_stat_int(mp),
-                    "sp": clean_stat_int(sp),
-                    "pts": clean_stat_float(pts),
-                    "pts_per_s": clean_stat_float(pts_s),
-                    "k": clean_stat_int(k),
-                    "k_per_s": clean_stat_float(k_s),
-                    "e": clean_stat_int(e),
-                    "ta": clean_stat_int(ta),
-                    "pct": clean_stat_pct(pct),
-                    "a": clean_stat_int(a),
-                    "a_per_s": clean_stat_float(a_s),
-                    "sa": clean_stat_int(sa),
-                    "sa_per_s": clean_stat_float(sa_s),
-                    "se": clean_stat_int(se),
-                    "dig": clean_stat_int(dig),
-                    "dig_per_s": clean_stat_float(dig_s),
-                    "re": clean_stat_int(re_err),
-                    "bs": clean_stat_int(bs),
-                    "ba": clean_stat_int(ba),
-                    "blk": clean_stat_float(blk),
-                    "blk_per_s": clean_stat_float(blk_s),
-                    "be": clean_stat_int(be),
-                    "bhe": clean_stat_int(bhe),
-                })
-        except Exception:
-            continue
-
-        if len(players) >= 5:
-            break
-
-    return players
-
-# ── HTML Table Stats Parser (Fallback) ────────────────────────────────────────
+# ── Sidearm HTML Table Parser ────────────────────────────────────────────────
 HEADER_MAP = {
     "PLAYER": "name", "NAME": "name", "#": "number", "NO": "number",
-    "SP": "sp", "MP": "mp", "GP": "sp", "SETS": "sp",
+    "SP": "sp", "MP": "mp", "GP": "mp", "SETS": "sp",
     "PTS": "pts", "PTS/S": "pts_per_s", "PTS/SET": "pts_per_s",
     "K": "k", "KILLS": "k", "K/S": "k_per_s", "K/SET": "k_per_s",
     "E": "e", "ERRORS": "e",
@@ -461,7 +345,7 @@ def parse_html_table(soup: BeautifulSoup) -> Dict[str, Dict[str, Any]]:
             if clean_h in HEADER_MAP and HEADER_MAP[clean_h] not in mapping:
                 mapping[HEADER_MAP[clean_h]] = idx
 
-        if not ("k" in mapping or "dig" in mapping or "a" in mapping or "pts" in mapping):
+        if not ("k" in mapping or "dig" in mapping or "a" in mapping or "pts" in mapping or "sp" in mapping):
             continue
 
         name_idx = mapping.get("name", 1)
@@ -469,7 +353,7 @@ def parse_html_table(soup: BeautifulSoup) -> Dict[str, Dict[str, Any]]:
 
         for r in rows[1:]:
             cells = [c.get_text(" ", strip=True) for c in r.find_all(["td", "th"])]
-            if len(cells) < 4:
+            if len(cells) < 3:
                 continue
 
             raw_name = cells[name_idx] if name_idx < len(cells) else ""
@@ -487,9 +371,50 @@ def parse_html_table(soup: BeautifulSoup) -> Dict[str, Dict[str, Any]]:
 
     return players
 
-# ── Team Stats Parser ────────────────────────────────────────────────────────
-def parse_volleyball_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
-    found: Dict[str, str] = {}
+# ── Interactive Dropdown & Tab Selection ──────────────────────────────────────
+async def select_dropdown_option(page: Page, target_text: str) -> bool:
+    """Clicks a Sidearm custom combobox and selects the requested option."""
+    try:
+        comboboxes = page.locator("button[role='combobox'], button[data-test-id='s-select__box']")
+        count = await comboboxes.count()
+        for i in range(count):
+            box = comboboxes.nth(i)
+            if await box.is_visible():
+                curr = (await box.inner_text()).strip()
+                if target_text.lower() in curr.lower():
+                    return True
+                await box.click()
+                await page.wait_for_timeout(400)
+                
+                # Look for dropdown item
+                option = page.locator(f"[role='option']:has-text('{target_text}'), li:has-text('{target_text}'), div:has-text('{target_text}')").first
+                if await option.is_visible():
+                    await option.click()
+                    await page.wait_for_timeout(800)
+                    return True
+                else:
+                    # Close dropdown if option not found
+                    await box.click()
+    except Exception as e:
+        logger.debug(f"Combobox selection error for '{target_text}': {e}")
+    return False
+
+async def click_tab(page: Page, tab_text: str) -> bool:
+    """Clicks the main tab link (e.g. Player Stats vs Team Stats)."""
+    try:
+        tab = page.locator(f"button[role='tab']:has-text('{tab_text}'), button[data-test-id='s-tab__link']:has-text('{tab_text}')").first
+        if await tab.is_visible():
+            await tab.click()
+            await page.wait_for_timeout(800)
+            return True
+    except Exception as e:
+        logger.debug(f"Tab click error for '{tab_text}': {e}")
+    return False
+
+# ── Team Stats HTML Parser ───────────────────────────────────────────────────
+def parse_volleyball_team_stats(soup: BeautifulSoup, found: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    if found is None:
+        found = {}
     for table in soup.find_all("table"):
         for row in table.find_all("tr"):
             cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
@@ -499,20 +424,20 @@ def parse_volleyball_team_stats(soup: BeautifulSoup) -> Dict[str, str]:
             label = cells[0].strip().lower()
             val_team = cells[1].strip()
 
-            if ("attack percentage" in label or "hit percentage" in label or "hitting pct" in label) and "hit_pct" not in found:
+            if ("percent" in label or "pct" in label or "hitting" in label) and "hit_pct" not in found:
                 found["hit_pct"] = clean_stat_pct(val_team)
-            elif ("kills/set" in label or "kills per set" in label or label == "k/s") and "k_per_s" not in found:
+            elif ("kills per set" in label or label == "k/s" or label == "kills/s") and "k_per_s" not in found:
                 found["k_per_s"] = clean_stat_float(val_team)
-            elif ("assists/set" in label or "assists per set" in label or label == "a/s") and "a_per_s" not in found:
+            elif ("assists per set" in label or label == "a/s" or label == "assists/s") and "a_per_s" not in found:
                 found["a_per_s"] = clean_stat_float(val_team)
-            elif ("aces/set" in label or "service aces per set" in label or label == "sa/s") and "sa_per_s" not in found:
+            elif ("aces per set" in label or "service aces per set" in label or label == "sa/s" or label == "aces/s") and "sa_per_s" not in found:
                 found["sa_per_s"] = clean_stat_float(val_team)
-            elif ("digs/set" in label or "digs per set" in label or label == "dig/s") and "dig_per_s" not in found:
+            elif ("digs per set" in label or label == "dig/s" or label == "digs/s") and "dig_per_s" not in found:
                 found["dig_per_s"] = clean_stat_float(val_team)
-            elif ("blocks/set" in label or "blocks per set" in label or label == "blk/s") and "blk_per_s" not in found:
+            elif ("blocks per set" in label or label == "blk/s" or label == "blocks/s") and "blk_per_s" not in found:
                 found["blk_per_s"] = clean_stat_float(val_team)
 
-    return {k: found.get(k, "-") for k in TEAM_STAT_KEYS}
+    return found
 
 # ── Single Team Scraper Pipeline ─────────────────────────────────────────────
 async def scrape_volleyball_team(
@@ -525,62 +450,47 @@ async def scrape_volleyball_team(
         logger.info(f"Processing {label} (Women's Volleyball)...")
 
         roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
-
-        raw_players: List[Dict[str, Any]] = []
-        team_stats: Dict[str, str] = {k: "-" for k in TEAM_STAT_KEYS}
+        player_stats_map: Dict[str, Dict[str, Any]] = {}
+        team_stats_dict: Dict[str, str] = {}
 
         page: Optional[Page] = None
         try:
             page = await context.new_page()
             await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=35000)
             try:
-                await page.wait_for_selector("table, script#__NUXT_DATA__", timeout=8000)
+                await page.wait_for_selector("table, button[role='tab']", timeout=8000)
             except Exception:
                 pass
 
-            html = await page.content()
-            soup = BeautifulSoup(html, "html.parser")
+            # 1. PLAYER STATS: Ensure Player Stats Tab is Active
+            await click_tab(page, "Player Stats")
+            
+            # 1a. Scrape Offensive View
+            await select_dropdown_option(page, "Offensive")
+            soup_off = BeautifulSoup(await page.content(), "html.parser")
+            off_players = parse_html_table(soup_off)
+            for k, p in off_players.items():
+                player_stats_map.setdefault(k, {}).update(p)
 
-            # 1. Try Nuxt JSON Data first
-            raw_players = parse_nuxt_data_stats(html)
+            # 1b. Scrape Defensive View
+            await select_dropdown_option(page, "Defensive")
+            soup_def = BeautifulSoup(await page.content(), "html.parser")
+            def_players = parse_html_table(soup_def)
+            for k, p in def_players.items():
+                player_stats_map.setdefault(k, {}).update(p)
 
-            # 2. Fallback to HTML table extraction
-            if not raw_players:
-                logger.info(f"[{label}] Nuxt data not found — parsing HTML tables...")
-                html_p_map = parse_html_table(soup)
-                for p_dict in html_p_map.values():
-                    raw_players.append({
-                        "number": clean_number(p_dict.get("number")),
-                        "name": p_dict.get("name", ""),
-                        "position": "",
-                        "year": "",
-                        "mp": clean_stat_int(p_dict.get("mp")),
-                        "sp": clean_stat_int(p_dict.get("sp")),
-                        "pts": clean_stat_float(p_dict.get("pts")),
-                        "pts_per_s": clean_stat_float(p_dict.get("pts_per_s")),
-                        "k": clean_stat_int(p_dict.get("k")),
-                        "k_per_s": clean_stat_float(p_dict.get("k_per_s")),
-                        "e": clean_stat_int(p_dict.get("e")),
-                        "ta": clean_stat_int(p_dict.get("ta")),
-                        "pct": clean_stat_pct(p_dict.get("pct")),
-                        "a": clean_stat_int(p_dict.get("a")),
-                        "a_per_s": clean_stat_float(p_dict.get("a_per_s")),
-                        "sa": clean_stat_int(p_dict.get("sa")),
-                        "sa_per_s": clean_stat_float(p_dict.get("sa_per_s")),
-                        "se": clean_stat_int(p_dict.get("se")),
-                        "dig": clean_stat_int(p_dict.get("dig")),
-                        "dig_per_s": clean_stat_float(p_dict.get("dig_per_s")),
-                        "re": clean_stat_int(p_dict.get("re")),
-                        "bs": clean_stat_int(p_dict.get("bs")),
-                        "ba": clean_stat_int(p_dict.get("ba")),
-                        "blk": clean_stat_float(p_dict.get("blk")),
-                        "blk_per_s": clean_stat_float(p_dict.get("blk_per_s")),
-                        "be": clean_stat_int(p_dict.get("be")),
-                        "bhe": clean_stat_int(p_dict.get("bhe")),
-                    })
+            # 2. TEAM STATS: Switch to Team Stats Tab
+            await click_tab(page, "Team Stats")
 
-            # 3. Parse Team Stats
-            team_stats = parse_volleyball_team_stats(soup)
+            # 2a. Scrape Totals View
+            await select_dropdown_option(page, "Totals")
+            soup_totals = BeautifulSoup(await page.content(), "html.parser")
+            parse_volleyball_team_stats(soup_totals, team_stats_dict)
+
+            # 2b. Scrape Per Set View
+            await select_dropdown_option(page, "Per Set")
+            soup_perset = BeautifulSoup(await page.content(), "html.parser")
+            parse_volleyball_team_stats(soup_perset, team_stats_dict)
 
         except Exception as e:
             logger.error(f"[{label}] Error scraping stats: {e}")
@@ -590,23 +500,51 @@ async def scrape_volleyball_team(
 
         roster_lookup = await roster_task
 
-        # Merge with Roster
+        # Build Clean Player List
         merged = []
-        seen = set()
-        for p in raw_players:
-            name = p.get("name", "")
-            if not name or name.lower() in seen or not is_valid_player_candidate(name):
+        for key, p in player_stats_map.items():
+            name = clean_name(p.get("name", ""))
+            if not is_valid_player_candidate(name):
                 continue
-            seen.add(name.lower())
 
-            r_info = find_roster_entry(name, p.get("number", ""), roster_lookup)
-            if r_info:
-                p["name"] = r_info.get("name") or name
-                p["number"] = p.get("number") or r_info.get("number", "")
-                p["position"] = r_info.get("position") or p.get("position", "")
-                p["year"] = r_info.get("year") or p.get("year", "")
+            num = clean_number(p.get("number", ""))
+            r_info = find_roster_entry(name, num, roster_lookup)
 
-            merged.append(p)
+            player_obj = {
+                "number": num or (r_info.get("number", "") if r_info else ""),
+                "name": (r_info.get("name") if r_info else "") or name,
+                "position": (r_info.get("position") if r_info else "") or "",
+                "year": (r_info.get("year") if r_info else "") or "",
+                "mp": clean_stat_int(p.get("mp")),
+                "sp": clean_stat_int(p.get("sp")),
+                "pts": clean_stat_float(p.get("pts")),
+                "pts_per_s": clean_stat_float(p.get("pts_per_s")),
+                "k": clean_stat_int(p.get("k")),
+                "k_per_s": clean_stat_float(p.get("k_per_s")),
+                "e": clean_stat_int(p.get("e")),
+                "ta": clean_stat_int(p.get("ta")),
+                "pct": clean_stat_pct(p.get("pct")),
+                "a": clean_stat_int(p.get("a")),
+                "a_per_s": clean_stat_float(p.get("a_per_s")),
+                "sa": clean_stat_int(p.get("sa")),
+                "sa_per_s": clean_stat_float(p.get("sa_per_s")),
+                "se": clean_stat_int(p.get("se")),
+                "dig": clean_stat_int(p.get("dig")),
+                "dig_per_s": clean_stat_float(p.get("dig_per_s")),
+                "re": clean_stat_int(p.get("re")),
+                "bs": clean_stat_int(p.get("bs")),
+                "ba": clean_stat_int(p.get("ba")),
+                "blk": clean_stat_float(p.get("blk")),
+                "blk_per_s": clean_stat_float(p.get("blk_per_s")),
+                "be": clean_stat_int(p.get("be")),
+                "bhe": clean_stat_int(p.get("bhe")),
+            }
+            merged.append(player_obj)
+
+        merged.sort(key=lambda x: int(x["number"]) if x["number"].isdigit() else 999)
+
+        # Build Standardized Team Stats
+        final_team_stats = {k: team_stats_dict.get(k, "-") for k in TEAM_STAT_KEYS}
 
         now = now_iso()
         team_data = {
@@ -620,12 +558,12 @@ async def scrape_volleyball_team(
             "generated_at": now,
             "source_stats_url": team_cfg["stats_url"],
             "source_roster_url": team_cfg.get("roster_url", ""),
-            "team_stats": team_stats,
+            "team_stats": final_team_stats,
             "players": merged,
         }
 
         logger.info(f"[{label}] Scraped {len(merged)} players. Team stats found: "
-                    f"{sum(1 for v in team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
+                    f"{sum(1 for v in final_team_stats.values() if v != '-')}/{len(TEAM_STAT_KEYS)}")
         return write_team_json(slug, team_data)
 
 # ── Main Runner ──────────────────────────────────────────────────────────────
