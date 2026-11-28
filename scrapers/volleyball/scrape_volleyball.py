@@ -22,7 +22,7 @@ Team Stats Captured:
 Features:
   1. Full async concurrency across teams via asyncio.Semaphore.
   2. Isolated Playwright browser contexts with resource blocking (images/fonts/media).
-  3. Direct Vue 3 combobox/listbox interaction with verification loops.
+  3. Direct Vue 3 combobox/listbox interaction with verification loops and fallback DOM dispatch.
   4. Precise 2-row multi-header extraction targeting .s-table-header__column-label.
   5. Dual-timestamp tracking (last_scan advances every run, last_updated updates only when stats change).
   6. Empty-scrape protection (preserves last-known-good JSON).
@@ -405,57 +405,60 @@ def parse_sidearm_player_table(table: BeautifulSoup) -> Dict[str, Dict[str, Any]
     return players
 
 # ── Robust Vue Combobox / Dropdown Selector ──────────────────────────────────
-async def select_combobox_option(page: Page, target_text: str, max_retries: int = 3) -> bool:
+async def switch_view_dropdown(page: Page, target_text: str) -> bool:
     """
-    Finds the active Sidearm Vue combobox, opens its listbox, selects the target option,
-    and verifies the combobox label updates.
+    Directly opens the Sidearm Nuxt 3 combobox and selects the target view (e.g. 'Defensive' or 'Per Set').
+    Uses JavaScript click and evaluation fallback if Playwright locator click is intercepted.
     """
-    for attempt in range(1, max_retries + 1):
-        try:
-            boxes = page.locator("button[role='combobox'], button[data-test-id='s-select__box']")
-            count = await boxes.count()
-            target_box = None
-            for i in range(count):
-                b = boxes.nth(i)
-                if await b.is_visible():
-                    target_box = b
-                    break
+    try:
+        box = page.locator("button[role='combobox'], button[data-test-id='s-select__box']").first
+        if not await box.is_visible():
+            return False
 
-            if target_box is None:
-                await page.wait_for_timeout(500)
-                continue
+        curr_text = (await box.inner_text()).strip()
+        if target_text.lower() in curr_text.lower():
+            return True
 
-            current_val = (await target_box.inner_text()).strip()
-            if target_text.lower() in current_val.lower():
-                return True
+        # 1. Click combobox to open popup listbox
+        await box.click()
+        await page.wait_for_timeout(350)
 
-            await target_box.click()
-            await page.wait_for_timeout(300)
+        # 2. Locate listbox item matching target_text
+        option_locators = [
+            page.locator(f"[role='listbox'] [role='option']:has-text('{target_text}')").first,
+            page.locator(f"[role='option']:has-text('{target_text}')").first,
+            page.locator(f".s-select__options-item:has-text('{target_text}')").first,
+            page.locator(f"li:has-text('{target_text}')").first,
+        ]
 
-            # Target option inside listbox
-            option = page.locator(
-                f"[role='option']:has-text('{target_text}'), li:has-text('{target_text}'), [role='listbox'] span:has-text('{target_text}')"
-            ).first
-            
-            if await option.is_visible():
-                await option.click()
-                await page.wait_for_timeout(600)
-                
-                # Check if box updated
-                updated_val = (await target_box.inner_text()).strip()
-                if target_text.lower() in updated_val.lower():
-                    return True
-            else:
-                await page.keyboard.press("Escape")
-        except Exception as e:
-            logger.debug(f"Combobox select '{target_text}' attempt {attempt} error: {e}")
-            try:
-                await page.keyboard.press("Escape")
-            except Exception:
-                pass
-            await page.wait_for_timeout(500)
+        clicked = False
+        for opt in option_locators:
+            if await opt.is_visible():
+                await opt.click(force=True)
+                clicked = True
+                break
 
-    return False
+        # JavaScript fallback if overlay element was shadowed
+        if not clicked:
+            js_clicked = await page.evaluate("""(target) => {
+                const options = Array.from(document.querySelectorAll('[role="option"], .s-select__options-item, li'));
+                for (const el of options) {
+                    if (el.textContent.toLowerCase().includes(target.toLowerCase())) {
+                        el.click();
+                        return true;
+                    }
+                }
+                return false;
+            }""", target_text)
+            if js_clicked:
+                clicked = True
+
+        await page.wait_for_timeout(700)
+        return clicked
+
+    except Exception as e:
+        logger.debug(f"Failed switching to dropdown view '{target_text}': {e}")
+        return False
 
 async def click_main_tab(page: Page, tab_text: str) -> bool:
     try:
@@ -525,7 +528,7 @@ async def scrape_volleyball_team(
             await click_main_tab(page, "Player Stats")
 
             # 1a. Scrape Offensive View
-            await select_combobox_option(page, "Offensive")
+            await switch_view_dropdown(page, "Offensive")
             try:
                 await page.wait_for_selector("span.s-table-header__column-label:has-text('K'), span.s-table-header__column-label:has-text('PTS')", timeout=4000)
             except Exception:
@@ -537,7 +540,7 @@ async def scrape_volleyball_team(
                     player_stats_map.setdefault(k, {}).update(p)
 
             # 1b. Scrape Defensive View
-            await select_combobox_option(page, "Defensive")
+            await switch_view_dropdown(page, "Defensive")
             try:
                 await page.wait_for_selector("span.s-table-header__column-label:has-text('DIG'), span.s-table-header__column-label:has-text('BLK')", timeout=5000)
             except Exception:
@@ -552,7 +555,7 @@ async def scrape_volleyball_team(
             await click_main_tab(page, "Team Stats")
 
             # 2a. Scrape Totals View
-            await select_combobox_option(page, "Totals")
+            await switch_view_dropdown(page, "Totals")
             try:
                 await page.wait_for_selector("td:has-text('Percent'), td:has-text('Kills')", timeout=4000)
             except Exception:
@@ -561,7 +564,7 @@ async def scrape_volleyball_team(
             parse_volleyball_team_stats(soup_totals, team_stats_dict)
 
             # 2b. Scrape Per Set View
-            await select_combobox_option(page, "Per Set")
+            await switch_view_dropdown(page, "Per Set")
             try:
                 await page.wait_for_selector("td:has-text('Kills Per Set'), td:has-text('Digs Per Set')", timeout=5000)
             except Exception:
