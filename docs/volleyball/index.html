@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="en" data-color-mode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TAPbot - Volleyball Stats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Base Theme Variables (Dark Mode by Default) ─────────────────────────── */
+    :root {
+      --bg:             #080c14;
+      --surface:        #0f1623;
+      --surface-2:      #161f30;
+      --surface-3:      #1d2840;
+      --border:         #1e2d47;
+      --border-light:   #2a3d5c;
+
+      --text:           #e8edf5;
+      --text-muted:     #8a9fb8;
+      --text-faint:     #4d627d;
+
+      --gold:           #fbbf24;
+      --gold-bg:        rgba(251, 191, 36, 0.14);
+      --silver:         #e2e8f0;
+      --silver-bg:      rgba(226, 232, 240, 0.14);
+      --bronze:         #f97316;
+      --bronze-bg:      rgba(249, 115, 22, 0.14);
+
+      --green:          #10b981;
+      --red:            #ef4444;
+      --amber:          #f59e0b;
+
+      --radius:         12px;
+      --radius-sm:      8px;
+
+      /* Team Dynamic Defaults (St. Thomas) */
+      --team-primary:   #5b2d86;
+      --team-accent:    #8b5cf6;
+      --team-glow:      rgba(139, 92, 246, 0.35);
+      --team-light:     #ddd6fe;
+      --team-btn-text:  #ffffff;
+    }
+
+    /* ── Light Mode Color Overrides ─────────────────────────────────────────── */
+    [data-color-mode="light"] {
+      --bg:             #f8fafc;
+      --surface:        #ffffff;
+      --surface-2:      #f1f5f9;
+      --surface-3:      #e2e8f0;
+      --border:         #cbd5e1;
+      --border-light:   #94a3b8;
+
+      --text:           #0f172a;
+      --text-muted:     #475569;
+      --text-faint:     #94a3b8;
+
+      --gold-bg:        rgba(251, 191, 36, 0.22);
+      --silver-bg:      rgba(148, 163, 184, 0.22);
+      --bronze-bg:      rgba(249, 115, 22, 0.22);
+    }
+
+    /* ── Team Color Themes ─────────────────────────────────────────────────── */
+    [data-theme="st_thomas_wvball"] {
+      --team-primary:   #5b2d86;
+      --team-accent:    #8b5cf6;
+      --team-glow:      rgba(139, 92, 246, 0.35);
+      --team-light:     #ddd6fe;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="kansas_city_wvball"] {
+      --team-primary:   #004b87;
+      --team-accent:    #ffc72c;
+      --team-glow:      rgba(255, 199, 44, 0.40);
+      --team-light:     #fef08a;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="north_dakota_wvball"] {
+      --team-primary:   #005a36;
+      --team-accent:    #009a44;
+      --team-glow:      rgba(0, 154, 68, 0.40);
+      --team-light:     #bbf7d0;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="north_dakota_state_wvball"] {
+      --team-primary:   #005643;
+      --team-accent:    #007a5e;
+      --team-glow:      rgba(0, 122, 94, 0.40);
+      --team-light:     #a7f3d0;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="omaha_wvball"] {
+      --team-primary:   #1a1a1a;
+      --team-accent:    #d12631;
+      --team-glow:      rgba(209, 38, 49, 0.38);
+      --team-light:     #fecaca;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="oral_roberts_wvball"] {
+      --team-primary:   #002d62;
+      --team-accent:    #c5b358;
+      --team-glow:      rgba(197, 179, 88, 0.35);
+      --team-light:     #fef3c7;
+      --team-btn-text:  #000000;
+    }
+
+    [data-theme="south_dakota_wvball"] {
+      --team-primary:   #780000;
+      --team-accent:    #c8102e;
+      --team-glow:      rgba(200, 16, 46, 0.40);
+      --team-light:     #fecdd3;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="south_dakota_state_wvball"] {
+      --team-primary:   #0033a0;
+      --team-accent:    #0056b3;
+      --team-glow:      rgba(0, 86, 179, 0.45);
+      --team-light:     #bfdbfe;
+      --team-btn-text:  #ffffff;
+    }
+
+    [data-theme="non_conf_wvball"] {
+      --team-primary:   #334155;
+      --team-accent:    #94a3b8;
+      --team-glow:      rgba(148, 163, 184, 0.30);
+      --team-light:     #e2e8f0;
+      --team-btn-text:  #0b1220;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      min-height: 100vh;
+      padding: 2.5rem 1.5rem 4.5rem;
+      transition: background-color 0.25s, color 0.25s;
+    }
+
+    .container { max-width: 1360px; margin: 0 auto; }
+
+    /* ── TAPbot Back Button ─────────────────────────────────────────────────── */
+    .tap-back {
+      display: inline-flex; align-items: center; gap: .45rem;
+      margin: 0 0 1.25rem;
+      padding: .45rem .85rem;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font: 700 .82rem/1 'JetBrains Mono', monospace;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: color .15s, border-color .15s, box-shadow .15s;
+    }
+    .tap-back:hover,
+    .tap-back:focus-visible {
+      color: var(--text);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 10px var(--team-glow);
+    }
+    .tap-back:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 3px; }
+    .tap-back-arrow { transition: transform .15s; }
+    .tap-back:hover .tap-back-arrow { transform: translateX(-3px); }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    header {
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .wordmark-eyebrow {
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+      transition: color 0.2s;
+    }
+
+    h1 {
+      font-size: clamp(1.35rem, 2.3vw, 2rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      color: var(--text);
+    }
+
+    .meta {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      text-align: left;
+      margin-top: 0.3rem;
+      line-height: 1.4;
+    }
+
+    /* ── Header Right Controls (Theme Switcher Only) ────────────────────────── */
+    .header-right-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.65rem;
+      flex-shrink: 0;
+    }
+
+    .top-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .control-pill-group {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 9px;
+      gap: 3px;
+    }
+
+    .control-pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .control-pill-btn:hover {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    /* ── Team Selector Ribbon ────────────────────────────────────────────────── */
+    .selector-block {
+      margin-bottom: 2rem;
+    }
+
+    .section-caption {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.65rem;
+      display: block;
+    }
+
+    .team-pills {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .team-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.65rem 1.15rem;
+      border-radius: 9999px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      transition: all 0.15s ease;
+    }
+
+    .team-pill:hover {
+      border-color: var(--border-light);
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    .team-pill.active {
+      background: var(--surface-2);
+      border-color: var(--team-accent);
+      color: var(--text);
+      box-shadow: 0 0 15px var(--team-glow);
+    }
+
+    .team-pill.non-conf {
+      border-style: dashed;
+      border-color: var(--border-light);
+      margin-left: 0.3rem;
+    }
+
+    .team-pill.non-conf.active {
+      border-style: solid;
+    }
+
+    .team-pill-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+    }
+
+    .team-pill-dot.ring {
+      background: transparent;
+      border: 2px solid currentColor;
+    }
+
+    /* ── Search Spotlight ────────────────────────────────────────────────────── */
+    .search-section {
+      margin-bottom: 2rem;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-input-wrap {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.95rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-faint);
+      font-size: 1.2rem;
+      font-family: 'JetBrains Mono', monospace;
+      pointer-events: none;
+    }
+
+    #playerSearch {
+      background: var(--surface-2);
+      border: 1.5px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.45rem;
+      font-weight: 700;
+      width: 130px;
+      padding: 0.5rem 0.85rem 0.5rem 2.35rem;
+      text-align: center;
+      transition: all 0.2s;
+      outline: none;
+    }
+
+    #playerSearch:focus {
+      border-color: var(--team-accent);
+      box-shadow: 0 0 0 3px var(--team-glow);
+    }
+
+    .search-hint {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+
+    .not-found {
+      display: none;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1.15rem;
+      font-size: 0.95rem;
+      color: #f87171;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Spotlight Card (Player Spotlight) ──────────────────────────────────── */
+    .spotlight-card {
+      display: none;
+      background: var(--surface);
+      border: 1.5px solid var(--team-accent);
+      border-radius: var(--radius);
+      box-shadow: 0 0 35px var(--team-glow), 0 8px 32px rgba(0,0,0,0.3);
+      overflow: hidden;
+      margin-bottom: 2.25rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .spotlight-header {
+      background: linear-gradient(135deg, var(--team-primary) 0%, var(--surface-2) 100%);
+      padding: 1.25rem 1.65rem;
+      display: flex;
+      align-items: center;
+      gap: 1.35rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .spotlight-header.leaderboard-header {
+      background: linear-gradient(135deg, var(--surface-3) 0%, var(--surface-2) 100%);
+    }
+
+    .jersey-badge {
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.85rem;
+      font-weight: 800;
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px var(--team-glow);
+    }
+
+    .trophy-badge {
+      background: var(--gold);
+      color: #0b1220;
+      font-size: 1.75rem;
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+    }
+
+    .spotlight-meta-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .spot-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-light);
+      color: var(--team-light);
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      min-width: 44px;
+      text-align: center;
+      letter-spacing: 0.05em;
+    }
+
+    .spotlight-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .spotlight-name {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+    }
+
+    .spotlight-sub {
+      font-size: 0.92rem;
+      color: var(--team-light);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-section-title {
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0.85rem 1.25rem 0.45rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .stat-cell {
+      background: var(--surface);
+      padding: 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    .stat-cell:hover { background: var(--surface-2); }
+
+    .stat-key {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ── Leader Medals ──────────────────────────────────────────────────────── */
+    .stat-cell.rank-1 {
+      background: var(--gold-bg);
+      border-bottom: 2.5px solid var(--gold);
+    }
+    .stat-cell.rank-1 .stat-val { color: var(--gold); }
+
+    .stat-cell.rank-2 {
+      background: var(--silver-bg);
+      border-bottom: 2.5px solid var(--silver);
+    }
+    .stat-cell.rank-2 .stat-val { color: var(--silver); }
+
+    .stat-cell.rank-3 {
+      background: var(--bronze-bg);
+      border-bottom: 2.5px solid var(--bronze);
+    }
+    .stat-cell.rank-3 .stat-val { color: var(--bronze); }
+
+    .rank-tag {
+      font-size: 0.68rem;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 800;
+    }
+    .rank-1 .rank-tag { background: var(--gold); color: #000; }
+    .rank-2 .rank-tag { background: var(--silver); color: #000; }
+    .rank-3 .rank-tag { background: var(--bronze); color: #000; }
+
+    /* ── Full Table Card ─────────────────────────────────────────────────────── */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2.25rem;
+    }
+
+    .table-card-header {
+      background: var(--surface-2);
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+      flex-wrap: nowrap;
+    }
+
+    .table-card-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-width: 0;
+    }
+
+    .table-card-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .table-card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .header-links-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: nowrap;
+    }
+
+    .site-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.22rem 0.52rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-light);
+      color: var(--team-accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .site-link-btn:hover {
+      background: var(--team-accent);
+      color: var(--team-btn-text, #ffffff);
+      border-color: var(--team-accent);
+      box-shadow: 0 0 8px var(--team-glow);
+    }
+
+    .site-link-btn.hidden { display: none; }
+
+    /* Offensive / Defensive Mode Switcher */
+    .toggle-group-wrap {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 9px;
+      gap: 3px;
+    }
+
+    .toggle-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.48rem 0.85rem;
+      border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .toggle-btn:hover:not(.active) {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    .toggle-btn.active {
+      background: var(--surface-2);
+      border-color: var(--team-accent);
+      color: var(--text);
+      box-shadow: 0 0 12px var(--team-glow);
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    /* ── Stats Table Typography & Layout ─────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 1.02rem;
+    }
+
+    thead th {
+      background: rgba(0,0,0,0.15);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 0.85rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    thead th.col-left { text-align: left; cursor: default; }
+    thead th.col-center-fixed { text-align: center; cursor: default; }
+
+    thead th:hover:not(.col-left):not(.col-center-fixed) {
+      color: var(--text);
+      background: var(--team-glow);
+    }
+
+    thead th.sorted { color: var(--team-accent); }
+
+    tbody td {
+      padding: 0.82rem 0.9rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      color: var(--text);
+      white-space: nowrap;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.98rem;
+    }
+
+    tbody td.col-player {
+      text-align: left;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text);
+      transition: color 0.15s ease;
+      font-size: 1rem;
+    }
+
+    tbody td.col-player:hover {
+      color: var(--team-accent);
+      text-decoration: underline;
+    }
+
+    tbody td.col-jersey {
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      width: 55px;
+      text-align: center;
+    }
+
+    tbody td.col-pos,
+    tbody td.col-yr {
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 600;
+      width: 50px;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+    tbody tr.row-highlight td {
+      background: var(--team-glow) !important;
+    }
+
+    tbody tr.row-highlight td.col-jersey { color: var(--team-accent); }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .status-dot.error { background: var(--red); }
+    .status-dot.warn  { background: var(--amber); }
+
+    .empty {
+      padding: 3.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .empty strong { color: var(--text); }
+
+    .empty .empty-title {
+      display: block;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+
+    .empty .empty-steps {
+      display: inline-block;
+      text-align: left;
+      margin-top: 0.9rem;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(0,0,0,0.15);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1.15rem;
+    }
+
+    /* ── Team Stats Interactive Grid (from Basketball layout) ───────────────── */
+    .team-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .team-stat-box {
+      background: var(--surface);
+      padding: 1.1rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .team-stat-box.is-non-conf-box {
+      cursor: default;
+    }
+
+    .team-stat-box:hover:not(.is-non-conf-box) {
+      background: var(--surface-2);
+      border-color: var(--team-accent);
+    }
+
+    .team-stat-box.active-compare {
+      background: var(--surface-2);
+      box-shadow: inset 0 -3px 0 var(--team-accent);
+    }
+
+    .team-stat-label {
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .team-stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    /* ── Leaderboard Grid (Conference Ranking Card) ─────────────────────────── */
+    .leaderboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .team-rank-card {
+      background: var(--surface);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      transition: all 0.15s ease;
+    }
+
+    .team-rank-card:hover {
+      background: var(--surface-2);
+    }
+
+    .team-rank-card.is-active-team {
+      border-left: 4px solid var(--team-accent);
+      background: var(--surface-2);
+    }
+
+    .team-rank-left {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .rank-num-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 0.95rem;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-3);
+      color: var(--text-muted);
+    }
+
+    .team-rank-card.rank-1 .rank-num-pill { background: var(--gold); color: #000; box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+    .team-rank-card.rank-2 .rank-num-pill { background: var(--silver); color: #000; }
+    .team-rank-card.rank-3 .rank-num-pill { background: var(--bronze); color: #000; }
+
+    .team-rank-name {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .team-rank-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .team-rank-card.rank-1 .team-rank-val { color: var(--gold); }
+    .team-rank-card.rank-2 .team-rank-val { color: var(--silver); }
+    .team-rank-card.rank-3 .team-rank-val { color: var(--bronze); }
+
+    /* ── Footer ─────────────────────────────────────────────────────────────── */
+    footer {
+      margin-top: 3.5rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    footer a {
+      color: var(--team-accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.15s ease;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────────────────── */
+    @media (max-width: 980px) {
+      .table-card-header { flex-wrap: wrap; }
+      .table-card-header .toggle-group-wrap { width: 100%; }
+    }
+
+    @media (max-width: 720px) {
+      header { flex-wrap: wrap; }
+      .header-right-controls { width: 100%; align-items: flex-start; }
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+      .team-stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .team-pill.non-conf { margin-left: 0; }
+    }
+  </style>
+</head>
+<body data-theme="st_thomas_wvball">
+
+<div class="container">
+
+  <!-- TAPbot: back to Hub Site -->
+  <a class="tap-back" href="../index.html" aria-label="Back to TAPbot Hub Site">
+    <span class="tap-back-arrow" aria-hidden="true">←</span> TAPbot Hub
+  </a>
+
+  <!-- Header -->
+  <header>
+    <div class="wordmark">
+      <span class="wordmark-eyebrow" id="eyebrowText">Tommie Athletic Productions Broadcast Operations Tool · 2026 Season</span>
+      <h1 id="pageTitle">Summit League Women's Volleyball Season Stats</h1>
+      <div class="meta" id="metaBar">Loading data…</div>
+    </div>
+
+    <!-- Right Controls: Theme Toggle Only -->
+    <div class="header-right-controls">
+      <div class="top-toolbar">
+        <div class="control-pill-group" role="group" aria-label="Theme Selection">
+          <button id="btnThemeToggle" class="control-pill-btn" onclick="toggleColorMode()">
+            <span id="themeToggleLabel">🌙 Dark</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Team Selector -->
+  <section class="selector-block">
+    <span class="section-caption">Select Team</span>
+    <div class="team-pills" id="teamPills"></div>
+  </section>
+
+  <!-- Player Search -->
+  <section class="search-section">
+    <span class="section-caption">Search Team Roster</span>
+    <div class="search-row">
+      <div class="search-input-wrap">
+        <span class="search-icon">#</span>
+        <input
+          id="playerSearch"
+          type="number"
+          min="0"
+          max="99"
+          placeholder="00"
+          autocomplete="off"
+          aria-label="Player jersey number"
+        />
+      </div>
+      <span class="search-hint">Enter a jersey number or click any player's name in the table below</span>
+    </div>
+  </section>
+
+  <!-- Not Found Banner -->
+  <div class="not-found" id="notFound">
+    No player found with that jersey number on this roster.
+  </div>
+
+  <!-- Player Spotlight Card (Offensive + Defensive) -->
+  <div class="spotlight-card" id="spotlightCard">
+    <div class="spotlight-header">
+      <div class="jersey-badge" id="spotJersey">—</div>
+      <div class="spotlight-meta-stack">
+        <span class="spot-tag" id="spotYr">—</span>
+        <span class="spot-tag" id="spotPos">—</span>
+      </div>
+      <div class="spotlight-details">
+        <div class="spotlight-name" id="spotName">—</div>
+        <div class="spotlight-sub" id="spotSub">Women's Volleyball Stats</div>
+      </div>
+    </div>
+
+    <!-- Offensive Section in Spotlight -->
+    <div id="spotOffenseSection">
+      <div class="stat-section-title" id="spotOffenseTitle">🏐 Offensive Stats</div>
+      <div class="stat-grid" id="spotOffenseGrid"></div>
+    </div>
+
+    <!-- Defensive Section in Spotlight -->
+    <div id="spotDefenseSection">
+      <div class="stat-section-title" id="spotDefenseTitle">🛡️ Defensive Stats</div>
+      <div class="stat-grid" id="spotDefenseGrid"></div>
+    </div>
+  </div>
+
+  <!-- Full Player Table Card -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <!-- Left: Title + compact links, with player count underneath -->
+      <div class="table-card-left">
+        <div class="table-card-title-wrap">
+          <span class="table-card-title" id="tableTitle">Team Stats</span>
+          <div class="header-links-group">
+            <a id="teamStatsLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">
+              Stats Site ↗
+            </a>
+            <a id="teamRosterLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">
+              Roster Site ↗
+            </a>
+            <a id="teamJsonLink" href="#" target="_blank" rel="noopener noreferrer" class="site-link-btn">
+              JSON ↗
+            </a>
+          </div>
+        </div>
+        <div class="status-bar">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Ready</span>
+        </div>
+      </div>
+
+      <!-- Right: Offensive vs Defensive Toggle -->
+      <div class="toggle-group-wrap" role="tablist" aria-label="Stat Category Switcher">
+        <button id="btnOffenseTab" class="toggle-btn active" onclick="switchTab('offense')">
+          <span id="tabOffenseLabel">🏐 Offensive Stats</span>
+        </button>
+        <button id="btnDefenseTab" class="toggle-btn" onclick="switchTab('defense')">
+          <span id="tabDefenseLabel">🛡️ Defensive Stats</span>
+        </button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="statsTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody">
+          <tr><td colspan="18" class="empty">Loading stats…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Conference Leaderboard Spotlight Card (Rank #1 to #8) -->
+  <div class="spotlight-card" id="teamLeaderboardCard">
+    <div class="spotlight-header leaderboard-header">
+      <div class="trophy-badge">🏆</div>
+      <div class="spotlight-details">
+        <div class="spotlight-name" id="leaderboardStatTitle">Summit League Leaderboard</div>
+        <div class="spotlight-sub" id="leaderboardStatSub">Summit League Leaderboard · Women's Volleyball</div>
+      </div>
+    </div>
+    <div>
+      <div class="leaderboard-grid" id="leaderboardGrid"></div>
+    </div>
+  </div>
+
+  <!-- Team Stats Table Card (from Basketball layout) -->
+  <div class="table-card" id="teamStatsSection">
+    <div class="table-card-header">
+      <div class="table-card-left">
+        <div class="table-card-title-wrap">
+          <span class="table-card-title" id="teamStatsCardTitle">Overall Team Stats</span>
+          <span class="search-hint" id="teamStatsCardHint" style="font-size:0.82rem; margin-left:0.4rem;">(Click any stat below to rank all Summit League teams)</span>
+        </div>
+      </div>
+    </div>
+    <div class="team-stats-grid" id="teamStatsGrid">
+      <div class="empty" style="grid-column: 1 / -1;">Loading team stats…</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <a href="https://github.com/TAPbot-Xpression/TAPbot" target="_blank" rel="noopener noreferrer">
+      TAPbot - Developed by St. Thomas Athletics - Hosted on GitHub
+    </a>
+  </footer>
+
+</div>
+
+<script>
+  // ── Teams Registry & Configurations ─────────────────────────────────────────
+  const TEAMS_CONFIG = {
+    st_thomas_wvball: {
+      id: 'st_thomas_wvball',
+      name: 'St. Thomas Tommies',
+      shortName: 'St. Thomas',
+      dotColor: '#8b5cf6',
+      file: 'st_thomas_wvball.json',
+      statsSiteUrl: 'https://tommiesports.com/sports/wvball/stats/2026',
+      rosterSiteUrl: 'https://tommiesports.com/sports/wvball/roster/print'
+    },
+    south_dakota_state_wvball: {
+      id: 'south_dakota_state_wvball',
+      name: 'South Dakota State Jackrabbits',
+      shortName: 'South Dakota State',
+      dotColor: '#0056b3',
+      file: 'south_dakota_state_wvball.json',
+      statsSiteUrl: 'https://gojacks.com/sports/womens-volleyball/stats/2026',
+      rosterSiteUrl: 'https://gojacks.com/sports/womens-volleyball/roster/print'
+    },
+    omaha_wvball: {
+      id: 'omaha_wvball',
+      name: 'Omaha Mavericks',
+      shortName: 'Omaha',
+      dotColor: '#d12631',
+      file: 'omaha_wvball.json',
+      statsSiteUrl: 'https://omahamavs.com/sports/womens-volleyball/stats/2026',
+      rosterSiteUrl: 'https://omahamavs.com/sports/womens-volleyball/roster/print'
+    },
+    north_dakota_state_wvball: {
+      id: 'north_dakota_state_wvball',
+      name: 'North Dakota State Bison',
+      shortName: 'North Dakota State',
+      dotColor: '#007a5e',
+      file: 'north_dakota_state_wvball.json',
+      statsSiteUrl: 'https://gobison.com/sports/womens-volleyball/stats/2026',
+      rosterSiteUrl: 'https://gobison.com/sports/womens-volleyball/roster/print'
+    },
+    kansas_city_wvball: {
+      id: 'kansas_city_wvball',
+      name: 'Kansas City Roos',
+      shortName: 'Kansas City',
+      dotColor: '#ffc72c',
+      file: 'kansas_city_wvball.json',
+      statsSiteUrl: 'https://kcroos.com/sports/womens-volleyball/stats/2026',
+      rosterSiteUrl: 'https://kcroos.com/sports/womens-volleyball/roster/print'
+    },
+    south_dakota_wvball: {
+      id: 'south_dakota_wvball',
+      name: 'South Dakota Coyotes',
+      shortName: 'South Dakota',
+      dotColor: '#c8102e',
+      file: 'south_dakota_wvball.json',
+      statsSiteUrl: 'https://goyotes.com/sports/womens-volleyball/stats/2026',
+      rosterSiteUrl: 'https://goyotes.com/sports/womens-volleyball/roster?print=true'
+    },
+    oral_roberts_wvball: {
+      id: 'oral_roberts_wvball',
+      name: 'Oral Roberts Golden Eagles',
+      shortName: 'Oral Roberts',
+      dotColor: '#c5b358',
+      file: 'oral_roberts_wvball.json',
+      statsSiteUrl: 'https://oruathletics.com/sports/wvball/stats',
+      rosterSiteUrl: 'https://oruathletics.com/sports/wvball/roster?print=true'
+    },
+    north_dakota_wvball: {
+      id: 'north_dakota_wvball',
+      name: 'North Dakota Fighting Hawks',
+      shortName: 'North Dakota',
+      dotColor: '#009a44',
+      file: 'north_dakota_wvball.json',
+      statsSiteUrl: 'https://fightinghawks.com/sports/womens-volleyball/stats',
+      rosterSiteUrl: 'https://fightinghawks.com/sports/womens-volleyball/roster?print=true'
+    },
+    non_conf_wvball: {
+      id: 'non_conf_wvball',
+      name: 'Non-Conf Opponent',
+      shortName: 'Non-Conf',
+      dotColor: '#94a3b8',
+      file: 'non_conf_wvball.json',
+      isNonConf: true,
+      statsSiteUrl: '',
+      rosterSiteUrl: ''
+    }
+  };
+
+  const SUMMIT_TEAM_KEYS = [
+    'st_thomas_wvball', 'south_dakota_state_wvball', 'omaha_wvball',
+    'north_dakota_state_wvball', 'kansas_city_wvball', 'south_dakota_wvball',
+    'oral_roberts_wvball', 'north_dakota_wvball'
+  ];
+
+  // ── Column Definitions for Player Tables ───────────────────────────────────
+  const OFFENSIVE_KEYS = [
+    { key: 'mp',        label: 'MP' },
+    { key: 'sp',        label: 'SP' },
+    { key: 'pts',       label: 'PTS' },
+    { key: 'pts_per_s', label: 'PTS/S' },
+    { key: 'k',         label: 'K' },
+    { key: 'k_per_s',   label: 'K/S' },
+    { key: 'e',         label: 'E' },
+    { key: 'ta',        label: 'TA' },
+    { key: 'pct',       label: 'PCT' },
+    { key: 'a',         label: 'A' },
+    { key: 'a_per_s',   label: 'A/S' },
+    { key: 'sa',        label: 'SA' },
+    { key: 'sa_per_s',  label: 'SA/S' },
+    { key: 'se',        label: 'SE' }
+  ];
+
+  const DEFENSIVE_KEYS = [
+    { key: 'sp',        label: 'SP' },
+    { key: 'dig',       label: 'DIG' },
+    { key: 'dig_per_s', label: 'DIG/S' },
+    { key: 're',        label: 'RE' },
+    { key: 'bs',        label: 'BS' },
+    { key: 'ba',        label: 'BA' },
+    { key: 'blk',       label: 'BLK' },
+    { key: 'blk_per_s', label: 'BLK/S' },
+    { key: 'be',        label: 'BE' },
+    { key: 'bhe',       label: 'BHE' }
+  ];
+
+  // ── Team Stats Definitions (Totals & Per Set) ──────────────────────────────
+  const TEAM_STAT_DEFINITIONS = [
+    { key: 'hit_pct',   label: 'HIT%',   desc: 'Attack Percentage',     asc: false },
+    { key: 'k_per_s',   label: 'K/S',    desc: 'Kills Per Set',         asc: false },
+    { key: 'a_per_s',   label: 'A/S',    desc: 'Assists Per Set',       asc: false },
+    { key: 'sa_per_s',  label: 'SA/S',   desc: 'Service Aces Per Set',  asc: false },
+    { key: 'dig_per_s', label: 'DIG/S',  desc: 'Digs Per Set',          asc: false },
+    { key: 'blk_per_s', label: 'BLK/S',  desc: 'Blocks Per Set',        asc: false }
+  ];
+
+  let CURRENT_TEAM = 'st_thomas_wvball';
+  let RAW_DATA = null;
+  let PLAYERS = [];
+  let ACTIVE_TAB = 'offense'; // 'offense' or 'defense'
+  let sortCol = null;
+  let sortDir = -1;
+  let searchNum = '';
+  let RANKS = { offense: {}, defense: {} };
+  let LOAD_TOKEN = 0;
+
+  // Cache for conference team stats for leaderboard comparisons
+  let CONFERENCE_TEAM_CACHE = {};
+  let ACTIVE_COMPARE_STAT = null;
+
+  // ── Color Mode (Dark / Light) ───────────────────────────────────────────────
+  function toggleColorMode() {
+    const htmlEl = document.documentElement;
+    const currentMode = htmlEl.getAttribute('data-color-mode') || 'dark';
+    const nextMode = currentMode === 'dark' ? 'light' : 'dark';
+    applyColorMode(nextMode);
+  }
+
+  function applyColorMode(mode) {
+    document.documentElement.setAttribute('data-color-mode', mode);
+    const label = document.getElementById('themeToggleLabel');
+    if (label) label.textContent = mode === 'dark' ? '🌙 Dark' : '☀️ Light';
+    try { localStorage.setItem('tap_color_mode', mode); } catch (e) {}
+  }
+
+// ── Render Team Pills (alphabetical, Non-Conf last) ─────────────────────────
+function renderTeamPills() {
+  const pillsContainer = document.getElementById('teamPills');
+
+  const orderedTeams = Object.values(TEAMS_CONFIG).sort((a, b) => {
+    if (!!a.isNonConf !== !!b.isNonConf) return a.isNonConf ? 1 : -1; // Non-Conf always last
+    return a.shortName.localeCompare(b.shortName);                    // otherwise A–Z
+  });
+
+  pillsContainer.innerHTML = orderedTeams.map(t => {
+    const isNC = !!t.isNonConf;
+    const dotClass = isNC ? "team-pill-dot ring" : "team-pill-dot";
+    const pillClass = `team-pill ${isNC ? 'non-conf' : ''} ${t.id === CURRENT_TEAM ? 'active' : ''}`;
+    return `
+      <button class="${pillClass}" data-team="${t.id}" onclick="selectTeam('${t.id}', this)">
+        <span class="${dotClass}" style="color:${t.dotColor}"></span>
+        <span id="${isNC ? 'nonConfPillLabel' : ''}">${t.shortName}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+  // ── Switch Offensive / Defensive Tab ───────────────────────────────────────
+  function switchTab(tab) {
+    if (ACTIVE_TAB === tab) return;
+    ACTIVE_TAB = tab;
+
+    document.getElementById('btnOffenseTab').classList.toggle('active', tab === 'offense');
+    document.getElementById('btnDefenseTab').classList.toggle('active', tab === 'defense');
+
+    sortCol = null;
+    const teamObj = TEAMS_CONFIG[CURRENT_TEAM];
+    const formattedTitle = getDisplayTeamName(teamObj, RAW_DATA);
+    document.getElementById('tableTitle').textContent = `${formattedTitle} ${tab === 'offense' ? 'Offensive' : 'Defensive'} Stats`;
+
+    renderTable();
+    if (searchNum) highlightRow(searchNum);
+  }
+
+  // ── Switch Team ─────────────────────────────────────────────────────────────
+  function selectTeam(teamId, btn) {
+    if (!TEAMS_CONFIG[teamId]) return;
+    CURRENT_TEAM = teamId;
+
+    document.body.setAttribute('data-theme', teamId);
+    document.querySelectorAll('.team-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('data-team') === teamId);
+    });
+
+    resetSearchAndSpotlight();
+    loadTeamData(teamId);
+  }
+
+  function resetSearchAndSpotlight() {
+    document.getElementById('playerSearch').value = '';
+    searchNum = '';
+    document.getElementById('spotlightCard').style.display = 'none';
+    document.getElementById('teamLeaderboardCard').style.display = 'none';
+    document.getElementById('notFound').style.display = 'none';
+    ACTIVE_COMPARE_STAT = null;
+  }
+
+  function setLink(id, url, title) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (url) {
+      el.href = url;
+      el.title = title || '';
+      el.classList.remove('hidden');
+    } else {
+      el.removeAttribute('href');
+      el.classList.add('hidden');
+    }
+  }
+
+  function getDisplayTeamName(teamObj, rawJson) {
+    if (teamObj.isNonConf) {
+      const opp = (rawJson && rawJson.team && rawJson.team !== 'Non-Conf' && rawJson.team !== 'Non-Conference Opponent') ? rawJson.team : 'Non-Conf Opponent';
+      return `${opp} (Non-Conf)`;
+    }
+    return teamObj.name;
+  }
+
+  function showTablePanel(html) {
+    document.getElementById('tableHead').innerHTML = '';
+    document.getElementById('tableBody').innerHTML = `<tr><td colspan="18" class="empty">${html}</td></tr>`;
+  }
+
+  // ── Stat Parser & Ranking Helpers ───────────────────────────────────────────
+  function cleanVal(v) {
+    if (v === undefined || v === null || v === '-' || v === '--') return '-';
+    return String(v).trim();
+  }
+
+  function parseStat(val) {
+    if (val === undefined || val === null || val === '-' || val === '--' || val === '' || val === '—') {
+      return -999999;
+    }
+    const cleanStr = String(val).replace('%', '').trim();
+    const num = parseFloat(cleanStr);
+    return isNaN(num) ? -999999 : num;
+  }
+
+  function calculateRanks() {
+    RANKS = { offense: {}, defense: {} };
+
+    // Offense Ranks
+    OFFENSIVE_KEYS.forEach(k => {
+      const vals = PLAYERS
+        .map(p => parseStat(p[k.key]))
+        .filter(v => v !== -999999 && v > 0);
+      const distinct = [...new Set(vals)].sort((a, b) => b - a);
+      RANKS.offense[k.key] = { 1: distinct[0], 2: distinct[1], 3: distinct[2] };
+    });
+
+    // Defense Ranks
+    DEFENSIVE_KEYS.forEach(k => {
+      const vals = PLAYERS
+        .map(p => parseStat(p[k.key]))
+        .filter(v => v !== -999999 && v > 0);
+      const distinct = [...new Set(vals)].sort((a, b) => b - a);
+      RANKS.defense[k.key] = { 1: distinct[0], 2: distinct[1], 3: distinct[2] };
+    });
+  }
+
+  function getRank(type, key, val) {
+    const num = parseStat(val);
+    if (num === -999999 || num <= 0) return null;
+    const r = RANKS[type]?.[key];
+    if (!r) return null;
+    if (num === r[1]) return 1;
+    if (num === r[2]) return 2;
+    if (num === r[3]) return 3;
+    return null;
+  }
+
+  // ── Prefetch Conference Stats for Leaderboard Comparisons ───────────────────
+  async function prefetchConferenceStats() {
+    await Promise.all(SUMMIT_TEAM_KEYS.map(async (key) => {
+      const file = TEAMS_CONFIG[key].file;
+      try {
+        const res = await fetch(`${file}?t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          CONFERENCE_TEAM_CACHE[key] = data.team_stats || {};
+        }
+      } catch (e) {}
+    }));
+  }
+
+  // ── Load Stats JSON ─────────────────────────────────────────────────────────
+  async function loadTeamData(teamId) {
+    const token = ++LOAD_TOKEN;
+    const team = TEAMS_CONFIG[teamId];
+    const isNonConf = !!team.isNonConf;
+
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = 'Loading…';
+    showTablePanel(`Loading ${esc(team.shortName)} volleyball stats…`);
+
+    if (isNonConf) {
+      setLink('teamStatsLink', '');
+      setLink('teamRosterLink', '');
+    } else {
+      setLink('teamStatsLink', team.statsSiteUrl, `View official ${team.shortName} stats on their athletics website`);
+      setLink('teamRosterLink', team.rosterSiteUrl, `View official ${team.shortName} roster on their athletics website`);
+      document.getElementById('tableTitle').textContent = `${team.name} ${ACTIVE_TAB === 'offense' ? 'Offensive' : 'Defensive'} Stats`;
+      document.getElementById('teamStatsCardTitle').textContent = `${team.name} Overall Team Stats`;
+    }
+
+    const jsonLinkEl = document.getElementById('teamJsonLink');
+    if (jsonLinkEl && team.file) {
+      jsonLinkEl.href = team.file;
+      jsonLinkEl.textContent = `${team.file} ↗`;
+      jsonLinkEl.title = `Direct link to ${team.file}`;
+    }
+
+    try {
+      const res = await fetch(`${team.file}?t=${Date.now()}`);
+      if (token !== LOAD_TOKEN) return;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      if (token !== LOAD_TOKEN) return;
+      RAW_DATA = data;
+
+      if (!isNonConf) {
+        CONFERENCE_TEAM_CACHE[teamId] = data.team_stats || {};
+      }
+
+      PLAYERS = Array.isArray(RAW_DATA.players) ? RAW_DATA.players : [];
+      calculateRanks();
+
+      const updatedTime = RAW_DATA.generated_at ? new Date(RAW_DATA.generated_at).toLocaleString() : 'Live';
+      const status = RAW_DATA.status || 'ok';
+      const formattedTitle = getDisplayTeamName(team, RAW_DATA);
+
+      document.getElementById('tableTitle').textContent = `${formattedTitle} ${ACTIVE_TAB === 'offense' ? 'Offensive' : 'Defensive'} Stats`;
+      document.getElementById('teamStatsCardTitle').textContent = `${formattedTitle} Overall Team Stats`;
+
+      if (isNonConf) {
+        document.getElementById('teamStatsCardHint').style.display = 'none';
+        const statsUrl  = RAW_DATA.source || RAW_DATA.source_stats_url || '';
+        const rosterUrl = RAW_DATA.source_roster || RAW_DATA.source_roster_url || '';
+        const rawName   = (RAW_DATA.team && RAW_DATA.team !== 'Non-Conf' && RAW_DATA.team !== 'Non-Conference Opponent') ? RAW_DATA.team : 'Non-Conf';
+
+        const ncLabelEl = document.getElementById('nonConfPillLabel');
+        if (ncLabelEl) {
+          ncLabelEl.textContent = status === 'empty' ? 'Non-Conf' : `${rawName} (Non-Conf)`;
+        }
+
+        setLink('teamStatsLink', statsUrl, `View ${rawName} stats on their athletics website`);
+        setLink('teamRosterLink', rosterUrl, `View ${rawName} roster on their athletics website`);
+
+        if (status === 'empty') {
+          document.getElementById('statusDot').className = 'status-dot warn';
+          document.getElementById('statusText').textContent = 'No opponent loaded';
+          document.getElementById('metaBar').innerHTML =
+            `<strong>Non-Conf Opponent</strong> · Waiting for an opponent link`;
+          showTablePanel(`
+            <span class="empty-title">No Non-Conf Volleyball Opponent Loaded</span>
+            ${esc(RAW_DATA.message || 'Configure non_conf_config.json to load an opponent.')}
+            <br>
+            <span class="empty-steps">
+              Add the opponent's stats link to scrapers/volleyball/non_conf_config.json
+            </span>`);
+          renderTeamStatsTable();
+          return;
+        }
+
+        if (!PLAYERS.length) {
+          document.getElementById('statusDot').className = 'status-dot warn';
+          document.getElementById('statusText').textContent = '0 Players';
+          document.getElementById('metaBar').innerHTML =
+            `<strong>${esc(formattedTitle)}</strong> · Updated: ${updatedTime}`;
+          showTablePanel(`
+            <span class="empty-title">Couldn't read stats for ${esc(formattedTitle)}</span>
+            ${esc(RAW_DATA.message || "Make sure the link is the opponent's volleyball stats page.")}
+            ${statsUrl ? `<br><small>Link used: <a href="${esc(statsUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--team-accent)">${esc(statsUrl)}</a></small>` : ''}`);
+          renderTeamStatsTable();
+          return;
+        }
+
+        document.getElementById('metaBar').innerHTML =
+          `<strong>${esc(formattedTitle)}</strong> · Women's Volleyball Stats · Updated: ${updatedTime}`;
+      } else {
+        document.getElementById('teamStatsCardHint').style.display = 'inline';
+        document.getElementById('metaBar').innerHTML =
+          `<strong>${esc(team.name)}</strong> · Updated: ${updatedTime}`;
+      }
+
+      document.getElementById('statusDot').className = 'status-dot';
+      document.getElementById('statusText').textContent = `${PLAYERS.length} Players`;
+
+      sortCol = null;
+      renderTable();
+      renderTeamStatsTable();
+    } catch (err) {
+      if (token !== LOAD_TOKEN) return;
+      PLAYERS = [];
+      document.getElementById('statusDot').className = 'status-dot error';
+      document.getElementById('statusText').textContent = 'Error';
+
+      const hint = isNonConf
+        ? `The Non-Conf file hasn't been created yet. Run the volleyball workflow once and it will appear.`
+        : `Ensure the volleyball scraper has run and generated this file.`;
+
+      showTablePanel(`
+        <span style="color:#f87171">Failed to load stats for ${esc(team.name)} (${esc(team.file)}).</span><br>
+        <small style="color:var(--text-muted)">${hint}</small>`);
+      document.getElementById('metaBar').textContent = `Error loading ${team.file}`;
+      renderTeamStatsTable();
+    }
+  }
+
+  // ── Render Full Table ──────────────────────────────────────────────────────
+  function renderTable() {
+    const isOffense = ACTIVE_TAB === 'offense';
+    const cols = isOffense ? OFFENSIVE_KEYS : DEFENSIVE_KEYS;
+
+    const head = document.getElementById('tableHead');
+    const body = document.getElementById('tableBody');
+
+    head.innerHTML = `<tr>
+      <th class="col-center-fixed">#</th>
+      <th class="col-center-fixed">Pos</th>
+      <th class="col-center-fixed">Yr</th>
+      <th class="col-left">Player</th>
+      ${cols.map(c => `
+        <th onclick="sortBy('${c.key}')" class="${sortCol === c.key ? 'sorted' : ''}">
+          ${c.label}${sortCol === c.key ? (sortDir === 1 ? ' ↑' : ' ↓') : ''}
+        </th>
+      `).join('')}
+    </tr>`;
+
+    if (!PLAYERS.length) {
+      body.innerHTML = `<tr><td colspan="${cols.length + 4}" class="empty">No roster data found for this selection.</td></tr>`;
+      return;
+    }
+
+    let sorted = [...PLAYERS];
+    if (sortCol) {
+      sorted.sort((a, b) => {
+        const av = parseStat(a[sortCol]);
+        const bv = parseStat(b[sortCol]);
+        return (av - bv) * sortDir;
+      });
+    }
+
+    body.innerHTML = sorted.map(r => {
+      const isHL = searchNum && String(r.number) === String(searchNum);
+      return `<tr class="${isHL ? 'row-highlight' : ''}" data-num="${esc(r.number)}">
+        <td class="col-jersey">${esc(r.number) || '—'}</td>
+        <td class="col-pos">${esc(r.position) || '—'}</td>
+        <td class="col-yr">${esc(r.year) || '—'}</td>
+        <td class="col-player" title="Click to view player spotlight" onclick="displayPlayerCardByNumber('${esc(r.number)}')">${esc(r.name)}</td>
+        ${cols.map(c => `<td>${esc(r[c.key]) || '—'}</td>`).join('')}
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Sorting ────────────────────────────────────────────────────────────────
+  function sortBy(col) {
+    if (sortCol === col) {
+      sortDir *= -1;
+    } else {
+      sortCol = col;
+      sortDir = -1;
+    }
+    renderTable();
+    if (searchNum) highlightRow(searchNum);
+  }
+
+  // ── Render Player Spotlight Card ───────────────────────────────────────────
+  function renderPlayerSpotlight(num) {
+    const notFound = document.getElementById('notFound');
+    const card     = document.getElementById('spotlightCard');
+
+    if (!num) {
+      card.style.display = 'none';
+      notFound.style.display = 'none';
+      highlightRow('');
+      return;
+    }
+
+    const player = PLAYERS.find(p => String(p.number) === String(num));
+
+    if (!player) {
+      card.style.display = 'none';
+      notFound.style.display = 'block';
+      highlightRow('');
+      return;
+    }
+
+    notFound.style.display = 'none';
+    card.style.display     = 'block';
+
+    const teamObj = TEAMS_CONFIG[CURRENT_TEAM];
+    const teamTitle = getDisplayTeamName(teamObj, RAW_DATA);
+
+    document.getElementById('spotJersey').textContent = player.number || '—';
+    document.getElementById('spotYr').textContent     = player.year || '—';
+    document.getElementById('spotPos').textContent    = player.position || '—';
+    document.getElementById('spotName').textContent   = player.name || '—';
+    document.getElementById('spotSub').textContent    = `${teamTitle} · Women's Volleyball Stats`;
+
+    // Offensive Card Section
+    const offSection = document.getElementById('spotOffenseSection');
+    const offGrid    = document.getElementById('spotOffenseGrid');
+    offSection.style.display = 'block';
+    offGrid.innerHTML = OFFENSIVE_KEYS.map(c => {
+      const val = player[c.key] || '—';
+      const rank = getRank('offense', c.key, val);
+      const rankClass = rank ? `rank-${rank}` : '';
+      const rankBadge = rank ? `<span class="rank-tag">${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}</span>` : '';
+
+      return `<div class="stat-cell ${rankClass}">
+        <span class="stat-key">${c.label} ${rankBadge}</span>
+        <span class="stat-val">${esc(val)}</span>
+      </div>`;
+    }).join('');
+
+    // Defensive Card Section
+    const defSection = document.getElementById('spotDefenseSection');
+    const defGrid    = document.getElementById('spotDefenseGrid');
+    defSection.style.display = 'block';
+    defGrid.innerHTML = DEFENSIVE_KEYS.map(c => {
+      const val = player[c.key] || '—';
+      const rank = getRank('defense', c.key, val);
+      const rankClass = rank ? `rank-${rank}` : '';
+      const rankBadge = rank ? `<span class="rank-tag">${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}</span>` : '';
+
+      return `<div class="stat-cell ${rankClass}">
+        <span class="stat-key">${c.label} ${rankBadge}</span>
+        <span class="stat-val">${esc(val)}</span>
+      </div>`;
+    }).join('');
+
+    highlightRow(num);
+  }
+
+  // ── Click on Player Name ───────────────────────────────────────────────────
+  function displayPlayerCardByNumber(num) {
+    if (!num) return;
+    searchNum = String(num);
+    document.getElementById('playerSearch').value = searchNum;
+    renderPlayerSpotlight(searchNum);
+
+    const card = document.getElementById('spotlightCard');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Spotlight Search Input ─────────────────────────────────────────────────
+  document.getElementById('playerSearch').addEventListener('input', function () {
+    searchNum = this.value.trim();
+    renderPlayerSpotlight(searchNum);
+  });
+
+  function highlightRow(num) {
+    document.querySelectorAll('#tableBody tr').forEach(tr => {
+      tr.classList.toggle('row-highlight', !!num && tr.dataset.num === String(num));
+    });
+  }
+
+  // ── Render Team Stats Table (Grid) ─────────────────────────────────────────
+  function renderTeamStatsTable() {
+    const grid = document.getElementById('teamStatsGrid');
+    if (!RAW_DATA) {
+      grid.innerHTML = `<div class="empty" style="grid-column: 1 / -1;">No team stats recorded for this selection.</div>`;
+      return;
+    }
+
+    const teamStats = RAW_DATA.team_stats || {};
+    const isNonConf = !!TEAMS_CONFIG[CURRENT_TEAM].isNonConf;
+
+    if (!teamStats || Object.keys(teamStats).length === 0) {
+      grid.innerHTML = `<div class="empty" style="grid-column: 1 / -1;">No team stats available for this view.</div>`;
+      return;
+    }
+
+    grid.innerHTML = TEAM_STAT_DEFINITIONS.map(def => {
+      const val = cleanVal(teamStats[def.key]);
+      const isActive = (!isNonConf && ACTIVE_COMPARE_STAT === def.key) ? 'active-compare' : '';
+      const clickAttr = isNonConf ? '' : `onclick="displayTeamLeaderboard('${def.key}')"`;
+      const titleAttr = isNonConf ? `${def.desc}` : `Click to rank all Summit League teams for ${def.desc}`;
+      const nonConfClass = isNonConf ? 'is-non-conf-box' : '';
+
+      return `<div class="team-stat-box ${isActive} ${nonConfClass}" ${clickAttr} title="${titleAttr}">
+        <span class="team-stat-label">
+          <span>${def.label}</span>
+        </span>
+        <span class="team-stat-val">${esc(val)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Display Conference Leaderboard Spotlight (Rank #1 to #8) ───────────────
+  async function displayTeamLeaderboard(statKey) {
+    if (TEAMS_CONFIG[CURRENT_TEAM].isNonConf) return;
+
+    ACTIVE_COMPARE_STAT = statKey;
+    renderTeamStatsTable();
+
+    const def = TEAM_STAT_DEFINITIONS.find(d => d.key === statKey);
+    if (!def) return;
+
+    await prefetchConferenceStats();
+
+    const rankedTeams = SUMMIT_TEAM_KEYS.map(key => {
+      const stats = CONFERENCE_TEAM_CACHE[key] || {};
+      const rawV = stats[statKey];
+      const numV = parseStat(rawV);
+      const displayV = cleanVal(rawV || '-');
+      return {
+        key: key,
+        name: TEAMS_CONFIG[key].shortName,
+        fullName: TEAMS_CONFIG[key].name,
+        num: numV,
+        display: displayV
+      };
+    });
+
+    rankedTeams.sort((a, b) => {
+      if (def.asc) {
+        return a.num - b.num;
+      }
+      return b.num - a.num;
+    });
+
+    const card = document.getElementById('teamLeaderboardCard');
+    document.getElementById('leaderboardStatTitle').textContent = `${def.desc} (${def.label})`;
+    document.getElementById('leaderboardStatSub').textContent = `Summit League Leaderboard · Women's Volleyball`;
+
+    const grid = document.getElementById('leaderboardGrid');
+    grid.innerHTML = rankedTeams.map((t, idx) => {
+      const rank = idx + 1;
+      const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+      const isActiveTeam = t.key === CURRENT_TEAM ? 'is-active-team' : '';
+
+      return `<div class="team-rank-card ${rankClass} ${isActiveTeam}">
+        <div class="team-rank-left">
+          <div class="rank-num-pill">${rank}</div>
+          <div class="team-rank-name">${esc(t.name)}</div>
+        </div>
+        <div class="team-rank-val">${esc(t.display)}</div>
+      </div>`;
+    }).join('');
+
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function esc(str) {
+    return String(str === undefined || str === null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Theme Init & Initial Load ──────────────────────────────────────────────
+  try {
+    const savedMode = localStorage.getItem('tap_color_mode') || 'dark';
+    applyColorMode(savedMode);
+  } catch (e) {}
+
+  renderTeamPills();
+  selectTeam('st_thomas_wvball');
+  prefetchConferenceStats();
+</script>
+
+</body>
+</html>
