@@ -14,6 +14,7 @@ Output (repo-relative, resolved from this script's location):
   docs/hockey/<slug>.json
   docs/hockey/non_conf_mhockey.json
   docs/hockey/non_conf_whockey.json
+  docs/hockey/last_scan.json
   debug/<slug>_*.html|png   (only with --debug, only when a goalie step fails)
 
 Optimizations & Features:
@@ -27,7 +28,8 @@ Optimizations & Features:
   6. Decimals for team percentage metrics (e.g. .257 instead of 25.7%).
   7. Tracks both Goals Per Game and Goals Against Per Game.
   8. Dual-timestamp tracking (last_scan refreshed on each run, last_updated updated only when data changes).
-  9. Empty-scrape fallback safeguards (players, team stats, goalies).
+  9. Run status tracking: outputs docs/hockey/last_scan.json tracking latest last_scan, last_updated, and updated teams.
+ 10. Empty-scrape fallback safeguards (players, team stats, goalies).
 """
 
 from __future__ import annotations
@@ -58,6 +60,7 @@ REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DI
 OUT_DIR = REPO_ROOT / "docs" / "hockey"
 DEBUG_DIR = REPO_ROOT / "debug"
 NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
+RUN_STATUS_FILE = "last_scan.json"
 
 CONCURRENCY_LIMIT = 5
 MIN_ROSTER_ENTRIES = 8
@@ -462,6 +465,42 @@ def _has_team_stats(ts: Any) -> bool:
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
     """Exclude volatile timestamps when comparing data for changes."""
     return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at", "last_scan", "last_updated")}
+
+def _parse_ts(s: str) -> Optional[datetime]:
+    try:
+        d = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+def snapshot_updated_times() -> Dict[str, str]:
+    """Map of team slug -> last_updated for every team JSON in OUT_DIR."""
+    snap: Dict[str, str] = {}
+    for path in OUT_DIR.glob("*.json"):
+        if path.name == RUN_STATUS_FILE:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            snap[path.stem] = str(data.get("last_updated") or data.get("generated_at") or "")
+    return snap
+
+def write_run_status(sport: str, before: Dict[str, str]) -> None:
+    """Writes last_scan.json with sport-wide last_scan and last_updated."""
+    after = snapshot_updated_times()
+    teams_updated = sorted(slug for slug, ts in after.items() if before.get(slug) != ts)
+    stamps = [d for d in (_parse_ts(ts) for ts in after.values()) if d]
+    payload = {
+        "sport": sport,
+        "last_scan": now_iso(),
+        "last_updated": max(stamps).isoformat() if stamps else None,
+        "teams_updated": teams_updated,
+    }
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / RUN_STATUS_FILE).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    logger.info(f"Run status written to {RUN_STATUS_FILE}: {len(teams_updated)} team(s) updated this run")
 
 def _is_goalie_record(p: Dict[str, Any]) -> bool:
     return str(p.get("is_goalie")).lower() == "true" or p.get("position") == "G"
@@ -1634,6 +1673,7 @@ async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool
     DEBUG_MODE = debug
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    before_snapshot = snapshot_updated_times()
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
     teams = list(TEAMS_CONFIG) + load_non_conf_config()
@@ -1662,6 +1702,9 @@ async def run_scraper(gender_filter: str, only: Optional[List[str]], debug: bool
     for t, res in zip(teams, results):
         if isinstance(res, Exception):
             logger.error(f"[{t['name']} ({t.get('gender')})] scrape failed: {res!r}")
+
+    # Write overall status file for hockey
+    write_run_status("hockey", before_snapshot)
 
     logger.info(f"Finished in {time.time() - start:.1f}s")
 
