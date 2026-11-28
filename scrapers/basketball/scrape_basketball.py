@@ -26,14 +26,23 @@ JSON layout (identical for every team file, so Datalinq graphics can use one pat
       ]
     }
 
+Also writes `docs/basketball/last_scan.json` tracking run status and latest data update across all teams:
+    {
+      "sport": "basketball",
+      "last_scan": "2026-11-28T09:32:10+00:00",
+      "last_updated": "2026-11-27T03:20:41+00:00",
+      "teams_updated": ["st_thomas_men", "omaha_women"]
+    }
+
 Optimizations & safeguards applied:
   1. Full async concurrency across teams via asyncio.Semaphore(5) + asyncio.gather.
   2. Concurrent stats and roster page fetching per team via asyncio.gather.
   3. Playwright resource routing (aborts image, media, and font downloads).
   4. Explicit selector-based waits replacing sluggish networkidle timeouts.
   5. Dual timestamps (last_scan advances every run; last_updated only changes when stats change).
-  6. Empty-scrape & partial-failure safeguards: keeps existing player and team stats.
-  7. Clean stat calculation deduplication across Nuxt & HTML parsers.
+  6. Global run status file (last_scan.json) with last_updated key matching elsewhere.
+  7. Empty-scrape & partial-failure safeguards: keeps existing player and team stats.
+  8. Clean stat calculation deduplication across Nuxt & HTML parsers.
 """
 
 from __future__ import annotations
@@ -67,6 +76,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
 OUT_DIR = REPO_ROOT / "docs" / "basketball"
 NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
+RUN_STATUS_FILE = "last_scan.json"
 
 CONCURRENCY_LIMIT = 5
 MIN_ROSTER_ENTRIES = 8
@@ -498,10 +508,6 @@ def format_team_stat(key: str, raw: Optional[str]) -> str:
     return clean_stat_float(raw)
 
 def clean_name(raw_name: str) -> str:
-    """
-    Cleans player names and ensures suffixes (Jr., Sr., III, etc.) stay at the end.
-    Example: 'Williams, Jr., Fontaine' -> 'Fontaine Williams, Jr.'
-    """
     if not raw_name:
         return ""
 
@@ -1444,12 +1450,41 @@ def read_existing_json(slug: str) -> Dict[str, Any]:
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at", "last_scan", "last_updated")}
 
-def _age_in_hours(iso_str: str) -> float:
+def _parse_ts(s: str) -> Optional[datetime]:
     try:
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+        d = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
     except Exception:
-        return 999.0
+        return None
+
+def snapshot_updated_times() -> Dict[str, str]:
+    """Map of team slug -> last_updated for every team JSON in OUT_DIR."""
+    snap: Dict[str, str] = {}
+    for path in OUT_DIR.glob("*.json"):
+        if path.name == RUN_STATUS_FILE:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            snap[path.stem] = str(data.get("last_updated") or data.get("generated_at") or "")
+    return snap
+
+def write_run_status(sport: str, before: Dict[str, str]) -> None:
+    """Writes last_scan.json with sport-wide last_scan and last_updated."""
+    after = snapshot_updated_times()
+    teams_updated = sorted(slug for slug, ts in after.items() if before.get(slug) != ts)
+    stamps = [d for d in (_parse_ts(ts) for ts in after.values()) if d]
+    payload = {
+        "sport": sport,
+        "last_scan": now_iso(),
+        "last_updated": max(stamps).isoformat() if stamps else None,
+        "teams_updated": teams_updated,
+    }
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / RUN_STATUS_FILE).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    logger.info(f"Run status written to {RUN_STATUS_FILE}: {len(teams_updated)} team(s) updated this run")
 
 def write_team_json(slug: str, team_data: Dict[str, Any]) -> bool:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1749,6 +1784,7 @@ def build_non_conf_tasks(
 
 async def run_scraper(gender_filter: str = "all", only: Optional[List[str]] = None) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    before_snapshot = snapshot_updated_times()
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
     start_time = time.time()
@@ -1804,6 +1840,9 @@ async def run_scraper(gender_filter: str = "all", only: Optional[List[str]] = No
             logger.error(f"A team scrape failed: {err!r}")
 
         await browser.close()
+
+    # Write overall status file for basketball
+    write_run_status("basketball", before_snapshot)
 
     elapsed = time.time() - start_time
     ok = len(results) - len(failures)
