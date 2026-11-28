@@ -27,17 +27,17 @@ Optimizations & Safeguards Applied:
      - last_scan: advances on every run to confirm scraper execution.
      - last_updated: only updates when games, dates, or opponent schedules change.
      - updated_at / generated_at: maintained for backwards compatibility.
-  4. Run Status: Writes docs/schedulers/last_scan.json with sport, last_scan, last_updated, and sports_updated.
+  4. Run Status: Writes docs/schedulers/last_scan.json with sport, last_scan, last_updated, and teams_updated.
   5. Out-of-Season Guard: Avoids scanning hundreds of empty daily scoreboards when a sport is well
      outside its active season window.
   6. Optimized Game Resolution: Efficient lookup avoiding repeated full-array re-sorting per scanned day.
 
 Usage:
-    python scrape_schedule.py                 # next 8 games per sport
-    python scrape_schedule.py --games 5       # next 5 games per sport
-    python scrape_schedule.py --season 2026   # academic year start (2026 for 2026-27)
-    python scrape_schedule.py --dump          # save raw responses
-    python scrape_schedule.py --scan          # skip schedule-alt, use scoreboard scan
+    python scrape_schedules.py                 # next 8 games per sport
+    python scrape_schedules.py --games 5       # next 5 games per sport
+    python scrape_schedules.py --season 2026   # academic year start (2026 for 2026-27)
+    python scrape_schedules.py --dump          # save raw responses
+    python scrape_schedules.py --scan          # skip schedule-alt, use scoreboard scan
 """
 
 from __future__ import annotations
@@ -576,16 +576,8 @@ def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if k not in ("last_scan", "last_updated", "updated_at", "generated_at")}
 
 
-def _parse_ts(s: str) -> Optional[datetime]:
-    try:
-        d = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
-        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
-    except Exception:
-        return None
-
-
 def write_run_status(sport: str, last_scan_ts: str, last_updated_ts: str, sports_updated: List[str]) -> None:
-    """Writes docs/schedulers/last_scan.json to track execution and updates across sports."""
+    """Writes docs/schedulers/last_scan.json for Hub Site health cards."""
     payload = {
         "sport": sport,
         "last_scan": last_scan_ts,
@@ -660,7 +652,7 @@ def write_output(results: Dict[str, Any]) -> None:
         final_updated = now
         logger.info("Fresh schedule data found — updated both last_scan and last_updated (%s).", now[:16])
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     tmp = OUTPUT_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     os.replace(tmp, OUTPUT_FILE)
