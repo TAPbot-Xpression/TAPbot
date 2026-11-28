@@ -10,6 +10,7 @@ Site styles ("style" in TEAMS_CONFIG):
 Output (repo-relative):
   docs/volleyball/<slug>.json
   docs/volleyball/non_conf_wvball.json   (only when scrapers/volleyball/non_conf_config.json has a stats_url)
+  docs/volleyball/last_scan.json         (tracks sport-wide last_scan, last_updated, and teams_updated)
   debug/<slug>_*.html|png                (only with --debug, when a scrape comes back empty)
 """
 
@@ -46,6 +47,7 @@ REPO_ROOT = find_repo_root(SCRIPT_DIR)
 OUT_DIR = REPO_ROOT / "docs" / "volleyball"
 DEBUG_DIR = REPO_ROOT / "debug"
 NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
+RUN_STATUS_FILE = "last_scan.json"
 
 CONCURRENCY_LIMIT = 4
 DEBUG_MODE = False
@@ -157,6 +159,7 @@ def clean_name(raw_name: str) -> str:
     text = raw_name.replace("View Bio", "").replace("Image", "").strip()
     text = re.sub(r"['\"]+", "", text).strip()
     text = re.sub(r"#\d{1,2}\b", " ", text)
+    text = re.sub(r"#?tm\b", " ", text, flags=re.I)
     text = text.strip().rstrip(",").strip()
     if "," in text:
         parts = [p.strip() for p in text.split(",") if p.strip()]
@@ -244,6 +247,42 @@ def read_existing_json(slug: str) -> Dict[str, Any]:
 
 def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at", "last_scan", "last_updated")}
+
+def _parse_ts(s: str) -> Optional[datetime]:
+    try:
+        d = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+def snapshot_updated_times() -> Dict[str, str]:
+    """Map of team slug -> last_updated for every team JSON in OUT_DIR."""
+    snap: Dict[str, str] = {}
+    for path in OUT_DIR.glob("*.json"):
+        if path.name == RUN_STATUS_FILE:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            snap[path.stem] = str(data.get("last_updated") or data.get("generated_at") or "")
+    return snap
+
+def write_run_status(sport: str, before: Dict[str, str]) -> None:
+    """Writes last_scan.json with sport-wide last_scan, last_updated, and teams_updated."""
+    after = snapshot_updated_times()
+    teams_updated = sorted(slug for slug, ts in after.items() if before.get(slug) != ts)
+    stamps = [d for d in (_parse_ts(ts) for ts in after.values()) if d]
+    payload = {
+        "sport": sport,
+        "last_scan": now_iso(),
+        "last_updated": max(stamps).isoformat() if stamps else None,
+        "teams_updated": teams_updated,
+    }
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / RUN_STATUS_FILE).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    logger.info(f"Run status written to {RUN_STATUS_FILE}: {len(teams_updated)} team(s) updated this run")
 
 def _write(slug: str, data: Dict[str, Any]) -> None:
     with open(OUT_DIR / f"{slug}.json", "w", encoding="utf-8") as f:
@@ -556,6 +595,7 @@ def parse_team_stats_match_by_match(soup: BeautifulSoup) -> Dict[str, str]:
         sp = val("sp")
         if not sp:
             continue
+
         out = {k: "-" for k in TEAM_STAT_KEYS}
         pct_raw = val("pct")
         if pct_raw is not None:
@@ -847,6 +887,7 @@ async def run_scraper(only: Optional[List[str]], debug: bool) -> None:
     global DEBUG_MODE
     DEBUG_MODE = debug
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    before_snapshot = snapshot_updated_times()
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
     teams = list(TEAMS_CONFIG) + load_non_conf_config()
@@ -864,6 +905,10 @@ async def run_scraper(only: Optional[List[str]], debug: bool) -> None:
     for t, res in zip(teams, results):
         if isinstance(res, Exception):
             logger.error(f"[{t['name']}] scrape failed: {res!r}")
+
+    # Write overall status file for volleyball
+    write_run_status("volleyball", before_snapshot)
+
     logger.info(f"Finished volleyball scraping in {time.time() - start:.1f}s")
 
 def main() -> None:
