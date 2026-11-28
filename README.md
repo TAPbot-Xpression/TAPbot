@@ -36,19 +36,9 @@ JSON files sit next to each dashboard, for example `/hockey/st_thomas_mhockey.js
 | Volleyball | Summit League women (8 programs), plus a Non-Conf slot | `docs/volleyball/` | `scrapers/volleyball/scrape_volleyball.py` |
 | Diamond Sports | Summit League baseball (6 programs) and softball (7 programs), plus Non-Conf slots | `docs/diamondsports/` | `scrapers/diamondsports/scrape_diamond_sports.py` |
 | Standings & Polls | Summit League, PFL, NCHC and WCHA standings, plus USCHO men's and women's polls | `docs/standings/` | `scrapers/standings/scrape_standings.py` |
-| Schedules | North and South Campus schedules, all sports | `docs/schedulers/` | `others/schedulers/schedule_scrape_all.py` |
+| Schedules | All St. Thomas sports next 8 games | `docs/schedulers/` | `others/schedulers/schedule_scrape_all.py` |
 
 Live game scores are handled by a separate local tool. See [Live Scores](#live-scores).
-
-### Volleyball at a Glance
-
-- **Player stats** are split into **Offensive** and **Defensive** views on the dashboard.
-- **Team stats** include hit percentage plus kills, assists, aces, digs and blocks per set.
-- The dashboard has a **conference leaderboard** that ranks all teams on any team stat.
-- Team pills are sorted A to Z, with Non-Conf always last.
-- Volleyball sites come in two Sidearm layouts, set per team in the scraper config:
-  - `new`: St. Thomas, South Dakota State, Omaha, North Dakota State, Kansas City
-  - `old`: South Dakota, Oral Roberts, North Dakota
 
 ## How It Works
 
