@@ -1,0 +1,52 @@
+{
+  "team": "North Dakota",
+  "slug": "north_dakota_wvball",
+  "gender": "women",
+  "sport": "volleyball",
+  "conference": "Summit League",
+  "last_scan": "2026-11-28T01:39:08.589916+00:00",
+  "last_updated": "2026-11-28T01:39:08.589916+00:00",
+  "generated_at": "2026-11-28T01:39:08.589916+00:00",
+  "source_stats_url": "https://fightinghawks.com/sports/womens-volleyball/stats",
+  "source_roster_url": "https://fightinghawks.com/sports/womens-volleyball/roster?print=true",
+  "site_style": "Old Style (jQuery UI tabs)",
+  "team_stats": {
+    "hit_pct": "-",
+    "k_per_s": "-",
+    "a_per_s": "-",
+    "sa_per_s": "-",
+    "dig_per_s": "-",
+    "blk_per_s": "-"
+  },
+  "players": [
+    {
+      "number": "4",
+      "name": "An den Hamer",
+      "position": "OPP",
+      "year": "JR",
+      "mp": "25",
+      "sp": "82",
+      "pts": "237.00",
+      "pts_per_s": "2.89",
+      "k": "198",
+      "k_per_s": "2.41",
+      "e": "97",
+      "ta": "7",
+      "pct": ".185",
+      "a": "8",
+      "a_per_s": "0.10",
+      "sa": "8",
+      "sa_per_s": "0.10",
+      "se": "9",
+      "dig": "93",
+      "dig_per_s": "1.13",
+      "re": "2",
+      "bs": "6",
+      "ba": "50",
+      "blk": "56.00",
+      "blk_per_s": "0.68",
+      "be": "8",
+      "bhe": "0"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "team": "South Dakota",
+  "slug": "south_dakota_wvball",
+  "gender": "women",
+  "sport": "volleyball",
+  "conference": "Summit League",
+  "last_scan": "2026-11-28T01:39:13.631424+00:00",
+  "last_updated": "2026-11-28T01:39:13.631424+00:00",
+  "generated_at": "2026-11-28T01:39:13.631424+00:00",
+  "source_stats_url": "https://goyotes.com/sports/womens-volleyball/stats/2026",
+  "source_roster_url": "https://goyotes.com/sports/womens-volleyball/roster?print=true",
+  "site_style": "Old Style (jQuery UI tabs)",
+  "team_stats": {
+    "hit_pct": "-",
+    "k_per_s": "-",
+    "a_per_s": "-",
+    "sa_per_s": "-",
+    "dig_per_s": "-",
+    "blk_per_s": "-"
+  },
+  "players": []
+}
