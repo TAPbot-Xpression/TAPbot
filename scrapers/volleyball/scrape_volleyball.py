@@ -5,20 +5,12 @@ Summit League Women's Volleyball player and team season stats scraper.
 
 Site styles ("style" in TEAMS_CONFIG):
   - "new"  Sidearm Nuxt/Vue: Player Stats (Offensive / Defensive dropdown) + Team Stats (Totals / Per Set dropdown)
-  - "old"  Sidearm jQuery UI tabs: all tables are in the page DOM; team per-set stats are
-           computed from the Match-By-Match totals row (team total / sets played).
+  - "old"  Sidearm jQuery UI tabs: #individual-overall-offensive, #individual-overall-defensive, #team
 
 Output (repo-relative):
   docs/volleyball/<slug>.json
   docs/volleyball/non_conf_wvball.json   (only when scrapers/volleyball/non_conf_config.json has a stats_url)
   debug/<slug>_*.html|png                (only with --debug, when a scrape comes back empty)
-
-Notes:
-  1. Every team gets its OWN browser context, so concurrent pages never steal dropdown focus.
-  2. Offensive-view and Defensive-view tables only write their own stat keys. This prevents a
-     column with the same name in both tables (e.g. TA) from overwriting the offensive value.
-  3. last_scan advances every run; last_updated only changes when stats change.
-  4. Empty-scrape protection keeps last-known-good JSON (players and team stats).
 """
 
 from __future__ import annotations
@@ -210,11 +202,6 @@ def is_valid_player_candidate(name: str) -> bool:
 
 # ── Non-Conference Placeholder ───────────────────────────────────────────────
 def load_non_conf_config() -> List[Dict[str, Any]]:
-    """
-    Reads scrapers/volleyball/non_conf_config.json. Expected shape:
-      {"wvball": {"name": "Opponent Name", "style": "new", "stats_url": "...", "roster_url": "..."}}
-    With an empty stats_url the slot is skipped (placeholder stays inert).
-    """
     if not NON_CONF_CONFIG_PATH.exists():
         logger.info(f"{NON_CONF_CONFIG_PATH.name} not found - skipping non-conference slot")
         return []
@@ -267,7 +254,6 @@ def write_team_json(slug: str, team_data: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning(f"[{name}] No players scraped - keeping existing {slug}.json")
         return existing
 
-    # Per-key team stat fallback: never replace a good value with "-"
     if same_source and isinstance(existing.get("team_stats"), dict):
         for k in TEAM_STAT_KEYS:
             if team_data["team_stats"].get(k, "-") == "-" and existing["team_stats"].get(k, "-") != "-":
@@ -328,7 +314,7 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
         page = await context.new_page()
         await page.goto(roster_url, wait_until="domcontentloaded", timeout=25000)
         try:
-            await page.wait_for_selector("table, [class*='roster-player'], [class*='s-person-card']", timeout=6000)
+            await page.wait_for_selector("table, [class*='roster-player'], [class*='s-person-card'], .sidearm-roster-player", timeout=6000)
         except Exception:
             pass
         soup = BeautifulSoup(await page.content(), "html.parser")
@@ -358,7 +344,7 @@ async def fetch_roster(context: BrowserContext, roster_url: str, label: str) -> 
             await page.close()
     return roster_lookup
 
-# ── Header Mapping & Table Parsing (shared by New + Old styles) ──────────────
+# ── Header Mapping & Table Parsing ───────────────────────────────────────────
 HEADER_MAP = {
     "#": "number", "NO": "number", "NUM": "number", "UNIFORM": "number",
     "PLAYER": "name", "NAME": "name", "PLAYERNAME": "name",
@@ -402,7 +388,6 @@ def _header_rows(table) -> List[Any]:
     return header_rows
 
 def table_header_labels(table) -> Tuple[List[str], List[Any]]:
-    """Resolve (possibly multi-row, colspan/rowspan) headers into one leaf label per column."""
     header_rows = _header_rows(table)
     grid: Dict[Tuple[int, int], str] = {}
     max_col = 0
@@ -445,50 +430,61 @@ def _label_mapping(labels: List[str]) -> Dict[str, int]:
     return mapping
 
 def parse_player_table(table, allowed: set) -> Dict[str, Dict[str, Any]]:
-    """Parse one player stats table. Only keys in `allowed` are written."""
+    """Parse player stats table by column mapping and data-label attributes."""
     players: Dict[str, Dict[str, Any]] = {}
     labels, body_rows = table_header_labels(table)
     mapping = _label_mapping(labels)
-    if not ("name" in mapping or "number" in mapping):
-        return players
-    if not any(k in allowed for k in mapping):
-        return players
-
-    widths = [len(r.find_all(["td", "th"])) for r in body_rows if r.find_all(["td", "th"])]
-    if widths:
-        body_w = max(set(widths), key=widths.count)
-        if body_w != len(labels):
-            shift = body_w - len(labels)
-            mapping = {k: v + shift for k, v in mapping.items() if v + shift >= 0}
 
     for r in body_rows:
         if r.find_parent("tfoot"):
             continue
-        cells = [c.get_text(" ", strip=True) for c in r.find_all(["td", "th"])]
+        cells = r.find_all(["td", "th"])
         if len(cells) < 3:
             continue
 
-        name_a = r.find("a", href=re.compile(r"roster", re.I))
+        raw_name = ""
+        raw_num = ""
+
+        # Check for Sidearm DataTables structure
+        name_a = r.find("a", href=re.compile(r"roster", re.I)) or r.find("a", attrs={"data-player-id": True})
         if name_a:
             raw_name = name_a.get_text(" ", strip=True)
-        elif "name" in mapping and mapping["name"] < len(cells):
-            raw_name = cells[mapping["name"]]
-        else:
-            raw_name = cells[1]
+
+        # Check first column for jersey number
+        first_td = cells[0].get_text(" ", strip=True)
+        if first_td.isdigit():
+            raw_num = first_td
+
+        # Fallback to column header mapping if not found
+        cell_texts = [c.get_text(" ", strip=True) for c in cells]
+        if not raw_name:
+            if "name" in mapping and mapping["name"] < len(cell_texts):
+                raw_name = cell_texts[mapping["name"]]
+            elif len(cell_texts) > 1:
+                raw_name = cell_texts[1]
+
+        if not raw_num and "number" in mapping and mapping["number"] < len(cell_texts):
+            raw_num = cell_texts[mapping["number"]]
+
         c_name = clean_name(raw_name)
         if not is_valid_player_candidate(c_name):
             continue
 
-        raw_num = ""
-        if "number" in mapping and mapping["number"] < len(cells):
-            raw_num = cells[mapping["number"]]
-        elif cells[0].isdigit():
-            raw_num = cells[0]
-
         p = players.setdefault(c_name.lower(), {"name": c_name, "number": clean_number(raw_num)})
+
+        # Method A: Parse by data-label attributes (Sidearm Old Style DataTables)
+        for td in cells:
+            d_lbl = td.get("data-label")
+            if d_lbl:
+                k = map_header(d_lbl)
+                if k and k in allowed:
+                    p[k] = td.get_text(" ", strip=True)
+
+        # Method B: Parse by mapped column index
         for stat_k, col_idx in mapping.items():
-            if stat_k in allowed and col_idx < len(cells):
-                p[stat_k] = cells[col_idx]
+            if stat_k in allowed and col_idx < len(cell_texts) and stat_k not in p:
+                p[stat_k] = cell_texts[col_idx]
+
     return players
 
 def merge_into(target: Dict[str, Dict[str, Any]], found: Dict[str, Dict[str, Any]]) -> None:
@@ -496,34 +492,32 @@ def merge_into(target: Dict[str, Dict[str, Any]], found: Dict[str, Dict[str, Any
         target.setdefault(key, {}).update(p)
 
 # ── Team Stats Parsers ───────────────────────────────────────────────────────
-def parse_team_stats_new(soup: BeautifulSoup, found: Dict[str, str]) -> Dict[str, str]:
-    """Sidearm New Style Team Stats rows: [label, team, opponents]."""
+def parse_team_stats_from_rows(soup: BeautifulSoup, found: Dict[str, str]) -> Dict[str, str]:
+    """Parse team stats rows containing label and value across Sidearm New & Old layouts."""
     for table in soup.find_all("table"):
         for row in table.find_all("tr"):
             cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
             if len(cells) < 2:
                 continue
-            label, val = cells[0].strip().lower(), cells[1].strip()
-            if label in ("percent", "attack percent", "attack percentage", "hitting percentage") and "hit_pct" not in found:
+            label = cells[0].strip().lower()
+            val = cells[1].strip()
+
+            if label in ("percent", "attack percent", "attack percentage", "hitting percentage", "att%") and "hit_pct" not in found:
                 found["hit_pct"] = clean_stat_pct(val)
-            elif label == "kills per set" and "k_per_s" not in found:
+            elif label in ("kills per set", "k/s") and "k_per_s" not in found:
                 found["k_per_s"] = clean_stat_float(val)
-            elif label == "assists per set" and "a_per_s" not in found:
+            elif label in ("assists per set", "ast/s", "a/s") and "a_per_s" not in found:
                 found["a_per_s"] = clean_stat_float(val)
-            elif label in ("service aces per set", "aces per set") and "sa_per_s" not in found:
+            elif label in ("service aces per set", "aces per set", "sa/s") and "sa_per_s" not in found:
                 found["sa_per_s"] = clean_stat_float(val)
-            elif label == "digs per set" and "dig_per_s" not in found:
+            elif label in ("digs per set", "dig/s") and "dig_per_s" not in found:
                 found["dig_per_s"] = clean_stat_float(val)
-            elif label == "blocks per set" and "blk_per_s" not in found:
+            elif label in ("blocks per set", "blk/s") and "blk_per_s" not in found:
                 found["blk_per_s"] = clean_stat_float(val)
     return found
 
-def parse_team_stats_old(soup: BeautifulSoup) -> Dict[str, str]:
-    """
-    Old Style: use the Match-By-Match table's totals row (the row just above 'Opponents').
-    Per-set values = team total / team sets played. Cells are aligned from the RIGHT so a
-    merged team-name cell at the left can't shift the columns.
-    """
+def parse_team_stats_match_by_match(soup: BeautifulSoup) -> Dict[str, str]:
+    """Fallback: compute per-set team stats from Match-By-Match totals row."""
     for table in soup.find_all("table"):
         labels, body_rows = table_header_labels(table)
         m = _label_mapping(labels)
@@ -557,7 +551,7 @@ def parse_team_stats_old(soup: BeautifulSoup) -> Dict[str, str]:
         return out
     return {k: "-" for k in TEAM_STAT_KEYS}
 
-# ── Playwright Helpers ───────────────────────────────────────────────────────
+# ── Playwright UI Helpers ────────────────────────────────────────────────────
 async def click_main_tab(page: Page, tab_text: str) -> bool:
     try:
         tab = page.locator(
@@ -572,7 +566,6 @@ async def click_main_tab(page: Page, tab_text: str) -> bool:
     return False
 
 async def switch_view_dropdown(page: Page, target_text: str) -> bool:
-    """Open the visible Sidearm combobox and choose `target_text`. Falls back to a JS click."""
     try:
         box = None
         boxes = page.locator("button[role='combobox'], button[data-test-id='s-select__box']")
@@ -616,7 +609,6 @@ async def switch_view_dropdown(page: Page, target_text: str) -> bool:
         return False
 
 async def wait_for_view(page: Page, selector: str, what: str, label: str) -> bool:
-    """Confirm the Vue view really swapped; log loudly if it did not."""
     try:
         await page.wait_for_selector(selector, state="visible", timeout=6000)
         return True
@@ -625,9 +617,10 @@ async def wait_for_view(page: Page, selector: str, what: str, label: str) -> boo
         return False
 
 async def click_ui_tab_by_text(page: Page, text: str) -> bool:
-    """Old Style jQuery UI tabs: li[role=tab] > a."""
     try:
-        link = page.locator("li[role='tab'] a").filter(has_text=re.compile(rf"^\s*{re.escape(text)}\s*$", re.I)).first
+        link = page.locator("li[role='tab'] a, .ui-tabs-nav a, a[role='tab']").filter(
+            has_text=re.compile(rf"^\s*{re.escape(text)}\s*$", re.I)
+        ).first
         if await link.count() == 0:
             return False
         try:
@@ -742,11 +735,11 @@ async def scrape_new_style(context: BrowserContext, team_cfg: Dict[str, Any],
             await click_main_tab(page, "Team Stats")
             await switch_view_dropdown(page, "Totals")
             await wait_for_view(page, "td:text-is('Percent')", "Team Totals", label)
-            parse_team_stats_new(BeautifulSoup(await page.content(), "html.parser"), team_stats)
+            parse_team_stats_from_rows(BeautifulSoup(await page.content(), "html.parser"), team_stats)
 
             await switch_view_dropdown(page, "Per Set")
             await wait_for_view(page, "td:text-is('Kills Per Set')", "Team Per Set", label)
-            parse_team_stats_new(BeautifulSoup(await page.content(), "html.parser"), team_stats)
+            parse_team_stats_from_rows(BeautifulSoup(await page.content(), "html.parser"), team_stats)
 
             if not player_map or not team_stats:
                 await dump_debug(page, slug, "new_style_empty")
@@ -759,15 +752,6 @@ async def scrape_new_style(context: BrowserContext, team_cfg: Dict[str, Any],
         return build_and_write(team_cfg, "New Style (Sidearm Nuxt/Vue)", player_map, team_stats, await roster_task)
 
 # ── OLD STYLE Pipeline (Sidearm jQuery UI tabs) ──────────────────────────────
-def _collect_old_players(soup: BeautifulSoup) -> Dict[str, Dict[str, Any]]:
-    out: Dict[str, Dict[str, Any]] = {}
-    for tbl in soup.find_all("table"):
-        caption = tbl.find("caption")
-        if caption and "conference" in caption.get_text(" ", strip=True).lower():
-            continue  # skip conference-only duplicates; use overall tables
-        merge_into(out, parse_player_table(tbl, OFFENSE_KEYS | DEFENSE_KEYS))
-    return out
-
 async def scrape_old_style(context: BrowserContext, team_cfg: Dict[str, Any],
                            semaphore: asyncio.Semaphore) -> Dict[str, Any]:
     async with semaphore:
@@ -775,35 +759,67 @@ async def scrape_old_style(context: BrowserContext, team_cfg: Dict[str, Any],
         logger.info(f"Processing {label} (Women's Volleyball, old style)...")
         roster_task = asyncio.create_task(fetch_roster(context, team_cfg.get("roster_url", ""), label))
         player_map: Dict[str, Dict[str, Any]] = {}
-        team_stats: Dict[str, str] = {k: "-" for k in TEAM_STAT_KEYS}
+        team_stats: Dict[str, str] = {}
 
         page: Optional[Page] = None
         try:
             page = await context.new_page()
             await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=35000)
             try:
-                await page.wait_for_selector("table, li[role='tab']", timeout=8000)
+                await page.wait_for_selector("table, .ui-tabs-panel, section#individual-overall-offensive, section#team", timeout=10000)
             except Exception:
                 pass
 
-            # jQuery UI tab panels are in the DOM even when hidden, so try a plain parse first.
+            # 1. Parse Offensive & Defensive tables directly from DOM sections
             soup = BeautifulSoup(await page.content(), "html.parser")
-            team_stats = parse_team_stats_old(soup)
-            player_map = _collect_old_players(soup)
 
-            # Fallback: click through likely tab names and re-parse.
+            # Offensive Section
+            off_sec = soup.find(id=re.compile(r"individual-overall-offensive|individual-offensive", re.I))
+            if off_sec:
+                for tbl in off_sec.find_all("table"):
+                    merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS))
+
+            # Defensive Section
+            def_sec = soup.find(id=re.compile(r"individual-overall-defensive|individual-defensive", re.I))
+            if def_sec:
+                for tbl in def_sec.find_all("table"):
+                    merge_into(player_map, parse_player_table(tbl, DEFENSE_KEYS))
+
+            # If sections were not found by ID, scan all overall tables in page
             if not player_map:
-                for tab_name in ("Individual", "Overall", "Team", "Match-By-Match"):
+                for tbl in soup.find_all("table"):
+                    cap = tbl.find("caption")
+                    cap_text = cap.get_text(" ", strip=True).lower() if cap else ""
+                    if "conference" in cap_text:
+                        continue
+                    if "defensive" in cap_text:
+                        merge_into(player_map, parse_player_table(tbl, DEFENSE_KEYS))
+                    elif "offensive" in cap_text:
+                        merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS))
+                    else:
+                        merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS | DEFENSE_KEYS))
+
+            # 2. Parse Team Stats from #team section or page
+            team_sec = soup.find(id=re.compile(r"^team$", re.I)) or soup
+            parse_team_stats_from_rows(team_sec, team_stats)
+
+            # Fallback for any missing team stat metrics: Match-by-match calculation
+            if len(team_stats) < len(TEAM_STAT_KEYS):
+                mbm_stats = parse_team_stats_match_by_match(soup)
+                for k, v in mbm_stats.items():
+                    if k not in team_stats or team_stats[k] == "-":
+                        team_stats[k] = v
+
+            # 3. Interactive fallback if player tables were still not in initial DOM
+            if not player_map:
+                for tab_name in ("Offensive", "Defensive", "Individual", "Team"):
                     await click_ui_tab_by_text(page, tab_name)
                     soup = BeautifulSoup(await page.content(), "html.parser")
-                    merge_into(player_map, _collect_old_players(soup))
-                    if all(v == "-" for v in team_stats.values()):
-                        team_stats = parse_team_stats_old(soup)
+                    for tbl in soup.find_all("table"):
+                        merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS | DEFENSE_KEYS))
 
             if not player_map or all(v == "-" for v in team_stats.values()):
-                logger.warning(f"[{label}] old-style parse incomplete "
-                               f"(players={len(player_map)}, team stats found="
-                               f"{sum(1 for v in team_stats.values() if v != '-')}) - run with --debug")
+                logger.warning(f"[{label}] old-style parse incomplete - dumping debug")
                 await dump_debug(page, slug, "old_style_incomplete")
         except Exception as e:
             logger.error(f"[{label}] Error scraping stats: {e}")
