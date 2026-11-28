@@ -9,7 +9,7 @@ Site styles ("type" in TEAMS):
   - "statbroadcast" NDSU STYLE  (StatBroadcast custom pages, Sidearm fallback)
 
 Outputs (docs/diamondsports/):
-  *_baseball.json, *_softball.json, non_conf_baseball.json, non_conf_softball.json
+  *_baseball.json, *_softball.json, non_conf_baseball.json, non_conf_softball.json, last_scan.json
 
 Optimizations & safeguards applied:
   1. Full async concurrency across teams via asyncio.Semaphore + asyncio.gather.
@@ -21,7 +21,9 @@ Optimizations & safeguards applied:
      - last_scan updates on every run to confirm scraper execution.
      - last_updated only changes when player/team hitting & pitching metrics change.
      - generated_at maintained for backwards compatibility.
-  6. Tightened Safeguards:
+  6. Sport-wide Run Status Tracking (last_scan.json):
+     - tracks sport, last_scan, sport-wide last_updated, and list of teams_updated.
+  7. Tightened Safeguards:
      - Never overwrites existing valid stats if a new scrape returns empty data.
      - Preserves data even if the source URL changed (e.g. across seasons).
 """
@@ -55,6 +57,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1] if len(SCRIPT_DIR.parents) >= 2 else SCRIPT_DIR
 DEFAULT_DOCS_DIR = str(REPO_ROOT / "docs" / "diamondsports")
 NON_CONF_CONFIG_PATH = SCRIPT_DIR / "non_conf_config.json"
+RUN_STATUS_FILE = "last_scan.json"
 
 SPORTS = ["baseball", "softball"]
 CONCURRENCY_LIMIT = 4
@@ -668,7 +671,7 @@ def parse_roster_page(html: str) -> Tuple[Dict[str, Dict[str, str]], List[Dict[s
                     j += 1
                 if p_name and is_valid_player_name(p_name):
                     record_player(p_num, p_name, p_pos, p_yr)
-                    i = j - 1
+                i = j - 1
             i += 1
 
     # 4. Fallback to Nuxt script tag on roster page
@@ -1234,12 +1237,45 @@ def _strip_volatile(d: Dict[str, Any]) -> Dict[str, Any]:
     """Strip dynamic timestamps and metadata for content equality check."""
     return {k: v for k, v in d.items() if k not in ("generated_at", "updated_at", "last_scan", "last_updated")}
 
-def _age_in_hours(iso_str: str) -> float:
+def _parse_ts(s: str) -> Optional[datetime]:
     try:
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+        d = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
     except Exception:
-        return 999.0
+        return None
+
+def snapshot_updated_times(docs_dir: str) -> Dict[str, str]:
+    """Map of file stem (e.g. st_thomas_baseball) -> last_updated for all team files in docs_dir."""
+    snap: Dict[str, str] = {}
+    docs_path = Path(docs_dir)
+    if not docs_path.exists():
+        return snap
+    for path in docs_path.glob("*.json"):
+        if path.name == RUN_STATUS_FILE:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            snap[path.stem] = str(data.get("last_updated") or data.get("generated_at") or "")
+    return snap
+
+def write_run_status(docs_dir: str, before: Dict[str, str]) -> None:
+    """Writes last_scan.json with sport-wide last_scan, last_updated, and teams_updated."""
+    after = snapshot_updated_times(docs_dir)
+    teams_updated = sorted(slug for slug, ts in after.items() if before.get(slug) != ts)
+    stamps = [d for d in (_parse_ts(ts) for ts in after.values()) if d]
+    payload = {
+        "sport": "diamondsports",
+        "last_scan": now_iso(),
+        "last_updated": max(stamps).isoformat() if stamps else None,
+        "teams_updated": teams_updated,
+    }
+    docs_path = Path(docs_dir)
+    docs_path.mkdir(parents=True, exist_ok=True)
+    (docs_path / RUN_STATUS_FILE).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    logger.info(f"Run status written to {RUN_STATUS_FILE}: {len(teams_updated)} team(s) updated this run")
 
 def save_team_json_safely(out_path: str, stats_payload: Dict[str, Any]) -> bool:
     """
@@ -1400,6 +1436,8 @@ async def run(args: argparse.Namespace) -> None:
     docs_dir = args.docs_dir
     os.makedirs(docs_dir, exist_ok=True)
 
+    before_snapshot = snapshot_updated_times(docs_dir)
+
     sports = SPORTS if args.sport == "all" else [args.sport]
 
     schools_to_scrape = [t for t in TEAMS if t["sport"] in sports]
@@ -1456,6 +1494,9 @@ async def run(args: argparse.Namespace) -> None:
                 logger.error("Scrape subtask raised exception: %r", res)
 
         await browser.close()
+
+    # Write overall status file for diamond sports
+    write_run_status(docs_dir, before_snapshot)
 
 
 def main() -> None:
