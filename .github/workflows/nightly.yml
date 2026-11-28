@@ -1,7 +1,7 @@
 name: Nightly Scrape All
 
 # Place this file at: .github/workflows/nightly.yml
-# Runs all 5 scrapers sequentially every morning at 3:30 AM Central.
+# Runs all 6 scrapers sequentially every morning at 3:30 AM Central.
 # One schedule, one browser install, one commit at the end.
 #
 # GitHub scheduled runs are best-effort and can start late. Nothing in this
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   scrape-all:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     outputs:
       changed: ${{ steps.commit.outputs.changed }}
 
@@ -83,21 +83,28 @@ jobs:
         timeout-minutes: 8
         run: python scrapers/hockey/scrape_hockey.py
 
-      # ── 3. Diamond Sports ──────────────────────────────────────────
+      # ── 3. Volleyball ──────────────────────────────────────────────
+      - name: Scrape Volleyball
+        id: volleyball
+        continue-on-error: true
+        timeout-minutes: 8
+        run: python scrapers/volleyball/scrape_volleyball.py
+
+      # ── 4. Diamond Sports ──────────────────────────────────────────
       - name: Scrape Diamond Sports
         id: diamond
         continue-on-error: true
         timeout-minutes: 8
         run: python scrapers/diamondsports/scrape_diamond_sports.py
 
-      # ── 4. Standings ───────────────────────────────────────────────
+      # ── 5. Standings ───────────────────────────────────────────────
       - name: Scrape Standings
         id: standings
         continue-on-error: true
         timeout-minutes: 8
         run: python scrapers/standings/scrape_standings.py
 
-      # ── 5. Schedules ───────────────────────────────────────────────
+      # ── 6. Schedules ───────────────────────────────────────────────
       - name: Scrape Schedules
         id: schedules
         continue-on-error: true
@@ -147,6 +154,7 @@ jobs:
           for r in \
             "basketball=${{ steps.basketball.outcome }}" \
             "hockey=${{ steps.hockey.outcome }}" \
+            "volleyball=${{ steps.volleyball.outcome }}" \
             "diamond=${{ steps.diamond.outcome }}" \
             "standings=${{ steps.standings.outcome }}" \
             "schedules=${{ steps.schedules.outcome }}"; do
