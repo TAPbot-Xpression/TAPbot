@@ -2,9 +2,9 @@
   "team": "Grand Canyon",
   "slug": "non_conf_women",
   "gender": "women",
-  "last_scan": "2026-11-28T03:35:29.967096+00:00",
-  "last_updated": "2026-11-28T02:42:53.346193+00:00",
-  "generated_at": "2026-11-28T02:42:53.346193+00:00",
+  "last_scan": "2026-11-28T04:24:19.532102+00:00",
+  "last_updated": "2026-11-28T04:24:19.532102+00:00",
+  "generated_at": "2026-11-28T04:24:19.532102+00:00",
   "display_name": "Non-Conf",
   "is_non_conf": true,
   "status": "ok",
@@ -32,7 +32,7 @@
     "stl_per_game": "7.0",
     "blk_per_game": "4.0"
   },
-  "conference_team_stats_status": "no_games",
+  "conference_team_stats_status": "selector_not_found",
   "conference_team_stats_missing": [
     "ppg",
     "opp_ppg",
