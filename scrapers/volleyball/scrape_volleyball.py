@@ -96,6 +96,11 @@ DISCARD_TERMS = {
     "team", "tm", "total", "totals", "opponent", "opponents", "opp",
     "season", "overall", "conference", "view bio", "image", "unassigned",
     "player", "player uniform", "player name", "-",
+    # Match-by-match opponent names filter
+    "kansas city", "north dakota", "north dakota st.", "omaha", "oral roberts",
+    "south dakota", "south dakota st.", "st. thomas (mn)", "denver",
+    "air force", "colorado st.", "drake", "uni", "utah valley", "wyoming",
+    "iowa st.", "creighton", "minnesota", "wisconsin", "nebraska"
 }
 
 _POS_MAP = {
@@ -418,7 +423,11 @@ def table_header_labels(table) -> Tuple[List[str], List[Any]]:
                 break
         labels.append(label)
 
-    body_rows = [r for r in table.find_all("tr") if not any(r is h for h in header_rows)]
+    tbody = table.find("tbody")
+    if tbody:
+        body_rows = tbody.find_all("tr")
+    else:
+        body_rows = [r for r in table.find_all("tr") if not any(r is h for h in header_rows)]
     return labels, body_rows
 
 def _label_mapping(labels: List[str]) -> Dict[str, int]:
@@ -445,17 +454,22 @@ def parse_player_table(table, allowed: set) -> Dict[str, Dict[str, Any]]:
         raw_name = ""
         raw_num = ""
 
-        # Check for Sidearm DataTables structure
-        name_a = r.find("a", href=re.compile(r"roster", re.I)) or r.find("a", attrs={"data-player-id": True})
-        if name_a:
-            raw_name = name_a.get_text(" ", strip=True)
+        # Check Sidearm DataTables structure: anchor or button inside second cell
+        name_tag = (
+            r.find("a", attrs={"data-player-id": True}) or
+            r.find("a", class_="hide-on-medium-down") or
+            r.find("a", href=re.compile(r"roster", re.I)) or
+            r.find("button", class_="hide-on-large")
+        )
+        if name_tag:
+            raw_name = name_tag.get_text(" ", strip=True)
 
-        # Check first column for jersey number
+        # First cell is jersey number in Sidearm old style
         first_td = cells[0].get_text(" ", strip=True)
         if first_td.isdigit():
             raw_num = first_td
 
-        # Fallback to column header mapping if not found
+        # Fallback to column mapping if not found
         cell_texts = [c.get_text(" ", strip=True) for c in cells]
         if not raw_name:
             if "name" in mapping and mapping["name"] < len(cell_texts):
@@ -499,20 +513,23 @@ def parse_team_stats_from_rows(soup: BeautifulSoup, found: Dict[str, str]) -> Di
             cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
             if len(cells) < 2:
                 continue
-            label = cells[0].strip().lower()
+            
+            # First cell label (handles spans inside td)
+            first_c = row.find(["td", "th"])
+            full_label = first_c.get_text(" ", strip=True).lower() if first_c else cells[0].strip().lower()
             val = cells[1].strip()
 
-            if label in ("percent", "attack percent", "attack percentage", "hitting percentage", "att%") and "hit_pct" not in found:
+            if any(term in full_label for term in ("attack percent", "hitting percentage", "percent", "att%")) and "hit_pct" not in found:
                 found["hit_pct"] = clean_stat_pct(val)
-            elif label in ("kills per set", "k/s") and "k_per_s" not in found:
+            elif any(term in full_label for term in ("kills per set", "k/s")) and "k_per_s" not in found:
                 found["k_per_s"] = clean_stat_float(val)
-            elif label in ("assists per set", "ast/s", "a/s") and "a_per_s" not in found:
+            elif any(term in full_label for term in ("assists per set", "ast/s", "a/s")) and "a_per_s" not in found:
                 found["a_per_s"] = clean_stat_float(val)
-            elif label in ("service aces per set", "aces per set", "sa/s") and "sa_per_s" not in found:
+            elif any(term in full_label for term in ("aces per set", "service aces per set", "sa/s")) and "sa_per_s" not in found:
                 found["sa_per_s"] = clean_stat_float(val)
-            elif label in ("digs per set", "dig/s") and "dig_per_s" not in found:
+            elif any(term in full_label for term in ("digs per set", "dig/s")) and "dig_per_s" not in found:
                 found["dig_per_s"] = clean_stat_float(val)
-            elif label in ("blocks per set", "blk/s") and "blk_per_s" not in found:
+            elif any(term in full_label for term in ("blocks per set", "blk/s")) and "blk_per_s" not in found:
                 found["blk_per_s"] = clean_stat_float(val)
     return found
 
@@ -614,23 +631,6 @@ async def wait_for_view(page: Page, selector: str, what: str, label: str) -> boo
         return True
     except Exception:
         logger.warning(f"[{label}] '{what}' view did not appear - values for it may be missing")
-        return False
-
-async def click_ui_tab_by_text(page: Page, text: str) -> bool:
-    try:
-        link = page.locator("li[role='tab'] a, .ui-tabs-nav a, a[role='tab']").filter(
-            has_text=re.compile(rf"^\s*{re.escape(text)}\s*$", re.I)
-        ).first
-        if await link.count() == 0:
-            return False
-        try:
-            await link.click(timeout=3000)
-        except Exception:
-            await link.evaluate("el => el.click()")
-        await page.wait_for_timeout(400)
-        return True
-    except Exception as e:
-        logger.debug(f"UI tab '{text}' error: {e}")
         return False
 
 # ── Shared Finalize ──────────────────────────────────────────────────────────
@@ -766,57 +766,50 @@ async def scrape_old_style(context: BrowserContext, team_cfg: Dict[str, Any],
             page = await context.new_page()
             await page.goto(team_cfg["stats_url"], wait_until="domcontentloaded", timeout=35000)
             try:
-                await page.wait_for_selector("table, .ui-tabs-panel, section#individual-overall-offensive, section#team", timeout=10000)
+                await page.wait_for_selector(
+                    "section#individual-overall-offensive, section#individual-overall-defensive, section#team, table",
+                    timeout=10000
+                )
             except Exception:
                 pass
 
             # 1. Parse Offensive & Defensive tables directly from DOM sections
             soup = BeautifulSoup(await page.content(), "html.parser")
 
-            # Offensive Section
+            # Offensive Section (#individual-overall-offensive)
             off_sec = soup.find(id=re.compile(r"individual-overall-offensive|individual-offensive", re.I))
             if off_sec:
                 for tbl in off_sec.find_all("table"):
                     merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS))
 
-            # Defensive Section
+            # Defensive Section (#individual-overall-defensive)
             def_sec = soup.find(id=re.compile(r"individual-overall-defensive|individual-defensive", re.I))
             if def_sec:
                 for tbl in def_sec.find_all("table"):
                     merge_into(player_map, parse_player_table(tbl, DEFENSE_KEYS))
 
-            # If sections were not found by ID, scan all overall tables in page
+            # If section IDs weren't matched, parse tables with matching captions
             if not player_map:
                 for tbl in soup.find_all("table"):
                     cap = tbl.find("caption")
                     cap_text = cap.get_text(" ", strip=True).lower() if cap else ""
-                    if "conference" in cap_text:
+                    if "match" in cap_text or "game" in cap_text or "conference" in cap_text:
                         continue
                     if "defensive" in cap_text:
                         merge_into(player_map, parse_player_table(tbl, DEFENSE_KEYS))
                     elif "offensive" in cap_text:
                         merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS))
-                    else:
-                        merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS | DEFENSE_KEYS))
 
-            # 2. Parse Team Stats from #team section or page
+            # 2. Parse Team Stats from #team section
             team_sec = soup.find(id=re.compile(r"^team$", re.I)) or soup
             parse_team_stats_from_rows(team_sec, team_stats)
 
-            # Fallback for any missing team stat metrics: Match-by-match calculation
+            # Fallback for any missing team stats: calculate from Match-by-match totals
             if len(team_stats) < len(TEAM_STAT_KEYS):
                 mbm_stats = parse_team_stats_match_by_match(soup)
                 for k, v in mbm_stats.items():
                     if k not in team_stats or team_stats[k] == "-":
                         team_stats[k] = v
-
-            # 3. Interactive fallback if player tables were still not in initial DOM
-            if not player_map:
-                for tab_name in ("Offensive", "Defensive", "Individual", "Team"):
-                    await click_ui_tab_by_text(page, tab_name)
-                    soup = BeautifulSoup(await page.content(), "html.parser")
-                    for tbl in soup.find_all("table"):
-                        merge_into(player_map, parse_player_table(tbl, OFFENSE_KEYS | DEFENSE_KEYS))
 
             if not player_map or all(v == "-" for v in team_stats.values()):
                 logger.warning(f"[{label}] old-style parse incomplete - dumping debug")
